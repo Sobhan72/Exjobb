@@ -12,11 +12,10 @@ nelm = (lx/le)*(ly/le);
 %%
 clc, clear, close all
 %Material parameters
-E = 210e9; v = 0.3; sig_y0 = 360e6; H = 10e9; K = E/(3*(1-2*v)); Ge = E/(2*(1+v));
+E = 210e9; v = 0.3; sig_y0 = 360e6; H = 10e9; K = E/(3*(1-2*v)); Ge = E/(2*(1+v)); G = Ge;
 D_el = hooke(2, E, v);
 
 N = 50;
-r = 1;
 rtol = 1e-5;
 eps_eff = zeros(N,1);
 sig_eff = zeros(N,1);
@@ -27,19 +26,19 @@ e_p_eff = 0;
 
 for n = 1:N
     eps = eps + eps_inc;
+    eps_eff(n) = strain_eff(eps);  
     sig_t = D_el*eps_inc + sig_1;
     sig_t_eff = stress_eff(sig_t);
 
-    if  n > 1 && sig_t_eff > sig_y0
-        sig_eff = sig_t_eff;
+    if sig_t_eff > sig_y0
+        r = sig_eff(n) - 3*G*eps_eff(n);
         while norm(r) > rtol
-            dr = H - 3*G - 9*Ge^2*(e_p_eff*H - sig_eff)/(3*Ge*e_p_eff + sig_eff)*eps_eff;
+            dr = H - 3*G - 9*Ge^2*(e_p_eff*H - sig_eff(n))/(3*Ge*e_p_eff + sig_eff(n))^2*eps_eff(n);
             delta_e_p_eff = -r/dr;
             e_p_eff = e_p_eff + delta_e_p_eff;
             sig_eff(n) = sig_y0 + H*e_p_eff;
             eps_eff(n) = strain_eff(eps);
             G = Ge/(1+Ge*3*e_p_eff/sig_eff(n));
-            sig = update_stress(G, K, eps);
             r = sig_eff(n) - 3*G*eps_eff(n);
         end
     else
@@ -47,6 +46,7 @@ for n = 1:N
         sig_eff(n) = stress_eff(sig);
         eps_eff(n) = strain_eff(eps);
     end
+    sig = update_stress(G, K, eps);
     sig_1 = sig;
 end
 
