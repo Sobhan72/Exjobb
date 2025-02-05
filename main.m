@@ -32,21 +32,22 @@ for n = 1:N
 
     if sig_t_eff > sig_y0
         r = sig_eff(n) - 3*G*eps_eff(n);
+        sig_eff_iter = sig_eff(n-1);
         while norm(r) > rtol
-            dr = H - 3*G - 9*Ge^2*(e_p_eff*H - sig_eff(n))/(3*Ge*e_p_eff + sig_eff(n))^2*eps_eff(n);
+            dr = H - 3*G - 9*Ge^2*(e_p_eff*H - sig_eff_iter)/(3*Ge*e_p_eff + sig_eff_iter)^2*eps_eff(n);
             delta_e_p_eff = -r/dr;
             e_p_eff = e_p_eff + delta_e_p_eff;
-            sig_eff(n) = sig_y0 + H*e_p_eff;
-            eps_eff(n) = strain_eff(eps);
-            G = Ge/(1+Ge*3*e_p_eff/sig_eff(n));
-            r = sig_eff(n) - 3*G*eps_eff(n);
+            sig_eff_iter = sig_y0 + H*e_p_eff;
+            G = Ge/(1+Ge*3*e_p_eff/sig_eff_iter);
+            r = sig_eff_iter - 3*G*eps_eff(n);
         end
+        sig_eff(n) = sig_eff_iter;
+        sig = update_stress(G, K, eps);
     else
         sig = D_el*eps;
         sig_eff(n) = stress_eff(sig);
         eps_eff(n) = strain_eff(eps);
     end
-    sig = update_stress(G, K, eps);
     sig_1 = sig;
 end
 
