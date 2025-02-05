@@ -18,28 +18,31 @@ D_el = hooke(2, E, v);
 N = 50;
 r = 1;
 rtol = 1e-5;
-e_p_eff = 0;
-sig_eff = 0;
+eps_eff = zeros(N,1);
+sig_eff = zeros(N,1);
 eps_inc = [1e-4, 0, 0, 1e-4]';
 eps = zeros(4,1);
+
 for n = 1:N
     eps = eps + eps_inc;
-    if sig_eff > sig_y0
+    if  n > 1 && sig_eff(n-1) > sig_y0
         while norm(r) < rtol
             delta_e_p_eff = -r/dr;
             e_p_eff = e_p_eff + delta_e_p_eff;
-            sig_eff = sig_y0 + H*e_p_eff;
-            eps_eff = strain_eff(eps);
-            G = Ge/(1+Ge*3*e_p_eff/sig_eff);
+            sig_eff(n) = sig_y0 + H*e_p_eff;
+            eps_eff(n) = strain_eff(eps);
+            G = Ge/(1+Ge*3*e_p_eff/sig_eff(n));
             sig = update_stress(G, K, eps);
-            r = sig_eff - 3*G*eps_eff;
+            r = sig_eff(n) - 3*G*eps_eff(n);
         end
     else
         sig = D_el*eps;
-        sig_eff = stress_eff(sig);
+        sig_eff(n) = stress_eff(sig);
+        eps_eff(n) = strain_eff(eps);
     end
 end
 
+plot(eps_eff, sig_eff)
 
 function sig = update_stress(G, K, eps)
 e = [eps(1:3)-mean(eps(1:3)); eps(4)];
