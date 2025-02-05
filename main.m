@@ -23,16 +23,17 @@ sig_eff = zeros(N,1);
 eps_inc = [1e-4, 0, 0, 1e-4]';
 eps = zeros(4,1);
 sig_1 = zeros(4,1);
-
+e_p_eff = 0;
 
 for n = 1:N
     eps = eps + eps_inc;
-    sigma_t = D_el*eps_inc + sig_1;
-    sigma_t_eff = stress_eff(sigma_t);
+    sig_t = D_el*eps_inc + sig_1;
+    sig_t_eff = stress_eff(sig_t);
 
-    if  n > 1 && sigma_t_eff > sig_y0
+    if  n > 1 && sig_t_eff > sig_y0
+        sig_eff = sig_t_eff;
         while norm(r) > rtol
-            
+            dr = H - 3*G - 9*Ge^2*(e_p_eff*H - sig_eff)/(3*Ge*e_p_eff + sig_eff)*eps_eff;
             delta_e_p_eff = -r/dr;
             e_p_eff = e_p_eff + delta_e_p_eff;
             sig_eff(n) = sig_y0 + H*e_p_eff;
