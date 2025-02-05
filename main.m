@@ -22,11 +22,17 @@ eps_eff = zeros(N,1);
 sig_eff = zeros(N,1);
 eps_inc = [1e-4, 0, 0, 1e-4]';
 eps = zeros(4,1);
+sig_1 = zeros(4,1);
+
 
 for n = 1:N
     eps = eps + eps_inc;
-    if  n > 1 && sig_eff(n-1) > sig_y0
+    sigma_t = D_el*eps_inc + sig_1;
+    sigma_t_eff = stress_eff(sigma_t);
+
+    if  n > 1 && sigma_t_eff > sig_y0
         while norm(r) > rtol
+            
             delta_e_p_eff = -r/dr;
             e_p_eff = e_p_eff + delta_e_p_eff;
             sig_eff(n) = sig_y0 + H*e_p_eff;
@@ -40,6 +46,7 @@ for n = 1:N
         sig_eff(n) = stress_eff(sig);
         eps_eff(n) = strain_eff(eps);
     end
+    sig_1 = sig;
 end
 
 plot(eps_eff, sig_eff)
