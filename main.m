@@ -26,7 +26,7 @@ eps = zeros(4,1);
 for n = 1:N
     eps = eps + eps_inc;
     if  n > 1 && sig_eff(n-1) > sig_y0
-        while norm(r) < rtol
+        while norm(r) > rtol
             delta_e_p_eff = -r/dr;
             e_p_eff = e_p_eff + delta_e_p_eff;
             sig_eff(n) = sig_y0 + H*e_p_eff;
