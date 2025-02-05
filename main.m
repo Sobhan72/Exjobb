@@ -68,7 +68,7 @@ end
 
 function strain_eff_out = strain_eff(eps)    % Calculate effective stress
 e = [eps(1:3)-mean(eps(1:3)); eps(4)];
-strain_eff_out = sqrt(2/3*e'*e + e(4)*e(4));
+strain_eff_out = sqrt(2/3*(e'*e + e(4)*e(4)));
 end
 
 
