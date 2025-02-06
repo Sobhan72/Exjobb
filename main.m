@@ -32,19 +32,21 @@ for n = 1:N
     sig_t_eff = stress_eff(sig_t);
 
     if sig_t_eff > sig_y0
-        %r = sig_eff(n) - 3*G*eps_eff(n);
-        sig_eff_iter = sig_eff(n-1);
-        %while norm(r) > rtol
-            %dr = H - 3*G - 9*Ge^2*(e_p_eff*H - sig_eff_iter)/(3*Ge*e_p_eff + sig_eff_iter)^2*eps_eff(n);
-            %delta_e_p_eff = -r/dr;
-            r = @(e_p_eff) sig_y0 + H*e_p_eff - 3*Ge/(1+Ge*3*e_p_eff/(sig_y0 + H*e_p_eff))*eps_eff(n);
-            e_p_eff = fzero(r, 4e-3);
-            %e_p_eff = e_p_eff + delta_e_p_eff;
-            sig_eff_iter = sig_y0 + H*e_p_eff;
-            % G = Ge/(1+Ge*3*e_p_eff/sig_eff_iter);
-            %r = sig_eff_iter - 3*G*eps_eff(n);
-            %norm(r)
-        %end
+        r = sig_eff(n-1) - 3*G*eps_eff(n);
+        sig_eff(n) = sig_eff(n-1);
+        iter = 0;
+        while norm(r) > rtol
+            iter = iter + 1;
+            dr = H - 3*G - 9*Ge^2*(e_p_eff*H - sig_eff(n))/(3*Ge*e_p_eff + sig_eff(n))^2*eps_eff(n);
+            delta_e_p_eff = -r/dr;
+            % r = @(e_p_eff) sig_y0 + H*e_p_eff - 3*Ge/(1+Ge*3*e_p_eff/(sig_y0 + H*e_p_eff))*eps_eff(n);
+            % e_p_eff = fzero(r, 4e-3);
+            e_p_eff = e_p_eff + delta_e_p_eff;
+            sig_eff(n) = sig_y0 + H*e_p_eff;
+            G = Ge/(1+Ge*3*e_p_eff/sig_eff(n));
+            r = sig_eff(n) - 3*G*eps_eff(n);
+            fprintf("iter: %i, r: %4.2g \n", [iter, norm(r)])
+        end
         sig_eff(n) = sig_eff_iter;
         sig = update_stress(G, K, eps);
     else
