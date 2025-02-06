@@ -27,7 +27,8 @@ e_p_eff = 0;
 for n = 1:N
     eps = eps + eps_inc;
     eps_eff(n) = strain_eff(eps);  
-    sig_t = D_el*eps_inc + sig_1;
+    % sig_t = D_el*eps_inc + sig_1;
+    sig_t = update_stress(Ge, K, eps_inc) + sig_1;
     sig_t_eff = stress_eff(sig_t);
 
     if sig_t_eff > sig_y0
@@ -37,7 +38,7 @@ for n = 1:N
             %dr = H - 3*G - 9*Ge^2*(e_p_eff*H - sig_eff_iter)/(3*Ge*e_p_eff + sig_eff_iter)^2*eps_eff(n);
             %delta_e_p_eff = -r/dr;
             r = @(e_p_eff) sig_y0 + H*e_p_eff - 3*Ge/(1+Ge*3*e_p_eff/(sig_y0 + H*e_p_eff))*eps_eff(n);
-            e_p_eff = fzero(r, 1e-3);
+            e_p_eff = fzero(r, 4e-3);
             %e_p_eff = e_p_eff + delta_e_p_eff;
             sig_eff_iter = sig_y0 + H*e_p_eff;
             % G = Ge/(1+Ge*3*e_p_eff/sig_eff_iter);
@@ -47,14 +48,14 @@ for n = 1:N
         sig_eff(n) = sig_eff_iter;
         sig = update_stress(G, K, eps);
     else
-        sig = D_el*eps;
-        sig_eff(n) = stress_eff(sig);
+        sig = sig_t;
+        sig_eff(n) = sig_t_eff;
     end
     sig_1 = sig;
 end
 
 plot(eps_eff, sig_eff)
-xlim([0 4.4e-3])
+% xlim([0 4.4e-3])
 
 function sig = update_stress(G, K, eps)
 e = [eps(1:3)-mean(eps(1:3)); eps(4)];
