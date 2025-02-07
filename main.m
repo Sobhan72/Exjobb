@@ -13,10 +13,10 @@ nelm = (lx/le)*(ly/le);
 clc, clear, close all
 %Material parameters
 E = 210e9; v = 0.3; sig_y0 = 360e6; H = 10e9; K = E/(3*(1-2*v)); Ge = E/(2*(1+v)); G = Ge;
-% D_el = hooke(2, E, v);
+D_el = hooke(2, E, v);
 
 N = 50;
-rtol = 1e-5;
+rtol = 1e-4;
 eps_eff = zeros(N,1);
 sig_eff = zeros(N,1);
 eps_inc = [8e-5, 0, 0, 8e-5]';
@@ -32,27 +32,41 @@ for n = 1:N
     sig_eff(n) = stress_eff(sig);
 
     if sig_eff(n) > sig_y0
-        r = sig_eff(n-1) - 3*G*eps_eff(n);
-        sig_eff(n) = sig_eff(n-1);
-        iter = 0;
-        while norm(r) > rtol
-            iter = iter + 1;
-            dr = H - 9*Ge^2*(e_p_eff*H - sig_eff(n))/(3*Ge*e_p_eff + sig_eff(n))^2*eps_eff(n);
-            delta_e_p_eff = -r/dr;
-            e_p_eff = e_p_eff + delta_e_p_eff;
-            sig_eff(n) = sig_y0 + H*e_p_eff;
-            G = Ge/(1+Ge*3*e_p_eff/sig_eff(n));
-            r = sig_eff(n) - 3*G*eps_eff(n);
-            fprintf("  iter: %i, r: %4.2g \n", [iter, norm(r)])
-        end
+        [G, sig_eff(n), e_p_eff, dG] = Gp(sig_eff(n-1), eps_eff(n), e_p_eff, sig_y0, G, Ge, H, rtol);
         sig = update_stress(G, K, eps);
+        D = Dtan(K, G, dG, eps_eff(n), eps);
     end
 end
 
 plot([0; eps_eff], [0; sig_eff]/1e6, 'LineWidth', 2);
-xlabel('$\epsilon_{eff} (MPa)$', 'Interpreter', 'latex'); 
-ylabel('$\sigma_{eff}$', 'Interpreter', 'latex');
+xlabel('$\epsilon_{eff}$', 'Interpreter', 'latex'); 
+ylabel('$\sigma_{eff}$ (MPa)', 'Interpreter', 'latex');
 grid on;
+
+function D = Dtan(K, G, dG, eps_eff, eps)
+e = [eps(1:3)-mean(eps(1:3)); eps(4)];
+Lam = 1/3*[2, -1, -1, 0; -1, 2, -1, 0; -1, -1, 2, 0; 0, 0, 0, 3/2];
+llam = [1, 1, 1, 0; 1, 1, 1, 0; 1, 1, 1, 0; 0, 0, 0, 0];
+D = K*llam + 2*G*Lam + 4/3/eps_eff*dG*(e*e')*Lam;
+end
+
+function [G, sig_eff, e_p_eff, dG] = Gp(sig_eff, eps_eff, e_p_eff, sig_y0, G, Ge, H, rtol)
+r = sig_eff - 3*G*eps_eff;
+iter = 0;
+while norm(r) > rtol
+    iter = iter + 1;
+    dGdep = 9*Ge^2*(e_p_eff*H - sig_eff)/(3*Ge*e_p_eff + sig_eff)^2*eps_eff;
+    drdep = H - dGdep;
+    delta_e_p_eff = -r/drdep;
+    e_p_eff = e_p_eff + delta_e_p_eff;
+    sig_eff = sig_y0 + H*e_p_eff;
+    G = Ge/(1+Ge*3*e_p_eff/sig_eff);
+    r = sig_eff - 3*G*eps_eff;
+    drde = -3*G;
+    dG = -drde/drdep;
+    fprintf("  iter: %i, r: %4.2g \n", [iter, norm(r)])
+end
+end
 
 function sig = update_stress(G, K, eps)
 e = [eps(1:3)-mean(eps(1:3)); eps(4)];
@@ -71,15 +85,3 @@ function strain_eff_out = strain_eff(eps)    % Calculate effective stress
 e = [eps(1:3)-mean(eps(1:3)); eps(4)];
 strain_eff_out = sqrt(2/3*(e'*e + e(4)*e(4)));
 end
-
-
-
-
-% sigma_star = [1,1,1,1,0,0]';
-% sigma_star_eff = stress_eff(sig_star);
-% sigma_star_kk = sum(sigma_star(1:3));
-% sig = Beta(eps, K, sigma_star_kk)*sigma_star;
-% function b = beta(eps, K, sig_star_kk)
-% sig_kk = sum(eps(1:3))*3*K;
-% b = sig_kk/sig_star_kk;
-% end
