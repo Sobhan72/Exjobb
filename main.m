@@ -13,51 +13,46 @@ nelm = (lx/le)*(ly/le);
 clc, clear, close all
 %Material parameters
 E = 210e9; v = 0.3; sig_y0 = 360e6; H = 10e9; K = E/(3*(1-2*v)); Ge = E/(2*(1+v)); G = Ge;
-D_el = hooke(2, E, v);
+% D_el = hooke(2, E, v);
 
 N = 50;
 rtol = 1e-5;
 eps_eff = zeros(N,1);
 sig_eff = zeros(N,1);
-eps_inc = [1e-4, 0, 0, 1e-4]';
+eps_inc = [8e-5, 0, 0, 8e-5]';
 eps = zeros(4,1);
-sig_1 = zeros(4,1);
+sig = zeros(4,1);
 e_p_eff = 0;
 
 for n = 1:N
+    fprintf("Load step: %i \n", n)
     eps = eps + eps_inc;
     eps_eff(n) = strain_eff(eps);  
-    % sig_t = D_el*eps_inc + sig_1;
-    sig_t = update_stress(Ge, K, eps_inc) + sig_1;
-    sig_t_eff = stress_eff(sig_t);
+    sig = update_stress(Ge, K, eps_inc) + sig;
+    sig_eff(n) = stress_eff(sig);
 
-    if sig_t_eff > sig_y0
+    if sig_eff(n) > sig_y0
         r = sig_eff(n-1) - 3*G*eps_eff(n);
         sig_eff(n) = sig_eff(n-1);
         iter = 0;
         while norm(r) > rtol
             iter = iter + 1;
-            dr = H - 3*G - 9*Ge^2*(e_p_eff*H - sig_eff(n))/(3*Ge*e_p_eff + sig_eff(n))^2*eps_eff(n);
+            dr = H - 9*Ge^2*(e_p_eff*H - sig_eff(n))/(3*Ge*e_p_eff + sig_eff(n))^2*eps_eff(n);
             delta_e_p_eff = -r/dr;
-            % r = @(e_p_eff) sig_y0 + H*e_p_eff - 3*Ge/(1+Ge*3*e_p_eff/(sig_y0 + H*e_p_eff))*eps_eff(n);
-            % e_p_eff = fzero(r, 4e-3);
             e_p_eff = e_p_eff + delta_e_p_eff;
             sig_eff(n) = sig_y0 + H*e_p_eff;
             G = Ge/(1+Ge*3*e_p_eff/sig_eff(n));
             r = sig_eff(n) - 3*G*eps_eff(n);
-            fprintf("iter: %i, r: %4.2g \n", [iter, norm(r)])
+            fprintf("  iter: %i, r: %4.2g \n", [iter, norm(r)])
         end
-        sig_eff(n) = sig_eff_iter;
         sig = update_stress(G, K, eps);
-    else
-        sig = sig_t;
-        sig_eff(n) = sig_t_eff;
     end
-    sig_1 = sig;
 end
 
-plot(eps_eff, sig_eff)
-% xlim([0 4.4e-3])
+plot([0; eps_eff], [0; sig_eff]/1e6, 'LineWidth', 2);
+xlabel('$\epsilon_{eff} (MPa)$', 'Interpreter', 'latex'); 
+ylabel('$\sigma_{eff}$', 'Interpreter', 'latex');
+grid on;
 
 function sig = update_stress(G, K, eps)
 e = [eps(1:3)-mean(eps(1:3)); eps(4)];
