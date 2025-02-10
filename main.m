@@ -41,9 +41,7 @@ end
 a = solveq(K, fload, bc);
 ed = extract_ed(edof, a);
 
-for el = 1:nel
-    es = 
-end
+
 
 %%
 clc, clear, close all
