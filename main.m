@@ -1,13 +1,49 @@
 %von Mises deformation plasticity
 clear, clc;
 %Making the mesh
-L = 0.01;
-le = 0.5*L;
-lx = L;
-ly = L;
-lz = L;
-[coord, dof, edof, ex, ey, ez, bc] = designDomain(lx, ly, lz, le);
-nelm = (lx/le)*(ly/le)*(lz/le);
+le = 0.003;
+lx = 0.03;
+ly = 0.03;
+lz = le;
+[coord, dof, edof, ex, ey, ez, ~] = designDomain(lx, ly, lz, le);
+nel = (lx/le)*(ly/le)*(lz/le);
+nnod = size(coord, 1);
+ndof = nnod*3;
+bc = [];
+for i = 1:nnod
+   if (coord(i, 1) == 0.0)
+        bc = [bc ; i*3 - 2 0 ; i*3 - 1 0 ; i*3 0 ];
+   end
+end
+
+fload = zeros(ndof, 1);
+fload2 = zeros(ndof, 1);
+nn = 0;
+F = 300;
+for i = 1:nnod
+    if coord(i,1) == lx && abs(coord(i,2) - ly/2) <= 0.005
+        nn = nn + 1;
+        fload(3*i-1) = -1;
+        fload2(3*i-1) = -2/3;
+        fload2(3*i-2) = 2/3;
+    end
+end
+fload = fload*F/nn;
+fload2 = fload2*F/nn;
+
+K = zeros(ndof);
+for el = 1:nel
+    Ke = soli8e(ex,ey,ez,ep,D);
+    indx = edof(:, 2:end);
+    K(indx, indx) = K(indx, indx) + Ke;
+end
+
+a = solveq(K, fload, bc);
+ed = extract_ed(edof, a);
+
+for el = 1:nel
+    es = 
+end
 
 %%
 clc, clear, close all
@@ -36,7 +72,6 @@ for n = 1:N
         sig = update_stress(G, K, eps);
         D = Dtan(K, G, dG, eps_eff(n), eps);
     end
-
 end
 
 plot([0; eps_eff], [0; sig_eff]/1e6, 'LineWidth', 2);
