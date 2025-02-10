@@ -3,17 +3,17 @@ clear, clc;
 %Making the mesh
 L = 0.01;
 le = 0.5*L;
-lx = 10*L;
-ly = 5*L;
-[coord, dof, enod, edof, ex, ey, bc] = designDomain(lx, ly, le);
-nelm = (lx/le)*(ly/le);
-%patch(ex', ey', 1)
+lx = L;
+ly = L;
+lz = L;
+[coord, dof, edof, ex, ey, ez, bc] = designDomain(lx, ly, lz, le);
+nelm = (lx/le)*(ly/le)*(lz/le);
 
 %%
 clc, clear, close all
 %Material parameters
-E = 210e9; v = 0.3; sig_y0 = 360e6; H = 10e9; K = E/(3*(1-2*v)); Ge = E/(2*(1+v)); G = Ge;
-D_el = hooke(2, E, v);
+E = 210e9; v = 0.3; sig_y0 = 360e6; H = 10e9; K = E/(3*(1-2*v)); Ge = E/(2*(1+v)); G = Ge; ep = [2 2 1];
+D = hooke(2, E, v);
 
 N = 50;
 rtol = 1e-4;
@@ -36,6 +36,7 @@ for n = 1:N
         sig = update_stress(G, K, eps);
         D = Dtan(K, G, dG, eps_eff(n), eps);
     end
+
 end
 
 plot([0; eps_eff], [0; sig_eff]/1e6, 'LineWidth', 2);

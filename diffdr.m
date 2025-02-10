@@ -23,7 +23,7 @@ r = sig_y0 + H*eps_p_eff - 3*Ge/(1+Ge*3*eps_p_eff/(sig_y0 + H*eps_p_eff))*eps_ef
 
 r1 = sig_y0 + H*eps_p_eff1 - 3*Ge/(1+Ge*3*eps_p_eff1/(sig_y0 + H*eps_p_eff1))*eps_eff1;
 
-dr = H - 3*G - 9*Ge^2*(eps_p_eff*H - sig_eff)/(3*Ge*eps_p_eff + sig_eff)^2*eps_eff;
+dr = H - 3*G - 9*Ge^2*(eps_p_eff*H - sig_eff)/((3*Ge*eps_p_eff + sig_eff)^2)*eps_eff;
 
 (r1-r)/norm(h) -dr
 
