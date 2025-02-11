@@ -109,7 +109,7 @@ s = 2*G*e;
 sig = [s(1:3)+sig_kk/3; s(4)];
 end
 
-function stress_eff_out = stress_eff(sig)    % Calculate effective stress
+function stress_eff_out = stress_eff(sig)    % Calculate effective strain
 s = [sig(1:3)-mean(sig(1:3)); sig(4)];
 J2 = 0.5*(s'*s + s(4)*s(4));
 stress_eff_out = sqrt(J2*3);
