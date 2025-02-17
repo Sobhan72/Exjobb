@@ -1,10 +1,10 @@
 %Hill elastoplastic
 clc, clear
 sig_y0 = 360e6; 
-Fco = 1/(2*sig_y0); Gco = 1/(2*sig_y0); Hco = 1/(2*sig_y0); Lco = 3/(2*sig_y0);
+Fco = 1/(2*sig_y0^2); Gco = 1/(2*sig_y0^2); Hco = 1/(2*sig_y0^2); Lco = 3/(2*sig_y0^2);
 P = [Fco+Gco -Fco -Gco 0; -Fco Fco+Hco -Hco 0; -Gco -Hco Gco+Hco 0 ; 0 0 0 2*Lco];
 
-H = 10e9; E = 210e9; v = 0.3; K = E/(3*(1-2*v)); Ge = E/(2*(1+v)); G = Ge; ep = [2 2 1]; % isotropic elasticity
+H = 10e9; E = 210e9; v = 0.3; K = E/(3*(1-2*v)); Ge = E/(2*(1+v)); G = Ge; ep = [2 2 1]; % Isotropic elasticity
 
 % E1 = E; E2 = E; E3 = E;
 % v12 = v; v13 = v; v23 = v;
@@ -41,7 +41,7 @@ for n = 1:N
     end
 end
 
-figure
+
 plot([0; eps_eff], [0; sig_eff]/1e6, 'LineWidth', 2);
 xlabel('$\epsilon_{eff}$', 'Interpreter', 'latex'); 
 ylabel('$\sigma_{eff}$ (MPa)', 'Interpreter', 'latex');
