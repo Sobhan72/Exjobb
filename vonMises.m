@@ -5,7 +5,7 @@ le = 0.003;
 lx = 0.03;
 ly = 0.03;
 lz = le;
-[coord, dof, edof, ex, ey, ez, ~] = designDomain(lx, ly, lz, le);
+[coord, dof, edof, ex, ey, ez, ~] = designDomain(lx, ly, le);
 nel = (lx/le)*(ly/le)*(lz/le);
 nnod = size(coord, 1);
 ndof = nnod*3;
@@ -44,7 +44,7 @@ ed = extract_ed(edof, a);
 
 
 %%
-clc, clear, close all
+clc, clear
 %Material parameters
 E = 210e9; v = 0.3; sig_y0 = 360e6; H = 10e9; K = E/(3*(1-2*v)); Ge = E/(2*(1+v)); G = Ge; ep = [2 1 2];
 D = hooke(2, E, v);
@@ -71,14 +71,14 @@ for n = 1:N
         D = Dtan(K, G, dG, eps_eff(n), eps);
     end
 end
-
+figure;
 plot([0; eps_eff], [0; sig_eff]/1e6, 'LineWidth', 2);
 xlabel('$\epsilon_{eff}$', 'Interpreter', 'latex'); 
 ylabel('$\sigma_{eff}$ (MPa)', 'Interpreter', 'latex');
 grid on;
 
-function D = Dtan(K, G, dG, eps_eff, eps)
-e = [eps(1:3)-mean(eps(1:3)); eps(4)];
+function D = Dtan(K, G, dG, eps_eff, eps) % Kanske fel
+e = [eps(1:3)-mean(eps(1:3)); eps(4)]; %<--
 Lam = 1/3*[2, -1, -1, 0; -1, 2, -1, 0; -1, -1, 2, 0; 0, 0, 0, 3/2];
 llam = [1, 1, 1, 0; 1, 1, 1, 0; 1, 1, 1, 0; 0, 0, 0, 0];
 D = K*llam + 2*G*Lam + 4/3/eps_eff*dG*(e*e')*Lam;
