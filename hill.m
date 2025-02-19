@@ -4,7 +4,10 @@ sig_y0 = 360e6;
 Fco = 1/(2*sig_y0^2); Gco = 1/(2*sig_y0^2); Hco = 1/(2*sig_y0^2); Lco = 3/(2*sig_y0^2);
 P = [Fco+Gco -Fco -Gco 0; -Fco Fco+Hco -Hco 0; -Gco -Hco Gco+Hco 0 ; 0 0 0 2*Lco];
 
-H = 10e9; E = 210e9; v = 0.3; K = E/(3*(1-2*v)); Ge = E/(2*(1+v)); G = Ge; ep = [2 2 1]; % Isotropic elasticity
+H = 10e9; E = 210e9; v = 0.3; K = E/(3*(1-2*v)); Ge = E/(2*(1+v)); ep = [2 2 1]; % Isotropic elasticity
+T = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 2];
+G_inv = 1/2/Ge*T; %ep = 0
+G = inv(G_inv);
 
 % E1 = E; E2 = E; E3 = E;
 % v12 = v; v13 = v; v23 = v;
@@ -25,7 +28,7 @@ eps_inc = [8e-5, 0, 0, 8e-5]';
 eps = zeros(4,1);
 sig = zeros(4,1);
 e_p_eff = 0;
-Gp(sig_eff(1), eps_eff(1), e_p_eff, sig_y0, G, Ge, H, rtol, P)
+% Gp(sig_eff(1), eps_eff(1), e_p_eff, sig_y0, G, Ge, H, rtol, P)
 
 for n = 1:N
     fprintf("Load step: %i \n", n)
@@ -36,7 +39,7 @@ for n = 1:N
     e = [eps(1:3)-mean(eps(1:3)); 2*eps(4)];
     
     if sig_eff(n) > sig_y0
-        [G, sig_eff(n), e_p_eff] = Gp(sig_eff(n-1), e, e_p_eff, sig_y0, G, Ge, H, rtol, P);
+        [G, sig_eff(n), e_p_eff] = Gp(sig_eff(n-1), e, e_p_eff, sig_y0, G, Ge, H, rtol, P, T);
         sig = update_stress(G, K, eps);
         D = Dtan(sig, sig_y0, stress_eff(sig), D, H, P);
     end
@@ -49,11 +52,10 @@ ylabel('$\sigma_{eff}$ (MPa)', 'Interpreter', 'latex');
 grid on;
 
 
-function [G, sig_eff, e_p_eff] = Gp(sig_eff, e, e_p_eff, sig_y0, G, Ge, H, rtol, P)
+function [G, sig_eff, e_p_eff] = Gp(sig_eff, e, e_p_eff, sig_y0, G, Ge, H, rtol, P, T)
 et = e'*G*P*G*e;
 r = sig_eff - sig_y0*sqrt(et);
 iter = 0;
-T = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 2];
 while norm(r) > rtol
     iter = iter + 1;
     G_inv = 1/2/Ge*T + sig_y0^2/sig_eff*e_p_eff*P;
