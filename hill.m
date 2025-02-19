@@ -36,9 +36,9 @@ for n = 1:N
     eps_eff(n) = strain_eff(eps);
     sig = update_stress(Ge, K, eps_inc) + sig;
     sig_eff(n) = stress_eff(sig);
-    e = [eps(1:3)-mean(eps(1:3)); 2*eps(4)];
     
     if sig_eff(n) > sig_y0
+        e = [eps(1:3)-mean(eps(1:3)); 2*eps(4)];
         [G, sig_eff(n), e_p_eff] = Gp(sig_eff(n-1), e, e_p_eff, sig_y0, G, Ge, H, rtol, P, T);
         sig = update_stress(G, K, eps);
         D = Dtan(sig, sig_y0, stress_eff(sig), D, H, P);
@@ -60,7 +60,7 @@ while norm(r) > rtol
     iter = iter + 1;
     G_inv = 1/2/Ge*T + sig_y0^2/sig_eff*e_p_eff*P;
     G = inv(G_inv);
-    dGdep = -G_inv*((sig_eff-e_p_eff*H)/sig_eff^2*P)*G_inv; 
+    dGdep = -G_inv*P*G_inv*(sig_y0^2*(sig_eff-e_p_eff*H)/sig_eff^2); 
     detdG = 2*P*G*e*e';
     et = e'*G*P*G*e;
     drdep = H - sig_y0/(2*sqrt(et))*trace(detdG*dGdep);
