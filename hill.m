@@ -16,7 +16,6 @@ C = [1/E1, -v21/E2, -v31/E3, 0;
 
 De = inv(C); %elastic D matrix
 Dp = De; 
-% D = hooke(2, E, v);
 
 N = 50;
 rtol = 1e-4;
@@ -59,7 +58,6 @@ for n = 1:N
     sig_eff(n) = stress_eff(sig);
     
     if sig_eff(n) > sig_y0
-        % e = [eps(1:3)-mean(eps(1:3)); 2*eps(4)];
         [Dp, sig_eff(n), ep] = Gp(sig_eff(n-1), epsm, ep, sig_y0, C, Dp, H, rtol, P);
         sig = update_stress(Dp, epsm);
         D = Dtan(sig, sig_y0, stress_eff(sig), De, H, P);
@@ -95,15 +93,12 @@ while norm(r) > rtol
 end
 end
 
-function sig = update_stress(De, eps)
+function sig = update_stress(Dp, eps)
 eps = [eps(1:3); 2*eps(4)];
-sig = De*eps;
+sig = Dp*eps;
 end
 
 function sig = update_stress_el(De, eps)
-% e = [eps(1:3)-mean(eps(1:3)); eps(4)];
-% sig_kk = 3*K*sum(eps(1:3));
-% s = 2*G*e;
 epsm = [eps(1:3); 2*eps(4)];
 sig = De*epsm;
 end
