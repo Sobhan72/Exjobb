@@ -1,13 +1,12 @@
 %Hill elastoplastic
-clc, clear, close all
+clc, clear
 sig_y0 = 360e6; 
 Fco = 1/(2*sig_y0^2); Gco = 1/(2*sig_y0^2); Hco = 1/(2*sig_y0^2); Lco = 3/(2*sig_y0^2);
 P = [Fco+Gco -Fco -Gco 0; -Fco Fco+Hco -Hco 0; -Gco -Hco Gco+Hco 0 ; 0 0 0 2*Lco];
 
 H = 10e9; E = 210e9; v = 0.3; K = E/(3*(1-2*v)); Ge = E/(2*(1+v)); mp = [2 2 1]; % Isotropic elasticity
 T = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 2];
-G_inv = 1/2/Ge*T; %ep = 0
-G = inv(G_inv);
+G = inv(1/2/Ge*T);
 
 % E1 = E; E2 = E; E3 = E;
 % v12 = v; v13 = v; v23 = v;
