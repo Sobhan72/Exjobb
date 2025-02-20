@@ -93,14 +93,13 @@ while norm(r) > rtol
 end
 end
 
-function sig = update_stress(Dp, eps)
-eps = [eps(1:3); 2*eps(4)];
-sig = Dp*eps;
+function sig = update_stress(Dp, epsm)
+sig = Dp*epsm;
 end
 
 function sig = update_stress_el(De, eps)
-epsm = [eps(1:3); 2*eps(4)];
-sig = De*epsm;
+eps = [eps(1:3); 2*eps(4)];
+sig = De*eps;
 end
 
 function D_ep = Dtan(sig, sig_y0, sig_eff, D, H, P)
