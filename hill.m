@@ -58,7 +58,7 @@ for n = 1:N
     sig_eff(n) = stress_eff(sig);
     
     if sig_eff(n) > sig_y0
-        [Dp, sig_eff(n), ep] = Gp(sig_eff(n-1), epsm, ep, sig_y0, C, Dp, H, rtol, P);
+        [Dp, sig_eff(n), ep] = Ds(sig_eff(n-1), epsm, ep, sig_y0, C, Dp, H, rtol, P);
         sig = update_stress(Dp, epsm);
         D = Dtan(sig, sig_y0, stress_eff(sig), De, H, P);
     end
@@ -72,7 +72,7 @@ title("Hill Deformation Model")
 grid on;
 
 
-function [Dp, sig_eff, ep] = Gp(sig_eff, eps, ep, sig_y0, C, Dp, H, rtol, P)
+function [Dp, sig_eff, ep] = Ds(sig_eff, eps, ep, sig_y0, C, Dp, H, rtol, P)
 epst = eps'*Dp*P*Dp*eps;
 r = sig_eff - sig_y0*sqrt(epst);
 iter = 0;

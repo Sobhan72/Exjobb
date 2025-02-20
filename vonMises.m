@@ -31,29 +31,19 @@ end
 fload = fload*F/nn;
 fload2 = fload2*F/nn;
 
-K = zeros(ndof);
-for el = 1:nel
-    Ke = soli8e(ex,ey,ez,ep,D);
-    indx = edof(:, 2:end);
-    K(indx, indx) = K(indx, indx) + Ke;
-end
-
-a = solveq(K, fload, bc);
-ed = extract_ed(edof, a);
-
 
 
 %%
-clc, clear
+clc, clear, close all
 %Material parameters
 E = 210e9; v = 0.3; sig_y0 = 360e6; H = 10e9; K = E/(3*(1-2*v)); Ge = E/(2*(1+v)); G = Ge; ep = [2 1 2];
 D = hooke(2, E, v);
 
-N = 50;
+N = 5000;
 rtol = 1e-4;
 eps_eff = zeros(N,1);
 sig_eff = zeros(N,1);
-eps_inc = [8e-5, 0, 0, 8e-5]';
+eps_inc = [8e-7, 0, 0, 8e-7]';
 eps = zeros(4,1);
 sig = zeros(4,1);
 e_p_eff = 0;
@@ -69,7 +59,9 @@ for n = 1:N
         [G, sig_eff(n), e_p_eff, dG] = Gp(sig_eff(n-1), eps_eff(n), e_p_eff, sig_y0, G, Ge, H, rtol);
         sig = update_stress(G, K, eps);
         D = Dtan(K, G, dG, eps_eff(n), eps);
+        sig2 = D*(eps_inc+[0;0;0;1]*eps_inc(4)) + sig_old;
     end
+    sig_old = sig;
 end
 figure;
 plot([0; eps_eff], [0; sig_eff]/1e6, 'LineWidth', 2);

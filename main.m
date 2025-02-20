@@ -7,9 +7,13 @@ params.ly = 4;
 
 params.E = 210e9;
 params.v = 0.3;
-params.eparm = [2 1 2];
+params.epm = [2 1 2];
 params.sig_y0 = 360e6;
 params.H = 10e9;
+
+params.E1 = params.E; params.E2 = params.E; params.E3 = params.E;
+params.v12 = params.v; params.v13 = params.v; params.v23 = params.v;
+params.v21 = params.v; params.v32 = params.v; params.v31 = params.v;
 
 params.rtol = 1e-4;
 
@@ -22,8 +26,14 @@ params.Lco = 3/(2*params.sig_y0^2);
 sol = Solver(params);
 % patch(sol.ex', sol.ey', 1)
 
-
-
+%% FEM test
+bcD = [2 -1e-4];
+sol.res = ones(sol.ndof, 1);
+sol = FEM(sol, sol.De, bcD);
+figure;
+eldraw2(sol.ex, sol.ey, [1 2 1])
+hold on
+eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1])
 %% Hill model test
 N = 50;
 
@@ -37,7 +47,9 @@ for n = 1:N
     fprintf("Load step: %i \n", n)
     epsgp = epsgp + deps;
     epse(n) = strain_eff(epsgp);
-    [sol, siggp] = hill(sol, deps, epsgp, siggp);
+    depsm = deps + [0;0;0;1]*deps(4);
+    epsgpm = epsgp + [0;0;0;1]*epsgp(4);
+    [sol, siggp] = hill(sol, depsm, epsgpm, siggp);
     sige(n) = sol.sig_eff;
 end
 
