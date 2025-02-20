@@ -5,19 +5,18 @@ Fco = 1/(2*sig_y0^2); Gco = 1/(2*sig_y0^2); Hco = 1/(2*sig_y0^2); Lco = 3/(2*sig
 P = [Fco+Gco -Fco -Gco 0; -Fco Fco+Hco -Hco 0; -Gco -Hco Gco+Hco 0 ; 0 0 0 2*Lco];
 
 H = 10e9; E = 210e9; v = 0.3; K = E/(3*(1-2*v)); Ge = E/(2*(1+v)); mp = [2 2 1]; % Isotropic elasticity
-T = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 2];
-G = inv(1/2/Ge*T);
 
-% E1 = E; E2 = E; E3 = E;
-% v12 = v; v13 = v; v23 = v;
-% C = [1/E1, -v12/E1, -v13/E1, 0;
-%    -v12/E1, 1/E2, -v23/E2, 0;
-%    -v13/E1, -v23/E2, 1/E3, 0;
-%     0, 0, 0, 1/G12];
-% 
-% D = inv(C);
+E1 = E; E2 = E; E3 = E;
+v12 = v; v13 = v; v23 = v; v21 = v; v32 = v; v31 = v;
+G12 = Ge; 
+C = [1/E1, -v21/E2, -v31/E3, 0;
+   -v12/E1, 1/E2, -v32/E3, 0;
+   -v13/E1, -v23/E2, 1/E3, 0;
+    0, 0, 0, 1/G12];
 
-D = hooke(2, E, v);
+De = inv(C); %elastic D matrix
+Dp = De; 
+% D = hooke(2, E, v);
 
 N = 50;
 rtol = 1e-4;
@@ -54,15 +53,16 @@ ep = 0; % effective plastic strain
 for n = 1:N
     fprintf("Load step: %i \n", n)
     eps = eps + eps_inc;
+    epsm = [eps(1:3); 2*eps(4)];
     eps_eff(n) = strain_eff(eps);
-    sig = update_stress_el(Ge, K, eps_inc) + sig;
+    sig = update_stress_el(De, eps_inc) + sig;
     sig_eff(n) = stress_eff(sig);
     
     if sig_eff(n) > sig_y0
-        e = [eps(1:3)-mean(eps(1:3)); 2*eps(4)];
-        [G, sig_eff(n), ep] = Gp(sig_eff(n-1), e, ep, sig_y0, G, Ge, H, rtol, P, T);
-        sig = update_stress(G, K, eps);
-        D = Dtan(sig, sig_y0, stress_eff(sig), D, H, P);
+        % e = [eps(1:3)-mean(eps(1:3)); 2*eps(4)];
+        [Dp, sig_eff(n), ep] = Gp(sig_eff(n-1), epsm, ep, sig_y0, C, Dp, H, rtol, P);
+        sig = update_stress(Dp, epsm);
+        D = Dtan(sig, sig_y0, stress_eff(sig), De, H, P);
     end
 end
 
@@ -74,39 +74,38 @@ title("Hill Deformation Model")
 grid on;
 
 
-function [G, sig_eff, ep] = Gp(sig_eff, e, ep, sig_y0, G, Ge, H, rtol, P, T)
-et = e'*G*P*G*e;
-r = sig_eff - sig_y0*sqrt(et);
+function [Dp, sig_eff, ep] = Gp(sig_eff, eps, ep, sig_y0, C, Dp, H, rtol, P)
+epst = eps'*Dp*P*Dp*eps;
+r = sig_eff - sig_y0*sqrt(epst);
 iter = 0;
 while norm(r) > rtol
     iter = iter + 1;
-    G = inv(1/2/Ge*T + sig_y0^2/sig_eff*ep*P);
-    dGdep = -G*P*G*(sig_y0^2*(sig_eff-ep*H)/sig_eff^2);
-    detdG = 2*P*G*e*e';
-    et = e'*G*P*G*e;
-    drdep = H - sig_y0/(2*sqrt(et))*trace(detdG*dGdep);
+    Dp = inv(C + sig_y0^2/sig_eff*ep*P);
+    dDdep = -Dp*P*Dp*(sig_y0^2*(sig_eff-ep*H)/sig_eff^2);
+    detdD = 2*P*Dp*eps*eps';
+    epst = eps'*Dp*P*Dp*eps;
+    drdep = H - sig_y0/(2*sqrt(epst))*trace(detdD*dDdep);
     delta_ep = -r/drdep;
     ep = ep + delta_ep;
     sig_eff = sig_y0 + H*ep;
-    G = inv(1/2/Ge*T + sig_y0^2/sig_eff*ep*P);
-    et = e'*G*P*G*e;
-    r = sig_eff - sig_y0*sqrt(et);
+    Dp = inv(C + sig_y0^2/sig_eff*ep*P);
+    epst = eps'*Dp*P*Dp*eps;
+    r = sig_eff - sig_y0*sqrt(epst);
     fprintf("  iter: %i, r: %4.2g \n", [iter, norm(r)])
 end
 end
 
-function sig = update_stress(G, K, eps)
-e = [eps(1:3)-mean(eps(1:3)); 2*eps(4)];
-sig_kk = 3*K*sum(eps(1:3));
-s = G*e;
-sig = [s(1:3)+sig_kk/3; s(4)];
+function sig = update_stress(De, eps)
+eps = [eps(1:3); 2*eps(4)];
+sig = De*eps;
 end
 
-function sig = update_stress_el(G, K, eps)
-e = [eps(1:3)-mean(eps(1:3)); eps(4)];
-sig_kk = 3*K*sum(eps(1:3));
-s = 2*G*e;
-sig = [s(1:3)+sig_kk/3; s(4)];
+function sig = update_stress_el(De, eps)
+% e = [eps(1:3)-mean(eps(1:3)); eps(4)];
+% sig_kk = 3*K*sum(eps(1:3));
+% s = 2*G*e;
+epsm = [eps(1:3); 2*eps(4)];
+sig = De*epsm;
 end
 
 function D_ep = Dtan(sig, sig_y0, sig_eff, D, H, P)
