@@ -2,31 +2,33 @@ classdef Solver
     properties
         edof; ex; ey; ed
         ndof; nel; bcS
-        De; Dp; Kmod; epm
+        De; Dp; Dt; 
+        epm
         H; sig_y0; sig_eff
-        P; T; C
+        P; C
         res; rtol
         eps; sig; ep
+        % sig_old = zeros(4,1);
     end
 
     methods
         function obj = Solver(p)  % Constructor
+            % fields = fieldnames(p);
+            % for i = 1:numel(fields)
+            %     obj.(fields{i}) = p.(fields{i});
+            % end
             obj.epm = p.epm;
-            G12 = p.E/(2*(1+p.v)); 
+            G12 = p.E/(2*(1+p.v));
             obj.C = [1/p.E1, -p.v21/p.E2, -p.v31/p.E3, 0;
                     -p.v12/p.E1, 1/p.E2, -p.v32/p.E3, 0;
                     -p.v13/p.E1, -p.v23/p.E2, 1/p.E3, 0;
                      0, 0, 0, 1/G12];
             obj.De = inv(obj.C);
             obj.Dp = obj.De;
-            obj.Kmod = p.E/(3*(1-2*p.v)); 
             obj.P = [p.Fco+p.Gco -p.Fco -p.Gco 0; -p.Fco p.Fco+p.Hco -p.Hco 0; -p.Gco -p.Hco p.Gco+p.Hco 0 ; 0 0 0 2*p.Lco];
             obj.H = p.H;
             obj.sig_y0 = p.sig_y0;
-            obj.sig_eff = 0;
             obj.rtol = p.rtol;
-            obj.T = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 2];
-            % obj.G = inv(1/2/obj.Ge*obj.T);
 
             % Mesh
             [~, ~, ~, obj.edof, obj.ex, obj.ey, bc] = designDomain(p.lx, p.ly, p.le);
@@ -37,6 +39,7 @@ classdef Solver
             obj.eps = zeros(obj.nel*4, 4);
             obj.sig = zeros(4,4);
             obj.ep = 0;
+            obj.sig_eff = 0;
         end
 
         function obj = FEM(obj, Dt, bcD)
@@ -53,7 +56,7 @@ classdef Solver
 
             f_int = zeros(obj.ndof, 1);
             for el = 1:obj.nel
-                [~, eps2] = plani4s(obj.ex(el,:), obj.ey(el,:), obj.epm, Dt, obj.ed(el,:));
+                [~, eps2] = plani4s(obj.ex(el,:), obj.ey(el,:), obj.epm, eye(4), obj.ed(el,:));
                 for gp = 1:4
                     indx = 4*(el-1) + gp;
                     deps = (eps2(gp, :) - obj.eps(indx, :))';
@@ -74,14 +77,18 @@ classdef Solver
             
             if sig_eff_t > obj.sig_y0
                 % e = [epsgp(1:3)-mean(epsgp(1:3)); 2*epsgp(4)];
-                obj = Ds(obj, epsgp);
+                obj = DMat(obj, epsgp);
                 siggp = obj.Dp*epsgp;
             else
                 obj.sig_eff = sig_eff_t;
+                obj.Dt = obj.De;
             end
+            % sig2 = obj.Dt*deps + obj.sig_old;
+            % fprintf("Diff: %5.3g \n", (sig2-siggp)')
+            % obj.sig_old = siggp;
         end
 
-        function obj = Ds(obj, eps)
+        function obj = DMat(obj, eps)
             epst = eps'*obj.Dp*obj.P*obj.Dp*eps;
             r = obj.sig_eff - obj.sig_y0*sqrt(epst);
             iter = 0;
@@ -98,8 +105,11 @@ classdef Solver
                 obj.Dp = inv(obj.C + obj.sig_y0^2/obj.sig_eff*obj.ep*obj.P);
                 epst = eps'*obj.Dp*obj.P*obj.Dp*eps;
                 r = obj.sig_eff - obj.sig_y0*sqrt(epst);
-                fprintf("  iter: %i, r: %4.2g \n", [iter, norm(r)])
+                % fprintf("  iter: %i, r: %4.2g \n", [iter, norm(r)])
             end
+            drdeps = -obj.sig_y0*1/sqrt(epst)*obj.Dp*obj.P*obj.Dp*eps;
+            depdeps = -drdeps/drdep;
+            obj.Dt = obj.Dp + dDpdep*eps*depdeps';
         end
 
         % function sig = update_stress(obj, eps)

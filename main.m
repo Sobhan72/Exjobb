@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 1;
+params.le = 1e-1;
 params.lx = 4;
 params.ly = 4;
 
@@ -31,9 +31,10 @@ bcD = [2 -1e-4];
 sol.res = ones(sol.ndof, 1);
 sol = FEM(sol, sol.De, bcD);
 figure;
-eldraw2(sol.ex, sol.ey, [1 2 1])
+eldraw2(sol.ex, sol.ey, [1 2 1]);
 hold on
-eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1])
+eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1]);
+
 %% Hill model test
 N = 50;
 
