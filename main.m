@@ -10,21 +10,24 @@ params.v = 0.3;
 params.epm = [2 1 2];
 params.sig_y0 = 360e6;
 params.H = 10e9;
+params.r2tol = 1e-4;
 
 params.E1 = params.E; params.E2 = params.E; params.E3 = params.E;
 params.v12 = params.v; params.v13 = params.v; params.v23 = params.v;
 params.v21 = params.v; params.v32 = params.v; params.v31 = params.v;
-
-params.rtol = 1e-4;
 
 params.Fco = 1/(2*params.sig_y0^2); 
 params.Gco = 1/(2*params.sig_y0^2); 
 params.Hco = 1/(2*params.sig_y0^2); 
 params.Lco = 3/(2*params.sig_y0^2);
 
-
+params.N = 10;
+params.rtol = 1e-5;
+params.disp = [2 1]; % displacement [nodes total size]
 sol = Solver(params);
 % patch(sol.ex', sol.ey', 1)
+
+newt(bcD)
 
 %% FEM test
 bcD = [2 -1e-4];
