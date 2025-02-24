@@ -27,7 +27,7 @@ params.disp = [2 1]; % displacement [nodes total size]
 sol = Solver(params);
 % patch(sol.ex', sol.ey', 1)
 
-newt(bcD)
+newt()
 
 %% FEM test
 bcD = [2 -1e-4];

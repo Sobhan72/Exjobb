@@ -1,12 +1,13 @@
 classdef Solver
     properties
-        edof; ex; ey; ed; epm
+        edof; ex; ey; ed; a; epm
         ndof; nel; bcS; disp
-        De; Dp; Dt
+        De; Ds; Dt
         H; sig_y0; sig_eff; r2tol
         P; C
         res; rtol; N
         eps; sig; ep
+        
         % sig_old = zeros(4,1);
     end
 
@@ -23,7 +24,8 @@ classdef Solver
                     -p.v13/p.E1, -p.v23/p.E2, 1/p.E3, 0;
                      0, 0, 0, 1/G12];
             obj.De = inv(obj.C);
-            obj.Dp = obj.De;
+            obj.Ds = obj.De;
+            obj.Dt = repmat(obj.De, 4, 1);
             obj.P = [p.Fco+p.Gco -p.Fco -p.Gco 0; -p.Fco p.Fco+p.Hco -p.Hco 0; -p.Gco -p.Hco p.Gco+p.Hco 0 ; 0 0 0 2*p.Lco];
             obj.H = p.H;
             obj.sig_y0 = p.sig_y0;
@@ -35,6 +37,7 @@ classdef Solver
             obj.nel = round(p.lx*p.ly/p.le^2);
             obj.bcS = obj.addBC(bc, p.ly, p.le, obj.ndof);
             obj.disp = p.disp;
+            obj.a = zeros(obj.ndof, 1);
 
             obj.eps = zeros(obj.nel*4, 4);
             obj.sig = zeros(4,4);
@@ -53,7 +56,7 @@ classdef Solver
                 while norm(obj.res) > obj.rtol && Nr < 1
                     Nr = Nr + 1;
                     obj = FEM(obj, bcD);
-                    bcD = [];
+                    bcD(:, 2) = bcD(:, 2)*0;
                 end
             end
             
@@ -68,8 +71,9 @@ classdef Solver
             end
 
             bc = [obj.bcS; bcD];
-            a = solveq(K, -obj.res, bc);
-            obj.ed = extract_ed(obj.edof, a);
+            da = solveq(K, -obj.res, bc);
+            obj.a = obj.a + da;
+            obj.ed = extract_ed(obj.edof, obj.a);
 
             f_int = zeros(obj.ndof, 1);
             for el = 1:obj.nel
@@ -84,7 +88,7 @@ classdef Solver
                 indx = obj.edof(el, 2:end);
                 f_int(indx) = f_int(indx) + fe_int;
             end
-            f_int(bc(:,1)) = 0;
+            f_int(bc(:, 1)) = f_int(bc(:, 1))*0;
             obj.res = f_int;
         end
 
@@ -95,38 +99,38 @@ classdef Solver
             if sig_eff_t > obj.sig_y0
                 % e = [epsgp(1:3)-mean(epsgp(1:3)); 2*epsgp(4)];
                 [obj, Dgp] = DMat(obj, epsgp);
-                siggp = obj.Dp*epsgp;
+                siggp = obj.Ds*epsgp;
             else
                 obj.sig_eff = sig_eff_t;
                 Dgp = obj.De;
             end
-            % sig2 = obj.Dt*deps + obj.sig_old;
+            % sig2 = obj.Dgp*deps + obj.sig_old;
             % fprintf("Diff: %5.3g \n", (sig2-siggp)')
             % obj.sig_old = siggp;
         end
 
         function [obj, Dgp] = DMat(obj, eps)
-            epst = eps'*obj.Dp*obj.P*obj.Dp*eps;
+            epst = eps'*obj.Ds*obj.P*obj.Ds*eps;
             r = obj.sig_eff - obj.sig_y0*sqrt(epst);
             iter = 0;
             while norm(r) > obj.r2tol
                 iter = iter + 1;
-                obj.Dp = inv(obj.C + obj.sig_y0^2/obj.sig_eff*obj.ep*obj.P);
-                dDpdep = -obj.Dp*obj.P*obj.Dp*(obj.sig_y0^2*(obj.sig_eff-obj.ep*obj.H)/obj.sig_eff^2);
-                detdD = 2*obj.P*obj.Dp*eps*eps';
-                epst = eps'*obj.Dp*obj.P*obj.Dp*eps;
-                drdep = obj.H - obj.sig_y0/(2*sqrt(epst))*trace(detdD*dDpdep);
+                obj.Ds = inv(obj.C + obj.sig_y0^2/obj.sig_eff*obj.ep*obj.P);
+                dDsdep = -obj.Ds*obj.P*obj.Ds*(obj.sig_y0^2*(obj.sig_eff-obj.ep*obj.H)/obj.sig_eff^2);
+                detdD = 2*obj.P*obj.Ds*eps*eps';
+                epst = eps'*obj.Ds*obj.P*obj.Ds*eps;
+                drdep = obj.H - obj.sig_y0/(2*sqrt(epst))*trace(detdD*dDsdep);
                 delta_ep = -r/drdep;
                 obj.ep = obj.ep + delta_ep;
                 obj.sig_eff = obj.sig_y0 + obj.H*obj.ep;
-                obj.Dp = inv(obj.C + obj.sig_y0^2/obj.sig_eff*obj.ep*obj.P);
-                epst = eps'*obj.Dp*obj.P*obj.Dp*eps;
+                obj.Ds = inv(obj.C + obj.sig_y0^2/obj.sig_eff*obj.ep*obj.P);
+                epst = eps'*obj.Ds*obj.P*obj.Ds*eps;
                 r = obj.sig_eff - obj.sig_y0*sqrt(epst);
                 % fprintf("  iter: %i, r: %4.2g \n", [iter, norm(r)])
             end
-            drdeps = -obj.sig_y0*1/sqrt(epst)*obj.Dp*obj.P*obj.Dp*eps;
+            drdeps = -obj.sig_y0*1/sqrt(epst)*obj.Ds*obj.P*obj.Ds*eps;
             depdeps = -drdeps/drdep;
-            Dgp = obj.Dp + dDpdep*eps*depdeps';
+            Dgp = obj.Ds + dDsdep*eps*depdeps';
         end
 
         % function sig = update_stress(obj, eps)
