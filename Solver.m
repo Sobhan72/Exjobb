@@ -94,7 +94,7 @@ classdef Solver
 
         function [obj, siggp, Dgp] = hill(obj, deps, epsgp, siggp)
             siggp = obj.De*deps + siggp;
-            sig_eff_t = obj.stress_eff(siggp);
+            sig_eff_t = sqrt(obj.sig_y0^2*siggp'*obj.P*siggp);
             
             if sig_eff_t > obj.sig_y0
                 % e = [epsgp(1:3)-mean(epsgp(1:3)); 2*epsgp(4)];
@@ -117,16 +117,16 @@ classdef Solver
                 iter = iter + 1;
                 obj.Ds = inv(obj.C + obj.sig_y0^2/obj.sig_eff*obj.ep*obj.P);
                 dDsdep = -obj.Ds*obj.P*obj.Ds*(obj.sig_y0^2*(obj.sig_eff-obj.ep*obj.H)/obj.sig_eff^2);
-                detdD = 2*obj.P*obj.Ds*eps*eps';
+                detdDs = 2*obj.P*obj.Ds*eps*eps';
                 epst = eps'*obj.Ds*obj.P*obj.Ds*eps;
-                drdep = obj.H - obj.sig_y0/(2*sqrt(epst))*trace(detdD*dDsdep);
+                drdep = obj.H - obj.sig_y0/(2*sqrt(epst))*trace(detdDs*dDsdep);
                 delta_ep = -r/drdep;
                 obj.ep = obj.ep + delta_ep;
                 obj.sig_eff = obj.sig_y0 + obj.H*obj.ep;
                 obj.Ds = inv(obj.C + obj.sig_y0^2/obj.sig_eff*obj.ep*obj.P);
                 epst = eps'*obj.Ds*obj.P*obj.Ds*eps;
                 r = obj.sig_eff - obj.sig_y0*sqrt(epst);
-                % fprintf("  iter: %i, r: %4.2g \n", [iter, norm(r)])
+                fprintf("  iter: %i, r: %4.2g \n", [iter, norm(r)])
             end
             drdeps = -obj.sig_y0*1/sqrt(epst)*obj.Ds*obj.P*obj.Ds*eps;
             depdeps = -drdeps/drdep;
@@ -147,11 +147,11 @@ classdef Solver
         %     sig = [s(1:3)+sigkk/3; s(4)];
         % end
 
-        function stress_eff_out = stress_eff(~, sig)    % Calculate effective strain
-            s = [sig(1:3)-mean(sig(1:3)); sig(4)];
-            J2 = 0.5*(s'*s + s(4)*s(4));
-            stress_eff_out = sqrt(J2*3);
-        end
+        % function stress_eff_out = stress_eff(~, sig)    % Calculate effective strain
+        %     s = [sig(1:3)-mean(sig(1:3)); sig(4)];
+        %     J2 = 0.5*(s'*s + s(4)*s(4));
+        %     stress_eff_out = sqrt(J2*3);
+        % end
              
         % function D_ep = Dtan(obj, sig, sig_eff)   %%FEL%%
         %     s = [sig(1:3)-mean(sig(1:3)); sig(4)];
