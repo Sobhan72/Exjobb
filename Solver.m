@@ -49,7 +49,7 @@ classdef Solver
             obj.res = ones(obj.ndof, 1);
         end
 
-        function newt(obj)
+        function obj = newt(obj)
             for n = 1:obj.N
                 bcD = obj.disp;
                 Nr = 0;
@@ -133,7 +133,19 @@ classdef Solver
             Dgp = obj.Ds + dDsdep*eps*depdeps';
         end
 
-        % function sig = update_stress(obj, eps)
+
+        function bc = addBC(~, bc, ly, le, ndof)
+            nR = ly/le + 1;
+            fix = [ndof/nR*(1:nR)'; ndof/nR*(1:nR)'-1];
+            bc = [bc; [fix zeros(2*nR,1)]];
+        end
+    end
+end
+
+
+
+
+% function sig = update_stress(obj, eps)
         %     e = [eps(1:3)-mean(eps(1:3)); 2*eps(4)];
         %     sigkk = 3*obj.Kmod*sum(eps(1:3));
         %     s = obj.G*e;
@@ -159,11 +171,3 @@ classdef Solver
         %     D_p = 1/A*(obj.sig_y0^2/sig_eff)^2*D*obj.P*s*s'*obj.P*D; 
         %     D_ep = D-D_p;
         % end
-
-        function bc = addBC(~, bc, ly, le, ndof)
-            nR = ly/le + 1;
-            fix = [ndof/nR*(1:nR)'; ndof/nR*(1:nR)'-1];
-            bc = [bc; [fix zeros(2*nR,1)]];
-        end
-    end
-end
