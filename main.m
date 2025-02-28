@@ -46,6 +46,9 @@ sige = zeros(N,1); % sig eff
 siggp = [0;0;0;0];
 epsgp = [0;0;0;0];
 deps = [8e-5, 0, 0, 8e-5]';
+sigegp = 0;
+Dsgp = sol.De;
+epgp = 0;
 
 for n = 1:N
     fprintf("Load step: %i \n", n)
@@ -53,8 +56,8 @@ for n = 1:N
     epse(n) = strain_eff(epsgp);
     depsm = deps + [0;0;0;1]*deps(4);
     epsgpm = epsgp + [0;0;0;1]*epsgp(4);
-    [sol, siggp] = hill(sol, depsm, epsgpm, siggp);
-    sige(n) = sol.sig_eff;
+    [siggp, Dtgp, sigegp, Dsgp, epgp] = hill(sol, depsm, epsgpm, siggp, sigegp, Dsgp, epgp);
+    sige(n) = sigegp;
 end
 
 figure;

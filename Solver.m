@@ -3,10 +3,10 @@ classdef Solver
         edof; ex; ey; ed; a; epm
         ndof; nel; bcS; disp
         De; Ds; Dt
-        H; sig_y0; sige; r2tol
+        H; sig_y0; r2tol
         P; C
         r1; r1tol; N
-        eps; sig; ep
+        eps; sig; sige; ep
         
         % sig_old = zeros(4,1);
     end
