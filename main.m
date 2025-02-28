@@ -1,13 +1,15 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 1e-1;
-params.lx = 3;
-params.ly = 3;
+params.le = 1;
+params.lx = 1;
+params.ly = 1;
 
 params.E = 210e9;
 params.v = 0.3;
-params.epm = [2 1 2];
+params.ptype = 2;
+params.t = 1;
+params.ir = 2;
 params.sig_y0 = 360e6;
 params.H = 10e9;
 params.r2tol = 1e-5;
@@ -25,10 +27,17 @@ params.N = 10;
 params.r1tol = 1e-5;
 params.disp = [2 -5e-3]; % displacement [nodes total-size]
 sol = Solver(params);
-% patch(sol.ex', sol.ey', 1)
+
+%% Mesh
+patch(sol.ex', sol.ey', 1)
 
 %% Newton-Raphson
-newt(sol);
+sol = newt(sol);
+
+figure;
+eldraw2(sol.ex, sol.ey, [1 2 1]);
+hold on
+eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
 
 %% FEM test
 sol.r1 = ones(sol.ndof, 1);

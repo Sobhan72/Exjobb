@@ -1,6 +1,7 @@
 classdef Solver
     properties %#ok<*MINV>
-        edof; ex; ey; ed; a; epm
+        edof; ex; ey; ed; a
+        epm; ngp
         ndof; nel; bcS; disp
         De; Ds; Dt
         H; sig_y0; r2tol
@@ -23,15 +24,16 @@ classdef Solver
             obj.ndof = 2*((p.lx/p.le + 1)*(p.ly/p.le + 1));
             obj.nel = round(p.lx*p.ly/p.le^2);
 
-            obj.epm = p.epm;
+            obj.epm = [p.ptype p.t p.ir];
+            obj.ngp = p.ir^2;
             G12 = p.E/(2*(1+p.v));
             obj.C = [1/p.E1, -p.v21/p.E2, -p.v31/p.E3, 0;
                     -p.v12/p.E1, 1/p.E2, -p.v32/p.E3, 0;
                     -p.v13/p.E1, -p.v23/p.E2, 1/p.E3, 0;
                      0, 0, 0, 1/G12];
             obj.De = inv(obj.C);
-            obj.Ds = repmat(obj.De, obj.nel*4, 1);
-            obj.Dt = repmat(obj.De, obj.nel*4, 1);
+            obj.Ds = repmat(obj.De, obj.nel*obj.ngp, 1);
+            obj.Dt = repmat(obj.De, obj.nel*obj.ngp, 1);
             obj.P = [p.Fco+p.Gco -p.Fco -p.Gco 0; -p.Fco p.Fco+p.Hco -p.Hco 0; -p.Gco -p.Hco p.Gco+p.Hco 0 ; 0 0 0 2*p.Lco];
             obj.H = p.H;
             obj.sig_y0 = p.sig_y0;
@@ -45,10 +47,10 @@ classdef Solver
             obj.a = zeros(obj.ndof, 1);
             obj.bcS = obj.addBC(bc, p.ly, p.le, obj.ndof);
 
-            obj.eps = zeros(obj.nel*4, 4);
-            obj.sig = zeros(obj.nel*4, 4);
-            obj.ep = zeros(obj.nel*4, 1);
-            obj.sige = zeros(obj.nel*4, 1);
+            obj.eps = zeros(obj.nel*obj.ngp, 4);
+            obj.sig = zeros(obj.nel*obj.ngp, 4);
+            obj.ep = zeros(obj.nel*obj.ngp, 1);
+            obj.sige = zeros(obj.nel*obj.ngp, 1);
         end
 
         function obj = newt(obj)
@@ -68,7 +70,7 @@ classdef Solver
         function obj = FEM(obj, bcD)
             K = zeros(obj.ndof);
             for el = 1:obj.nel
-                Ke = plani4e(obj.ex(el,:), obj.ey(el,:), obj.epm, obj.Dt(16*(el-1)+1:16*el,:));
+                Ke = plani4e(obj.ex(el,:), obj.ey(el,:), obj.epm, obj.Dt(4*obj.ngp*(el-1)+1:4*obj.ngp*el,:));
                 indx = obj.edof(el, 2:end);
                 K(indx, indx) = K(indx, indx) + Ke;
             end
@@ -82,15 +84,15 @@ classdef Solver
             for el = 1:obj.nel
                 % fprintf("El: %i \n", el)
                 [~, eps2] = plani4s(obj.ex(el,:), obj.ey(el,:), obj.epm, eye(4), obj.ed(el,:));
-                for gp = 1:4
-                    indxgp = 4*(el-1) + gp;
-                    indxMgp = 16*(el-1)+(gp-1)*4+1:16*(el-1)+gp*4;
+                for gp = 1:obj.ngp
+                    indxgp = obj.ngp*(el-1) + gp;
+                    indxMgp = 4*obj.ngp*(el-1)+(gp-1)*4+1:4*obj.ngp*(el-1)+gp*4;
                     deps = (eps2(gp, :) - obj.eps(indxgp, :))';
                     [obj.sig(indxgp, :), obj.Dt(indxMgp, :), obj.sige(indxgp), obj.Ds(indxMgp, :), obj.ep(indxgp)]...
                     = hill(obj, deps, eps2(gp, :)', obj.sig(indxgp, :)', obj.sige(indxgp), obj.Ds(indxMgp, :), obj.ep(indxgp));
                 end
-                obj.eps(indxgp-3:indxgp, :) = eps2;
-                fe_int = plani4f(obj.ex(el, :), obj.ey(el, :), obj.epm, obj.sig(indxgp-3:indxgp, :))';
+                obj.eps(indxgp-obj.ngp+1:indxgp, :) = eps2;
+                fe_int = plani4f(obj.ex(el, :), obj.ey(el, :), obj.epm, obj.sig(indxgp-obj.ngp+1:indxgp, :))';
                 indx = obj.edof(el, 2:end);
                 f_int(indx) = f_int(indx) + fe_int;
             end
@@ -122,7 +124,7 @@ classdef Solver
             if isnan(norm(r2))
                 error("Residual is NaN")
             end
-            while norm(r2) > obj.r2tol
+            while norm(r2) > obj.r2tol || iter == 0
                 iter = iter + 1;
                 Ds = inv(obj.C + obj.sig_y0^2/sige*ep*obj.P);
                 dDsdep = -Ds*obj.P*Ds*(obj.sig_y0^2*(sige-ep*obj.H)/sige^2);
