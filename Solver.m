@@ -1,5 +1,5 @@
 classdef Solver
-    properties
+    properties %#ok<*MINV>
         edof; ex; ey; ed; a; epm
         ndof; nel; bcS; disp
         De; Ds; Dt
@@ -30,8 +30,8 @@ classdef Solver
                     -p.v13/p.E1, -p.v23/p.E2, 1/p.E3, 0;
                      0, 0, 0, 1/G12];
             obj.De = inv(obj.C);
-            obj.Ds = obj.De;
-            obj.Dt = repmat(obj.De, 4, 1);
+            obj.Ds = repmat(obj.De, obj.nel*4, 1);
+            obj.Dt = repmat(obj.De, obj.nel*4, 1);
             obj.P = [p.Fco+p.Gco -p.Fco -p.Gco 0; -p.Fco p.Fco+p.Hco -p.Hco 0; -p.Gco -p.Hco p.Gco+p.Hco 0 ; 0 0 0 2*p.Lco];
             obj.H = p.H;
             obj.sig_y0 = p.sig_y0;
@@ -47,21 +47,20 @@ classdef Solver
 
             obj.eps = zeros(obj.nel*4, 4);
             obj.sig = zeros(obj.nel*4, 4);
-            obj.ep = 0;
-            obj.sig_eff = 0;
-
-
+            obj.ep = zeros(obj.nel*4, 1);
+            obj.sig_eff = zeros(obj.nel*4, 1);
         end
 
         function obj = newt(obj)
             for n = 1:obj.N
+                fprintf("Load step: %i \n", n);
                 bcD = obj.disp;
                 Nr = 0;
                 while norm(obj.r1) > obj.r1tol || Nr == 0
                     Nr = Nr + 1;
                     obj = FEM(obj, bcD);
                     bcD(:, 2) = bcD(:, 2)*0;
-                    fprintf("Nr: %i, r1: %4.2g \n", [Nr, norm(obj.r1)]);
+                    fprintf("  Nr: %i, r1: %4.2g \n", [Nr, norm(obj.r1)]);
                 end
             end
         end
@@ -69,7 +68,7 @@ classdef Solver
         function obj = FEM(obj, bcD)
             K = zeros(obj.ndof);
             for el = 1:obj.nel
-                Ke = plani4e(obj.ex(el,:), obj.ey(el,:), obj.epm, obj.Dt);
+                Ke = plani4e(obj.ex(el,:), obj.ey(el,:), obj.epm, obj.Dt(16*(el-1)+1:16*el,:));
                 indx = obj.edof(el, 2:end);
                 K(indx, indx) = K(indx, indx) + Ke;
             end
@@ -86,7 +85,8 @@ classdef Solver
                 for gp = 1:4
                     indxgp = 4*(el-1) + gp;
                     deps = (eps2(gp, :) - obj.eps(indxgp, :))';
-                    [obj, obj.sig(indxgp, :), obj.Dt(gp*4-3:gp*4, :)] = hill(obj, deps, eps2(gp, :)', obj.sig(indxgp, :)');
+                    [obj, obj.sig(indxgp, :), obj.Dt(16*(el-1)+(gp-1)*4+1:16*(el-1)+gp*4, :), obj.sig_eff(indxgp), obj.Ds(16*(el-1)+(gp-1)*4+1:16*(el-1)+gp*4, :), obj.ep(indxgp)]...
+                    = hill(obj, deps, eps2(gp, :)', obj.sig(indxgp, :)', obj.sig_eff(indxgp), obj.Ds(16*(el-1)+(gp-1)*4+1:16*(el-1)+gp*4, :), obj.ep(indxgp));
                 end
                 obj.eps(indxgp-3:indxgp, :) = eps2;
                 fe_int = plani4f(obj.ex(el, :), obj.ey(el, :), obj.epm, obj.sig(indxgp-3:indxgp, :))';
@@ -97,48 +97,48 @@ classdef Solver
             obj.r1 = f_int;
         end
 
-        function [obj, siggp, Dgp] = hill(obj, deps, epsgp, siggp)
+        function [obj, siggp, Dtgp, sigegp, Dsgp, epgp] = hill(obj, deps, epsgp, siggp, sigegp, Dsgp, epgp)
             siggp = obj.De*deps + siggp;
             sig_eff_t = sqrt(obj.sig_y0^2*siggp'*obj.P*siggp);
             
             if sig_eff_t > obj.sig_y0
                 % e = [epsgp(1:3)-mean(epsgp(1:3)); 2*epsgp(4)];
-                [obj, Dgp] = DMat(obj, epsgp);
-                siggp = obj.Ds*epsgp;
+                [obj, Dtgp, sigegp, Dsgp] = DMat(obj, epsgp, sigegp, Dsgp);
+                siggp = Dsgp*epsgp;
             else
-                obj.sig_eff = sig_eff_t;
-                Dgp = obj.De;
+                sigegp = sig_eff_t;
+                Dtgp = obj.De;
             end
             % sig2 = obj.Dgp*deps + obj.sig_old;
             % fprintf("Diff: %5.3g \n", (sig2-siggp)')
             % obj.sig_old = siggp;
         end
 
-        function [obj, Dgp] = DMat(obj, eps)
-            epst = eps'*obj.Ds*obj.P*obj.Ds*eps;
-            r2 = obj.sig_eff - obj.sig_y0*sqrt(epst);
+        function [Dt, sige, Ds, ep] = DMat(obj, eps, sige, Ds, ep)
+            epst = eps'*Ds*obj.P*Ds*eps;
+            r2 = sige - obj.sig_y0*sqrt(epst);
             iter = 0;
             if isnan(norm(r2))
                 error("Residual is NaN")
             end
             while norm(r2) > obj.r2tol
                 iter = iter + 1;
-                obj.Ds = inv(obj.C + obj.sig_y0^2/obj.sig_eff*obj.ep*obj.P);
-                dDsdep = -obj.Ds*obj.P*obj.Ds*(obj.sig_y0^2*(obj.sig_eff-obj.ep*obj.H)/obj.sig_eff^2);
-                detdDs = 2*obj.P*obj.Ds*eps*eps';
-                epst = eps'*obj.Ds*obj.P*obj.Ds*eps;
+                Ds = inv(obj.C + obj.sig_y0^2/sige*ep*obj.P);
+                dDsdep = -Ds*obj.P*Ds*(obj.sig_y0^2*(sige-ep*obj.H)/sige^2);
+                detdDs = 2*obj.P*Ds*eps*eps'; 
+                epst = eps'*Ds*obj.P*Ds*eps;
                 drdep = obj.H - obj.sig_y0/(2*sqrt(epst))*trace(detdDs*dDsdep);
                 delta_ep = -r2/drdep;
-                obj.ep = obj.ep + delta_ep;
-                obj.sig_eff = obj.sig_y0 + obj.H*obj.ep;
-                obj.Ds = inv(obj.C + obj.sig_y0^2/obj.sig_eff*obj.ep*obj.P);
-                epst = eps'*obj.Ds*obj.P*obj.Ds*eps;
-                r2 = obj.sig_eff - obj.sig_y0*sqrt(epst);
-                fprintf("  iter: %i, r2: %4.2g \n", [iter, norm(r2)])
+                ep = ep + delta_ep;
+                sige = obj.sig_y0 + obj.H*ep;
+                Ds = inv(obj.C + obj.sig_y0^2/sige*ep*obj.P);
+                epst = eps'*Ds*obj.P*Ds*eps;
+                r2 = sige - obj.sig_y0*sqrt(epst);
+                fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
             end
-            drdeps = -obj.sig_y0*1/sqrt(epst)*obj.Ds*obj.P*obj.Ds*eps;
+            drdeps = -obj.sig_y0*1/sqrt(epst)*Ds*obj.P*Ds*eps;
             depdeps = -drdeps/drdep;
-            Dgp = obj.Ds + dDsdep*eps*depdeps';
+            Dt = Ds + dDsdep*eps*depdeps';
         end
 
         function bc = addBC(~, bc, ly, le, ndof)
