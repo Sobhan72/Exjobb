@@ -3,7 +3,7 @@ classdef Solver
         edof; ex; ey; ed; a; epm
         ndof; nel; bcS; disp
         De; Ds; Dt
-        H; sig_y0; sig_eff; r2tol
+        H; sig_y0; sige; r2tol
         P; C
         r1; r1tol; N
         eps; sig; ep
@@ -48,7 +48,7 @@ classdef Solver
             obj.eps = zeros(obj.nel*4, 4);
             obj.sig = zeros(obj.nel*4, 4);
             obj.ep = zeros(obj.nel*4, 1);
-            obj.sig_eff = zeros(obj.nel*4, 1);
+            obj.sige = zeros(obj.nel*4, 1);
         end
 
         function obj = newt(obj)
@@ -84,9 +84,10 @@ classdef Solver
                 [~, eps2] = plani4s(obj.ex(el,:), obj.ey(el,:), obj.epm, eye(4), obj.ed(el,:));
                 for gp = 1:4
                     indxgp = 4*(el-1) + gp;
+                    indxMgp = 16*(el-1)+(gp-1)*4+1:16*(el-1)+gp*4;
                     deps = (eps2(gp, :) - obj.eps(indxgp, :))';
-                    [obj, obj.sig(indxgp, :), obj.Dt(16*(el-1)+(gp-1)*4+1:16*(el-1)+gp*4, :), obj.sig_eff(indxgp), obj.Ds(16*(el-1)+(gp-1)*4+1:16*(el-1)+gp*4, :), obj.ep(indxgp)]...
-                    = hill(obj, deps, eps2(gp, :)', obj.sig(indxgp, :)', obj.sig_eff(indxgp), obj.Ds(16*(el-1)+(gp-1)*4+1:16*(el-1)+gp*4, :), obj.ep(indxgp));
+                    [obj.sig(indxgp, :), obj.Dt(indxMgp, :), obj.sige(indxgp), obj.Ds(indxMgp, :), obj.ep(indxgp)]...
+                    = hill(obj, deps, eps2(gp, :)', obj.sig(indxgp, :)', obj.sige(indxgp), obj.Ds(indxMgp, :), obj.ep(indxgp));
                 end
                 obj.eps(indxgp-3:indxgp, :) = eps2;
                 fe_int = plani4f(obj.ex(el, :), obj.ey(el, :), obj.epm, obj.sig(indxgp-3:indxgp, :))';
@@ -97,19 +98,19 @@ classdef Solver
             obj.r1 = f_int;
         end
 
-        function [obj, siggp, Dtgp, sigegp, Dsgp, epgp] = hill(obj, deps, epsgp, siggp, sigegp, Dsgp, epgp)
+        function [siggp, Dtgp, sigegp, Dsgp, epgp] = hill(obj, deps, epsgp, siggp, sigegp, Dsgp, epgp)
             siggp = obj.De*deps + siggp;
             sig_eff_t = sqrt(obj.sig_y0^2*siggp'*obj.P*siggp);
             
             if sig_eff_t > obj.sig_y0
                 % e = [epsgp(1:3)-mean(epsgp(1:3)); 2*epsgp(4)];
-                [obj, Dtgp, sigegp, Dsgp] = DMat(obj, epsgp, sigegp, Dsgp);
+                [Dtgp, sigegp, Dsgp, epgp] = DMat(obj, epsgp, sigegp, Dsgp, epgp);
                 siggp = Dsgp*epsgp;
             else
                 sigegp = sig_eff_t;
                 Dtgp = obj.De;
             end
-            % sig2 = obj.Dgp*deps + obj.sig_old;
+            % sig2 = Dtgp*deps + obj.sig_old;
             % fprintf("Diff: %5.3g \n", (sig2-siggp)')
             % obj.sig_old = siggp;
         end
