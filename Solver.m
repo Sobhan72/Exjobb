@@ -7,9 +7,7 @@ classdef Solver
         H; sig_y0; r2tol
         P; C
         r1; r1tol; N
-        eps; sig; sige; ep
-        
-        % sig_old = zeros(4,1);
+        eps; sig; sige; ep    
     end
 
     methods
@@ -105,16 +103,12 @@ classdef Solver
             sig_eff_t = sqrt(obj.sig_y0^2*siggp'*obj.P*siggp);
             
             if sig_eff_t > obj.sig_y0
-                % e = [epsgp(1:3)-mean(epsgp(1:3)); 2*epsgp(4)];
                 [Dtgp, sigegp, Dsgp, epgp] = DMat(obj, epsgp, sigegp, Dsgp, epgp);
                 siggp = Dsgp*epsgp;
             else
                 sigegp = sig_eff_t;
                 Dtgp = obj.De;
             end
-            % sig2 = Dtgp*deps + obj.sig_old;
-            % fprintf("Diff: %5.3g \n", (sig2-siggp)')
-            % obj.sig_old = siggp;
         end
 
         function [Dt, sige, Ds, ep] = DMat(obj, eps, sige, Ds, ep)

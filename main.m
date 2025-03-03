@@ -48,13 +48,13 @@ hold on
 eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
 
 %% Hill model test
-N = 50;
+N = 10;
 
 epse = zeros(N,1); % eps eff
 sige = zeros(N,1); % sig eff
 siggp = [0;0;0;0];
 epsgp = [0;0;0;0];
-deps = [8e-5, 0, 0, 8e-5]';
+deps = [1e-3, 1e-3, 1e-3, 5e-4]';
 sigegp = 0;
 Dsgp = sol.De;
 epgp = 0;
@@ -75,6 +75,26 @@ xlabel('$\epsilon_{eff}$', 'Interpreter', 'latex');
 ylabel('$\sigma_{eff}$ (MPa)', 'Interpreter', 'latex');
 title("Hill Deformation Model")
 grid on;
+
+%% FDM
+delta = 1e-9;
+
+siggp = [52.5; 52.5; 52.5; 2.316]*1e8;
+Dsgp = sol.De;
+epgp = 0.004117845573010;
+sigegp = 4.011784557301009e8;
+
+Dt = [];
+Dtf = zeros(4);
+for i = 1:4
+    epsgp = [1;1;1;1]*1e-2;
+    deps = [0; 0; 0; 0];
+    deps(i) = delta;
+    epsgp = epsgp + deps;
+    [siggp2, Dtgp, sigegp, Dsgp, epgp] = hill(sol, deps, epsgp, siggp, sigegp, Dsgp, epgp);
+    Dt = [Dt, Dtgp(:, i)];
+    Dtf(:, i) = (siggp2-siggp)/delta;
+end
 
 function strain_eff_out = strain_eff(eps)    % Calculate effective stress
 e = [eps(1:3)-mean(eps(1:3)); eps(4)];
