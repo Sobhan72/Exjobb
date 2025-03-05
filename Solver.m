@@ -98,12 +98,12 @@ classdef Solver
             obj.r1 = f_int;
         end
 
-        function [siggp, Dtgp, sigegp, Dsgp, epgp] = hill(obj, deps, epsgp, siggp, sigegp, Dsgp, epgp)
+        function [siggp, Dtgp, sigegp, Dsgp, epgp, Dt2] = hill(obj, deps, epsgp, siggp, sigegp, Dsgp, epgp)
             siggp = obj.De*deps + siggp;
             sig_eff_t = sqrt(obj.sig_y0^2*siggp'*obj.P*siggp);
             
             if sig_eff_t > obj.sig_y0
-                [Dtgp, sigegp, Dsgp, epgp, ~] = DMat(obj, epsgp, sigegp, Dsgp, epgp);
+                [Dt2, sigegp, Dsgp, epgp, Dtgp] = DMat(obj, epsgp, sigegp, Dsgp, epgp);
                 siggp = Dsgp*epsgp;
             else
                 sigegp = sig_eff_t;
@@ -136,7 +136,8 @@ classdef Solver
             drdeps = -obj.sig_y0/sqrt(epst)*Ds*obj.P*Ds*eps;
             depdeps = -drdeps/drdep;
             Dt = Ds + dDsdep*eps*depdeps';
-            Dt2 = newDt(obj, sige, Ds, eps, delta_ep);
+            % Dt2 = newDt(obj, sige, Ds, eps, delta_ep);
+            Dt2 = Dloop(obj, Ds, dDsdep, depdeps, eps);
         end
 
         function Dt = newDt(obj, sige, Ds, eps, delta_ep)
@@ -146,6 +147,81 @@ classdef Solver
             Da = inv(obj.C + delta_ep*df2dsig2);
             A = dfdsig'*Da*dfdsig + obj.H;
             Dt = Da - 1/A*Da*(dfdsig*dfdsig')*Da;
+        end
+
+        function D = Dloop(obj, Ds, dDsdep, depdeps, eps)
+            indx = [1 1 1 1; 
+                    1 1 2 2; 
+                    1 1 3 3; 
+                    1 1 1 2; 
+                    2 2 2 2; 
+                    2 2 3 3;
+                    2 2 1 2;
+                    3 3 3 3;
+                    3 3 1 2;
+                    1 2 1 2];
+
+            Dt = [];
+
+            eps = [eps(1) eps(4)/2 0;
+                   eps(4)/2 eps(2) 0;
+                   0 0 eps(3)];
+
+            depdeps = [depdeps(1) depdeps(4)*2 0;
+                       depdeps(4)*2 depdeps(2) 0;
+                       0 0 depdeps(3)];
+          
+
+            dDsdep = tensor(obj,dDsdep);
+
+            for ii = indx'
+                Dti = 0;
+                for k = 1:3
+                    for l = 1:3
+                        Dti = Dti + dDsdep(ii(1), ii(2),k, l)*depdeps(ii(3),ii(4))*eps(k,l);
+                    end
+                end
+                Dt = [Dt, Dti];
+            end
+
+            D = Ds + [Dt(1), Dt(2), Dt(3), Dt(4);
+                      Dt(2), Dt(5), Dt(6), Dt(7);
+                      Dt(3), Dt(6), Dt(8), Dt(9);
+                      Dt(4), Dt(7), Dt(9), Dt(10)];
+        end
+
+        function t = tensor(obj, matrix)
+            t = zeros(3,3,3,3);
+            t(1,1,1,1) = matrix(1,1);
+            t(1,1,1,2) = matrix(1,4);
+            t(1,1,2,1) = matrix(1,4);
+            t(1,1,2,2) = matrix(1,2);
+            t(1,1,3,3) = matrix(1,3);
+
+            t(1,2,1,1) = matrix(1,4);
+            t(1,2,1,2) = matrix(4,4);
+            t(1,2,2,1) = matrix(4,4);
+            t(1,2,2,2) = matrix(2,4);
+            t(1,2,3,3) = matrix(3,4);
+
+            t(2,1,1,1) = matrix(1,4);
+            t(2,1,1,2) = matrix(4,4);
+            t(2,1,2,1) = matrix(4,4);
+            t(2,1,2,2) = matrix(2,4);
+            t(2,1,3,3) = matrix(3,4);
+
+            t(2,2,1,1) = matrix(2,1);
+            t(2,2,1,2) = matrix(2,4);
+            t(2,2,2,1) = matrix(2,4);
+            t(2,2,2,2) = matrix(2,2);
+            t(2,2,3,3) = matrix(2,3);
+
+            t(3,3,1,1) = matrix(3,1);
+            t(3,3,1,2) = matrix(3,4);
+            t(3,3,2,1) = matrix(3,4);
+            t(3,3,2,2) = matrix(3,2);
+            t(3,3,3,3) = matrix(3,3);
+
         end
 
         function bc = addBC(~, bc, ly, le, ndof)

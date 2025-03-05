@@ -87,14 +87,16 @@ epgp = 0.004117845573010;
 sigegp = 4.011784557301009e8;
 
 Dt = [];
+Dt2 = [];
 Dtf = zeros(4);
 for i = 1:4
     epsgp = [1;1;1;1]*1e-2;
     deps = [0; 0; 0; 0];
     deps(i) = delta;
     epsgp = epsgp + deps;
-    [siggp2, Dtgp, sigegp, Dsgp, epgp] = hill(sol, deps, epsgp, siggp, sigegp, Dsgp, epgp);
+    [siggp2, Dtgp, sigegp, Dsgp, epgp, Dt2gp] = hill(sol, deps, epsgp, siggp, sigegp, Dsgp, epgp);
     Dt = [Dt, Dtgp(:, i)];
+    Dt2 = [Dt2, Dt2gp(:, i)];
     Dtf(:, i) = (siggp2-siggp)/delta;
 end
 
