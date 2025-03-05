@@ -103,7 +103,7 @@ classdef Solver
             sig_eff_t = sqrt(obj.sig_y0^2*siggp'*obj.P*siggp);
             
             if sig_eff_t > obj.sig_y0
-                [Dtgp, sigegp, Dsgp, epgp] = DMat(obj, epsgp, sigegp, Dsgp, epgp);
+                [Dtgp, sigegp, Dsgp, epgp, ~] = DMat(obj, epsgp, sigegp, Dsgp, epgp);
                 siggp = Dsgp*epsgp;
             else
                 sigegp = sig_eff_t;
@@ -111,7 +111,7 @@ classdef Solver
             end
         end
 
-        function [Dt, sige, Ds, ep] = DMat(obj, eps, sige, Ds, ep)
+        function [Dt, sige, Ds, ep, Dt2] = DMat(obj, eps, sige, Ds, ep)
             epst = eps'*Ds*obj.P*Ds*eps;
             r2 = sige - obj.sig_y0*sqrt(epst);
             iter = 0;
@@ -133,9 +133,19 @@ classdef Solver
                 r2 = sige - obj.sig_y0*sqrt(epst);
                 fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
             end
-            drdeps = -obj.sig_y0*1/sqrt(epst)*Ds*obj.P*Ds*eps;
+            drdeps = -obj.sig_y0/sqrt(epst)*Ds*obj.P*Ds*eps;
             depdeps = -drdeps/drdep;
             Dt = Ds + dDsdep*eps*depdeps';
+            Dt2 = newDt(obj, sige, Ds, eps, delta_ep);
+        end
+
+        function Dt = newDt(obj, sige, Ds, eps, delta_ep)
+            sig = Ds*eps;
+            dfdsig = obj.sig_y0^2/sige*obj.P*sig;
+            df2dsig2 = obj.sig_y0^2/sige*obj.P*(eye(4)-obj.sig_y0^2/sige^2*sig*sig'*obj.P);
+            Da = inv(obj.C + delta_ep*df2dsig2);
+            A = dfdsig'*Da*dfdsig + obj.H;
+            Dt = Da - 1/A*Da*(dfdsig*dfdsig')*Da;
         end
 
         function bc = addBC(~, bc, ly, le, ndof)

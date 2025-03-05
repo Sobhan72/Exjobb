@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 1;
+params.le = 0.5;
 params.lx = 1;
 params.ly = 1;
 
@@ -48,13 +48,15 @@ hold on
 eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
 
 %% Hill model test
-N = 10;
+% N = 10; FDM
+N = 50;
 
 epse = zeros(N,1); % eps eff
 sige = zeros(N,1); % sig eff
 siggp = [0;0;0;0];
 epsgp = [0;0;0;0];
-deps = [1e-3, 1e-3, 1e-3, 5e-4]';
+% deps = [1e-3, 1e-3, 1e-3, 5e-4]'; FDM
+deps = [1e-4, 0, 0, 1e-4]';
 sigegp = 0;
 Dsgp = sol.De;
 epgp = 0;
