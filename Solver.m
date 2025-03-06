@@ -103,11 +103,12 @@ classdef Solver
             sig_eff_t = sqrt(obj.sig_y0^2*siggp'*obj.P*siggp);
             
             if sig_eff_t > obj.sig_y0
-                [Dt2, sigegp, Dsgp, epgp, Dtgp] = DMat(obj, epsgp, sigegp, Dsgp, epgp);
+                [Dtgp, sigegp, Dsgp, epgp, Dt2] = DMat(obj, epsgp, sigegp, Dsgp, epgp);
                 siggp = Dsgp*epsgp;
             else
                 sigegp = sig_eff_t;
                 Dtgp = obj.De;
+                Dt2 = obj.De;
             end
         end
 
@@ -150,44 +151,43 @@ classdef Solver
         end
 
         function D = Dloop(obj, Ds, dDsdep, depdeps, eps)
-            indx = [1 1 1 1; 
-                    1 1 2 2; 
-                    1 1 3 3; 
-                    1 1 1 2; 
-                    2 2 2 2; 
+            indx = [1 1 1 1;
+                    1 1 2 2;
+                    1 1 3 3;
+                    1 1 1 2;
+                    2 2 2 2;
                     2 2 3 3;
                     2 2 1 2;
                     3 3 3 3;
                     3 3 1 2;
                     1 2 1 2];
 
-            Dt = [];
+            Dti = [];
 
             eps = [eps(1) eps(4)/2 0;
                    eps(4)/2 eps(2) 0;
                    0 0 eps(3)];
 
-            depdeps = [depdeps(1) depdeps(4)*2 0;
-                       depdeps(4)*2 depdeps(2) 0;
+            depdeps = [depdeps(1) depdeps(4) 0;
+                       depdeps(4) depdeps(2) 0;
                        0 0 depdeps(3)];
-          
 
-            dDsdep = tensor(obj,dDsdep);
+            dDsdep = tensor(obj, dDsdep);
 
             for ii = indx'
-                Dti = 0;
+                Dtii = 0;
                 for k = 1:3
                     for l = 1:3
-                        Dti = Dti + dDsdep(ii(1), ii(2),k, l)*depdeps(ii(3),ii(4))*eps(k,l);
+                        Dtii = Dtii + dDsdep(ii(1), ii(2), k, l)*depdeps(ii(3), ii(4))*eps(k,l);
                     end
                 end
-                Dt = [Dt, Dti];
+                Dti = [Dti, Dtii];
             end
 
-            D = Ds + [Dt(1), Dt(2), Dt(3), Dt(4);
-                      Dt(2), Dt(5), Dt(6), Dt(7);
-                      Dt(3), Dt(6), Dt(8), Dt(9);
-                      Dt(4), Dt(7), Dt(9), Dt(10)];
+            D = Ds + [Dti(1), Dti(2), Dti(3), Dti(4);
+                      Dti(2), Dti(5), Dti(6), Dti(7);
+                      Dti(3), Dti(6), Dti(8), Dti(9);
+                      Dti(4), Dti(7), Dti(9), Dti(10)];
         end
 
         function t = tensor(obj, matrix)
@@ -198,17 +198,17 @@ classdef Solver
             t(1,1,2,2) = matrix(1,2);
             t(1,1,3,3) = matrix(1,3);
 
-            t(1,2,1,1) = matrix(1,4);
+            t(1,2,1,1) = matrix(4,1);
             t(1,2,1,2) = matrix(4,4);
             t(1,2,2,1) = matrix(4,4);
-            t(1,2,2,2) = matrix(2,4);
-            t(1,2,3,3) = matrix(3,4);
+            t(1,2,2,2) = matrix(4,2);
+            t(1,2,3,3) = matrix(4,3);
 
-            t(2,1,1,1) = matrix(1,4);
+            t(2,1,1,1) = matrix(4,1);
             t(2,1,1,2) = matrix(4,4);
             t(2,1,2,1) = matrix(4,4);
-            t(2,1,2,2) = matrix(2,4);
-            t(2,1,3,3) = matrix(3,4);
+            t(2,1,2,2) = matrix(4,2);
+            t(2,1,3,3) = matrix(4,3);
 
             t(2,2,1,1) = matrix(2,1);
             t(2,2,1,2) = matrix(2,4);
@@ -221,7 +221,6 @@ classdef Solver
             t(3,3,2,1) = matrix(3,4);
             t(3,3,2,2) = matrix(3,2);
             t(3,3,3,3) = matrix(3,3);
-
         end
 
         function bc = addBC(~, bc, ly, le, ndof)

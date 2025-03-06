@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 0.5;
+params.le = 0.1;
 params.lx = 1;
 params.ly = 1;
 
@@ -9,7 +9,7 @@ params.E = 210e9;
 params.v = 0.3;
 params.ptype = 2;
 params.t = 1;
-params.ir = 2;
+params.ir = 1;
 params.sig_y0 = 360e6;
 params.H = 10e9;
 params.r2tol = 1e-5;
@@ -48,15 +48,15 @@ hold on
 eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
 
 %% Hill model test
-% N = 10; FDM
-N = 50;
+N = 10; 
+% N = 50;
 
 epse = zeros(N,1); % eps eff
 sige = zeros(N,1); % sig eff
 siggp = [0;0;0;0];
 epsgp = [0;0;0;0];
-% deps = [1e-3, 1e-3, 1e-3, 5e-4]'; FDM
-deps = [1e-4, 0, 0, 1e-4]';
+deps = [0, 1e-3, 0, 5e-4]'; 
+% deps = [1e-4, 0, 0, 1e-4]';
 sigegp = 0;
 Dsgp = sol.De;
 epgp = 0;
@@ -67,38 +67,34 @@ for n = 1:N
     epse(n) = strain_eff(epsgp);
     depsm = deps + [0;0;0;1]*deps(4);
     epsgpm = epsgp + [0;0;0;1]*epsgp(4);
-    [siggp, Dtgp, sigegp, Dsgp, epgp] = hill(sol, depsm, epsgpm, siggp, sigegp, Dsgp, epgp);
+    [siggp, Dt, sigegp, Dsgp, epgp, Dt2] = hill(sol, depsm, epsgpm, siggp, sigegp, Dsgp, epgp);
     sige(n) = sigegp;
 end
 
-figure;
-plot([0; epse], [0; sige]/1e6, 'LineWidth', 2);
-xlabel('$\epsilon_{eff}$', 'Interpreter', 'latex'); 
-ylabel('$\sigma_{eff}$ (MPa)', 'Interpreter', 'latex');
-title("Hill Deformation Model")
-grid on;
+% figure;
+% plot([0; epse], [0; sige]/1e6, 'LineWidth', 2);
+% xlabel('$\epsilon_{eff}$', 'Interpreter', 'latex'); 
+% ylabel('$\sigma_{eff}$ (MPa)', 'Interpreter', 'latex');
+% title("Hill Deformation Model")
+% grid on;
 
 %% FDM
-delta = 1e-9;
+delta = 1e-8;
 
-siggp = [52.5; 52.5; 52.5; 2.316]*1e8;
-Dsgp = sol.De;
-epgp = 0.004117845573010;
-sigegp = 4.011784557301009e8;
-
-Dt = [];
-Dt2 = [];
 Dtf = zeros(4);
 for i = 1:4
-    epsgp = [1;1;1;1]*1e-2;
+    epsgp = [0;1;0;1]*1e-2;
     deps = [0; 0; 0; 0];
     deps(i) = delta;
-    epsgp = epsgp + deps;
-    [siggp2, Dtgp, sigegp, Dsgp, epgp, Dt2gp] = hill(sol, deps, epsgp, siggp, sigegp, Dsgp, epgp);
-    Dt = [Dt, Dtgp(:, i)];
-    Dt2 = [Dt2, Dt2gp(:, i)];
-    Dtf(:, i) = (siggp2-siggp)/delta;
+    epsgp2 = epsgp - deps;
+    epsgp3 = epsgp + deps;
+    % epsgp(4) = epsgp(4)*2;
+    % deps(4) = deps(4)*2;
+    [siggp2, ~, ~, ~, ~, ~] = hill(sol, -deps, epsgp2, siggp, sigegp, Dsgp, epgp);
+    [siggp3, ~, ~, ~, ~, ~] = hill(sol, deps, epsgp3, siggp, sigegp, Dsgp, epgp);
+    Dtf(:, i) = (siggp3-siggp2)/2/delta;
 end
+% Dtf(:,4) = Dtf(:,4)/2;
 
 function strain_eff_out = strain_eff(eps)    % Calculate effective stress
 e = [eps(1:3)-mean(eps(1:3)); eps(4)];
