@@ -7,7 +7,8 @@ classdef Solver
         H; sig_y0; r2tol
         P; C
         r1; r1tol; N
-        eps; sig; sige; ep    
+        eps; sig; sige; ep
+        epsi; sigi; sigei; epi; Dsi
     end
 
     methods
@@ -31,6 +32,7 @@ classdef Solver
                      0, 0, 0, 1/G12];
             obj.De = inv(obj.C);
             obj.Ds = repmat(obj.De, obj.nel*obj.ngp, 1);
+            obj.Dsi = repmat(obj.De, obj.nel*obj.ngp, 1);
             obj.Dt = repmat(obj.De, obj.nel*obj.ngp, 1);
             obj.P = [p.Fco+p.Gco -p.Fco -p.Gco 0; -p.Fco p.Fco+p.Hco -p.Hco 0; -p.Gco -p.Hco p.Gco+p.Hco 0 ; 0 0 0 2*p.Lco];
             obj.H = p.H;
@@ -49,6 +51,11 @@ classdef Solver
             obj.sig = zeros(obj.nel*obj.ngp, 4);
             obj.ep = zeros(obj.nel*obj.ngp, 1);
             obj.sige = zeros(obj.nel*obj.ngp, 1);
+
+            obj.epsi = zeros(obj.nel*obj.ngp, 4);
+            obj.sigi = zeros(obj.nel*obj.ngp, 4);
+            obj.epi = zeros(obj.nel*obj.ngp, 1);
+            obj.sigei = zeros(obj.nel*obj.ngp, 1);
         end
 
         function obj = newt(obj)
@@ -62,6 +69,11 @@ classdef Solver
                     bcD(:, 2) = bcD(:, 2)*0;
                     fprintf("  Nr: %i, r1: %4.2g \n", [Nr, norm(obj.r1)]);
                 end
+                obj.eps = obj.epsi;
+                obj.sig = obj.sigi;
+                obj.sige = obj.sigei;
+                obj.Ds = obj.Dsi;
+                obj.ep = obj.epi;
             end
         end
 
@@ -81,16 +93,15 @@ classdef Solver
             f_int = zeros(obj.ndof, 1);
             for el = 1:obj.nel
                 % fprintf("El: %i \n", el)
-                [~, eps2] = plani4s(obj.ex(el,:), obj.ey(el,:), obj.epm, eye(4), obj.ed(el,:));
+                [~, obj.epsi((el-1)*obj.ngp+1:obj.ngp*el,:)] = plani4s(obj.ex(el,:), obj.ey(el,:), obj.epm, eye(4), obj.ed(el,:));
                 for gp = 1:obj.ngp
                     indxgp = obj.ngp*(el-1) + gp;
                     indxMgp = 4*obj.ngp*(el-1)+(gp-1)*4+1:4*obj.ngp*(el-1)+gp*4;
-                    deps = (eps2(gp, :) - obj.eps(indxgp, :))';
-                    [obj.sig(indxgp, :), obj.Dt(indxMgp, :), obj.sige(indxgp), obj.Ds(indxMgp, :), obj.ep(indxgp)]...
-                    = hill(obj, deps, eps2(gp, :)', obj.sig(indxgp, :)', obj.sige(indxgp), obj.Ds(indxMgp, :), obj.ep(indxgp));
+                    deps = (obj.epsi(indxgp, :) - obj.eps(indxgp, :))';
+                    [obj.sigi(indxgp, :), obj.Dt(indxMgp, :), obj.sigei(indxgp), obj.Dsi(indxMgp, :), obj.epi(indxgp)]...
+                    = hill(obj, deps, obj.epsi(indxgp, :)', obj.sig(indxgp, :)', obj.sige(indxgp), obj.Ds(indxMgp, :), obj.ep(indxgp));
                 end
-                obj.eps(indxgp-obj.ngp+1:indxgp, :) = eps2;
-                fe_int = plani4f(obj.ex(el, :), obj.ey(el, :), obj.epm, obj.sig(indxgp-obj.ngp+1:indxgp, :))';
+                fe_int = plani4f(obj.ex(el, :), obj.ey(el, :), obj.epm, obj.sigi((el-1)*obj.ngp+1:obj.ngp*el, :))';
                 indx = obj.edof(el, 2:end);
                 f_int(indx) = f_int(indx) + fe_int;
             end
@@ -98,21 +109,21 @@ classdef Solver
             obj.r1 = f_int;
         end
 
-        function [siggp, Dtgp, sigegp, Dsgp, epgp, Dt2] = hill(obj, deps, epsgp, siggp, sigegp, Dsgp, epgp)
+        function [siggp, Dtgp, sigegp, Dsgp, epgp] = hill(obj, deps, epsgp, siggp, sigegp, Dsgp, epgp)
             siggp = obj.De*deps + siggp;
-            sig_eff_t = sqrt(obj.sig_y0^2*siggp'*obj.P*siggp);
+            siget = sqrt(obj.sig_y0^2*siggp'*obj.P*siggp);
             
-            if sig_eff_t > obj.sig_y0
-                [Dtgp, sigegp, Dsgp, epgp, Dt2] = DMat(obj, epsgp, sigegp, Dsgp, epgp);
+            if siget > obj.sig_y0
+                [Dtgp, sigegp, Dsgp, epgp] = DMat(obj, epsgp, sigegp, Dsgp, epgp);
                 siggp = Dsgp*epsgp;
             else
-                sigegp = sig_eff_t;
+                sigegp = siget;
                 Dtgp = obj.De;
-                Dt2 = obj.De;
+                % Dt2 = obj.De;
             end
         end
 
-        function [Dt, sige, Ds, ep, Dt2] = DMat(obj, eps, sige, Ds, ep)
+        function [Dt, sige, Ds, ep] = DMat(obj, eps, sige, Ds, ep)
             epst = eps'*Ds*obj.P*Ds*eps;
             r2 = sige - obj.sig_y0*sqrt(epst);
             iter = 0;
@@ -132,13 +143,13 @@ classdef Solver
                 Ds = inv(obj.C + obj.sig_y0^2/sige*ep*obj.P);
                 epst = eps'*Ds*obj.P*Ds*eps;
                 r2 = sige - obj.sig_y0*sqrt(epst);
-                fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
+                % fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
             end
             drdeps = -obj.sig_y0/sqrt(epst)*Ds*obj.P*Ds*eps;
             depdeps = -drdeps/drdep;
             Dt = Ds + dDsdep*eps*depdeps';
             % Dt2 = newDt(obj, sige, Ds, eps, delta_ep);
-            Dt2 = Dloop(obj, Ds, dDsdep, depdeps, eps);
+            % Dt2 = Dloop(obj, Ds, dDsdep, depdeps, eps);
         end
 
         function Dt = newDt(obj, sige, Ds, eps, delta_ep)

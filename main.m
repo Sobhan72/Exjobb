@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 0.1;
+params.le = 0.05;
 params.lx = 1;
 params.ly = 1;
 
@@ -9,7 +9,7 @@ params.E = 210e9;
 params.v = 0.3;
 params.ptype = 2;
 params.t = 1;
-params.ir = 1;
+params.ir = 3;
 params.sig_y0 = 360e6;
 params.H = 10e9;
 params.r2tol = 1e-5;
@@ -25,7 +25,9 @@ params.Lco = 3/(2*params.sig_y0^2);
 
 params.N = 10;
 params.r1tol = 1e-5;
-params.disp = [2 -5e-3]; % displacement [nodes total-size]
+params.disp = [2 -5e-3;
+               4 -5e-3;
+               6 -5e-3]; % displacement [nodes total-size]
 sol = Solver(params);
 
 %% Mesh
@@ -37,15 +39,14 @@ sol = newt(sol);
 figure;
 eldraw2(sol.ex, sol.ey, [1 2 1]);
 hold on
-eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
-
+eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 1);
 %% FEM test
 sol.r1 = ones(sol.ndof, 1);
 sol = FEM(sol, params.disp);
 figure;
 eldraw2(sol.ex, sol.ey, [1 2 1]);
 hold on
-eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
+eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 1);
 
 %% Hill model test
 N = 10; 
