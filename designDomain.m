@@ -50,10 +50,9 @@ end
 %Ex, Ey done
 
 %edof
-edof = zeros(nelm, 9);
-edof(:,1) = 1:nelm;
+edof = zeros(nelm, 8);
 for i = 1:nelm
-   edof(i, 2:9) = [enod(i, 2)*2-1 enod(i, 2)*2 enod(i, 3)*2-1 enod(i, 3)*2 enod(i, 4)*2-1 enod(i, 4)*2 enod(i, 5)*2-1 enod(i, 5)*2]; 
+   edof(i, :) = [enod(i, 2)*2-1 enod(i, 2)*2 enod(i, 3)*2-1 enod(i, 3)*2 enod(i, 4)*2-1 enod(i, 4)*2 enod(i, 5)*2-1 enod(i, 5)*2]; 
 end
 %edof done
 

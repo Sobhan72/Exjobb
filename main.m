@@ -8,7 +8,7 @@ params.ly = 1;
 params.E = 210e9;
 params.v = 0.3;
 params.ptype = 2;
-params.t = 1;
+params.t = 2;
 params.ir = 2;
 params.sig_y0 = 360e6;
 params.H = 10e9;
@@ -40,16 +40,10 @@ figure;
 eldraw2(sol.ex, sol.ey, [1 2 1]);
 hold on
 eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
-fprintf("Disp: %4.2g", sol.a(sol.ndof))
-%% FEM test
-sol.r1 = ones(sol.ndof, 1);
-sol = FEM(sol, params.disp);
-figure;
-eldraw2(sol.ex, sol.ey, [1 2 1]);
-hold on
-eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 1);
+dof = sol.ndof-3;
+fprintf("Disp DOF %i: %4.2g", [dof, sol.a(dof)])
 
-%% Hill model test
+%% Hill model test for von Mises
 N = 10; 
 % N = 50;
 
