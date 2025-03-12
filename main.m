@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 0.05;
+params.le = 0.2;
 params.lx = 1;
 params.ly = 1;
 
@@ -9,7 +9,7 @@ params.E = 210e9;
 params.v = 0.3;
 params.ptype = 2;
 params.t = 1;
-params.ir = 3;
+params.ir = 2;
 params.sig_y0 = 360e6;
 params.H = 10e9;
 params.r2tol = 1e-5;
@@ -39,7 +39,8 @@ sol = newt(sol);
 figure;
 eldraw2(sol.ex, sol.ey, [1 2 1]);
 hold on
-eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 1);
+eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
+fprintf("Disp: %4.2g", sol.a(sol.ndof))
 %% FEM test
 sol.r1 = ones(sol.ndof, 1);
 sol = FEM(sol, params.disp);
@@ -68,7 +69,7 @@ for n = 1:N
     epse(n) = strain_eff(epsgp);
     depsm = deps + [0;0;0;1]*deps(4);
     epsgpm = epsgp + [0;0;0;1]*epsgp(4);
-    [siggp, Dt, sigegp, Dsgp, epgp, Dt2] = hill(sol, depsm, epsgpm, siggp, sigegp, Dsgp, epgp);
+    [siggp, Dt, sigegp, Dsgp, epgp] = hill(sol, depsm, epsgpm, siggp, sigegp, Dsgp, epgp);
     sige(n) = sigegp;
 end
 
@@ -89,13 +90,10 @@ for i = 1:4
     deps(i) = delta;
     epsgp2 = epsgp - deps;
     epsgp3 = epsgp + deps;
-    % epsgp(4) = epsgp(4)*2;
-    % deps(4) = deps(4)*2;
-    [siggp2, ~, ~, ~, ~, ~] = hill(sol, -deps, epsgp2, siggp, sigegp, Dsgp, epgp);
-    [siggp3, ~, ~, ~, ~, ~] = hill(sol, deps, epsgp3, siggp, sigegp, Dsgp, epgp);
+    [siggp2, ~, ~, ~, ~] = hill(sol, -deps, epsgp2, siggp, sigegp, Dsgp, epgp);
+    [siggp3, ~, ~, ~, ~] = hill(sol, deps, epsgp3, siggp, sigegp, Dsgp, epgp);
     Dtf(:, i) = (siggp3-siggp2)/2/delta;
 end
-% Dtf(:,4) = Dtf(:,4)/2;
 
 function strain_eff_out = strain_eff(eps)    % Calculate effective stress
 e = [eps(1:3)-mean(eps(1:3)); eps(4)];

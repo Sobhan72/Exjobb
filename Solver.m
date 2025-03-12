@@ -9,6 +9,7 @@ classdef Solver
         r1; r1tol; N
         eps; sig; sige; ep
         epsi; sigi; sigei; epi; Dsi
+        track
     end
 
     methods
@@ -41,7 +42,7 @@ classdef Solver
             obj.r2tol = p.r2tol;
             obj.r1tol = p.r1tol;
             obj.N = p.N;   
-            obj.r1 = ones(obj.ndof, 1);
+            obj.r1 = zeros(obj.ndof, 1);
             obj.disp = p.disp;
             obj.disp(:, 2) = obj.disp(:, 2)/obj.N;
             obj.a = zeros(obj.ndof, 1);
@@ -96,7 +97,7 @@ classdef Solver
                 [~, obj.epsi((el-1)*obj.ngp+1:obj.ngp*el,:)] = plani4s(obj.ex(el,:), obj.ey(el,:), obj.epm, eye(4), obj.ed(el,:));
                 for gp = 1:obj.ngp
                     indxgp = obj.ngp*(el-1) + gp;
-                    indxMgp = 4*obj.ngp*(el-1)+(gp-1)*4+1:4*obj.ngp*(el-1)+gp*4;
+                    indxMgp = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
                     deps = (obj.epsi(indxgp, :) - obj.eps(indxgp, :))';
                     [obj.sigi(indxgp, :), obj.Dt(indxMgp, :), obj.sigei(indxgp), obj.Dsi(indxMgp, :), obj.epi(indxgp)]...
                     = hill(obj, deps, obj.epsi(indxgp, :)', obj.sig(indxgp, :)', obj.sige(indxgp), obj.Ds(indxMgp, :), obj.ep(indxgp));
@@ -112,14 +113,15 @@ classdef Solver
         function [siggp, Dtgp, sigegp, Dsgp, epgp] = hill(obj, deps, epsgp, siggp, sigegp, Dsgp, epgp)
             siggp = obj.De*deps + siggp;
             siget = sqrt(obj.sig_y0^2*siggp'*obj.P*siggp);
-            
+            % if sigegp > siget
+            %     warning("Stress reducing")
+            % end
             if siget > obj.sig_y0
                 [Dtgp, sigegp, Dsgp, epgp] = DMat(obj, epsgp, sigegp, Dsgp, epgp);
                 siggp = Dsgp*epsgp;
             else
                 sigegp = siget;
                 Dtgp = obj.De;
-                % Dt2 = obj.De;
             end
         end
 
@@ -146,92 +148,32 @@ classdef Solver
                 % fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
             end
             drdeps = -obj.sig_y0/sqrt(epst)*Ds*obj.P*Ds*eps;
+            dDsdep = -Ds*obj.P*Ds*(obj.sig_y0^2*(sige-ep*obj.H)/sige^2);
+            detdDs = 2*obj.P*Ds*eps*eps'; 
+            drdep = obj.H - obj.sig_y0/(2*sqrt(epst))*trace(detdDs*dDsdep);
             depdeps = -drdeps/drdep;
             Dt = Ds + dDsdep*eps*depdeps';
-            % Dt2 = newDt(obj, sige, Ds, eps, delta_ep);
-            % Dt2 = Dloop(obj, Ds, dDsdep, depdeps, eps);
         end
 
-        function Dt = newDt(obj, sige, Ds, eps, delta_ep)
-            sig = Ds*eps;
-            dfdsig = obj.sig_y0^2/sige*obj.P*sig;
-            df2dsig2 = obj.sig_y0^2/sige*obj.P*(eye(4)-obj.sig_y0^2/sige^2*sig*sig'*obj.P);
-            Da = inv(obj.C + delta_ep*df2dsig2);
-            A = dfdsig'*Da*dfdsig + obj.H;
-            Dt = Da - 1/A*Da*(dfdsig*dfdsig')*Da;
-        end
-
-        function D = Dloop(obj, Ds, dDsdep, depdeps, eps)
-            indx = [1 1 1 1;
-                    1 1 2 2;
-                    1 1 3 3;
-                    1 1 1 2;
-                    2 2 2 2;
-                    2 2 3 3;
-                    2 2 1 2;
-                    3 3 3 3;
-                    3 3 1 2;
-                    1 2 1 2];
-
-            Dti = [];
-
-            eps = [eps(1) eps(4)/2 0;
-                   eps(4)/2 eps(2) 0;
-                   0 0 eps(3)];
-
-            depdeps = [depdeps(1) depdeps(4) 0;
-                       depdeps(4) depdeps(2) 0;
-                       0 0 depdeps(3)];
-
-            dDsdep = tensor(obj, dDsdep);
-
-            for ii = indx'
-                Dtii = 0;
-                for k = 1:3
-                    for l = 1:3
-                        Dtii = Dtii + dDsdep(ii(1), ii(2), k, l)*depdeps(ii(3), ii(4))*eps(k,l);
-                    end
-                end
-                Dti = [Dti, Dtii];
+        function B = NablaB(obj) % Spatial gradient of shape functions
+            B = zeros(3,8);
+            node = sqrt(1/3);
+            gps = [-node -node; -node node; node node; node -node];
+            i = 0;
+            for gp = gps'
+                i = i + 1;
+                etas = gp(1); xi = gp(2);
+                Npz = 1/4*[etas-1, 1-etas, 1+etas, -1-etas;
+                           xi-1, -1-xi, 1+xi, 1-xi];
+                Jt = [Npz*obj.ex(1,:)', Npz*obj.ey(2,:)'];
+                Npx = Jt\Npz;
+                BGp = zeros(3,8);
+                BGp(1,1:2:8) = Npx(1,:);
+                BGp(2,2:2:8) = Npx(2,:);
+                Npx_f = flip(Npx);
+                BGp(3,:) = Npx_f(:);
+                B = B + BGp/4;
             end
-
-            D = Ds + [Dti(1), Dti(2), Dti(3), Dti(4);
-                      Dti(2), Dti(5), Dti(6), Dti(7);
-                      Dti(3), Dti(6), Dti(8), Dti(9);
-                      Dti(4), Dti(7), Dti(9), Dti(10)];
-        end
-
-        function t = tensor(obj, matrix)
-            t = zeros(3,3,3,3);
-            t(1,1,1,1) = matrix(1,1);
-            t(1,1,1,2) = matrix(1,4);
-            t(1,1,2,1) = matrix(1,4);
-            t(1,1,2,2) = matrix(1,2);
-            t(1,1,3,3) = matrix(1,3);
-
-            t(1,2,1,1) = matrix(4,1);
-            t(1,2,1,2) = matrix(4,4);
-            t(1,2,2,1) = matrix(4,4);
-            t(1,2,2,2) = matrix(4,2);
-            t(1,2,3,3) = matrix(4,3);
-
-            t(2,1,1,1) = matrix(4,1);
-            t(2,1,1,2) = matrix(4,4);
-            t(2,1,2,1) = matrix(4,4);
-            t(2,1,2,2) = matrix(4,2);
-            t(2,1,3,3) = matrix(4,3);
-
-            t(2,2,1,1) = matrix(2,1);
-            t(2,2,1,2) = matrix(2,4);
-            t(2,2,2,1) = matrix(2,4);
-            t(2,2,2,2) = matrix(2,2);
-            t(2,2,3,3) = matrix(2,3);
-
-            t(3,3,1,1) = matrix(3,1);
-            t(3,3,1,2) = matrix(3,4);
-            t(3,3,2,1) = matrix(3,4);
-            t(3,3,2,2) = matrix(3,2);
-            t(3,3,3,3) = matrix(3,3);
         end
 
         function bc = addBC(~, bc, ly, le, ndof)
@@ -241,33 +183,3 @@ classdef Solver
         end
     end
 end
-
-
-
-
-% function sig = update_stress(obj, eps)
-        %     e = [eps(1:3)-mean(eps(1:3)); 2*eps(4)];
-        %     sigkk = 3*obj.Kmod*sum(eps(1:3));
-        %     s = obj.G*e;
-        %     sig = [s(1:3)+sigkk/3; s(4)];
-        % end
-
-        % function sig = update_stress_el(obj, eps)
-        %     e = [eps(1:3)-mean(eps(1:3)); eps(4)];
-        %     sigkk = 3*obj.Kmod*sum(eps(1:3));
-        %     s = 2*obj.Ge*e;
-        %     sig = [s(1:3)+sigkk/3; s(4)];
-        % end
-
-        % function stress_eff_out = stress_eff(~, sig)    % Calculate effective strain
-        %     s = [sig(1:3)-mean(sig(1:3)); sig(4)];
-        %     J2 = 0.5*(s'*s + s(4)*s(4));
-        %     stress_eff_out = sqrt(J2*3);
-        % end
-             
-        % function D_ep = Dtan(obj, sig, sig_eff)   %%FEL%%
-        %     s = [sig(1:3)-mean(sig(1:3)); sig(4)];
-        %     A = obj.H + (obj.sig_y0^2/sig_eff)^2*s'*obj.P*D*obj.P*s; %sig_y = sig_eff
-        %     D_p = 1/A*(obj.sig_y0^2/sig_eff)^2*D*obj.P*s*s'*obj.P*D; 
-        %     D_ep = D-D_p;
-        % end
