@@ -3,7 +3,7 @@ classdef Solver
         edof; ex; ey; ed; a
         epm; ngp
         ndof; nel; bcS; disp
-        De; Ds; Dt
+        De; Ds; Dt; X; T
         H; sig_y0; r2tol
         P; C
         r1; r1tol; N
@@ -26,17 +26,20 @@ classdef Solver
             obj.epm = [p.ptype p.t p.ir];
             obj.ngp = p.ir^2;
             G12 = p.E/(2*(1+p.v));
+            obj.P = [p.Fco+p.Gco -p.Fco -p.Gco 0; -p.Fco p.Fco+p.Hco -p.Hco 0; -p.Gco -p.Hco p.Gco+p.Hco 0 ; 0 0 0 2*p.Lco];
+            obj.H = p.H;
+            obj.sig_y0 = p.sig_y0;
+
             obj.C = [1/p.E1, -p.v21/p.E2, -p.v31/p.E3, 0;
                     -p.v12/p.E1, 1/p.E2, -p.v32/p.E3, 0;
                     -p.v13/p.E1, -p.v23/p.E2, 1/p.E3, 0;
                      0, 0, 0, 1/G12];
             obj.De = inv(obj.C);
+            [obj.X, obj.T] = diagDe(obj);
             obj.Ds = repmat(obj.De, obj.nel*obj.ngp, 1);
             obj.Dsi = repmat(obj.De, obj.nel*obj.ngp, 1);
             obj.Dt = repmat(obj.De, obj.nel*obj.ngp, 1);
-            obj.P = [p.Fco+p.Gco -p.Fco -p.Gco 0; -p.Fco p.Fco+p.Hco -p.Hco 0; -p.Gco -p.Hco p.Gco+p.Hco 0 ; 0 0 0 2*p.Lco];
-            obj.H = p.H;
-            obj.sig_y0 = p.sig_y0;
+
 
             obj.r2tol = p.r2tol;
             obj.r1tol = p.r1tol;
@@ -145,6 +148,7 @@ classdef Solver
             while norm(r2) > obj.r2tol || iter == 0
                 iter = iter + 1;
                 Ds = inv(obj.C + obj.sig_y0^2/sige*ep*obj.P);
+                Dsn = obj.X*diag(1./diag(eye(4)+obj.sig_y0^2/sige*ep*obj.T))*obj.X';
                 dDsdep = -Ds*obj.P*Ds*(obj.sig_y0^2*(sige-ep*obj.H)/sige^2);
                 detdDs = 2*obj.P*Ds*eps*eps'; 
                 epst = eps'*Ds*obj.P*Ds*eps;
@@ -207,6 +211,14 @@ classdef Solver
                 a(fdof,:) = s;
                 a(bc(:,1),:) = repmat(bc(:,2),1,nc);
             end
+        end
+
+        function [X, T] = diagDe(obj)
+            [Q, L] = eig(obj.De);
+            sL = sqrt(L);
+            B = sL*Q'*obj.P*Q*sL;
+            [R, T] = eig(B);
+            X = Q*L*diag(1./diag(sL))*R;
         end
 
         function bc = addBC(~, bc, ly, le, ndof)
