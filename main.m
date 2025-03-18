@@ -1,15 +1,14 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 0.2;
+params.le = 0.05;
 params.lx = 1;
 params.ly = 1;
 
 params.E = 210e9;
 params.v = 0.3;
-params.ptype = 2;
 params.t = 2;
-params.ir = 2;
+params.ngp = 4;
 params.sig_y0 = 360e6;
 params.H = 10e9;
 params.r2tol = 1e-5;
@@ -25,9 +24,9 @@ params.Lco = 3/(2*params.sig_y0^2);
 
 params.N = 10;
 params.r1tol = 1e-5;
-params.disp = [2 -5e-3;
-               4 -5e-3;
-               6 -5e-3]; % displacement [nodes total-size]
+params.disp = [2 -1e-3;
+               4 -1e-3;
+               6 -1e-3]; % displacement [nodes total-size]
 sol = Solver(params);
 
 %% Mesh

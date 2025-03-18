@@ -1,7 +1,7 @@
 classdef Solver
     properties %#ok<*MINV>
         edof; ex; ey; ed; a
-        epm; ngp
+        t; ngp
         ndof; nel; bcS; disp
         De; Ds; Dt; X; T
         H; sig_y0; r2tol
@@ -22,9 +22,9 @@ classdef Solver
             [~, ~, ~, obj.edof, obj.ex, obj.ey, bc] = designDomain(p.lx, p.ly, p.le);
             obj.ndof = 2*((p.lx/p.le + 1)*(p.ly/p.le + 1));
             obj.nel = round(p.lx*p.ly/p.le^2);
-
-            obj.epm = [p.ptype p.t p.ir];
-            obj.ngp = p.ir^2;
+            
+            obj.t = p.t;
+            obj.ngp = p.ngp;
             G12 = p.E/(2*(1+p.v));
             obj.P = [p.Fco+p.Gco -p.Fco -p.Gco 0; -p.Fco p.Fco+p.Hco -p.Hco 0; -p.Gco -p.Hco p.Gco+p.Hco 0 ; 0 0 0 2*p.Lco];
             obj.H = p.H;
@@ -35,11 +35,10 @@ classdef Solver
                     -p.v13/p.E1, -p.v23/p.E2, 1/p.E3, 0;
                      0, 0, 0, 1/G12];
             obj.De = inv(obj.C);
-            [obj.X, obj.T] = diagDe(obj);
+            [obj.X, obj.T] = diagDs(obj);
             obj.Ds = repmat(obj.De, obj.nel*obj.ngp, 1);
             obj.Dsi = repmat(obj.De, obj.nel*obj.ngp, 1);
             obj.Dt = repmat(obj.De, obj.nel*obj.ngp, 1);
-
 
             obj.r2tol = p.r2tol;
             obj.r1tol = p.r1tol;
@@ -87,7 +86,7 @@ classdef Solver
                 for gp = 1:obj.ngp
                     [B, J] = NablaB(obj, gp, el);
                     indxMgp = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
-                    ke = ke + B'*obj.Dt(indxMgp([1 2 4]),[1 2 4])*B*J*obj.epm(2);
+                    ke = ke + B'*obj.Dt(indxMgp([1 2 4]),[1 2 4])*B*J*obj.t;
                 end
                 [rows, cols] = ndgrid(obj.edof(el, :));
                 % ke = plani4e(obj.ex(el,:), obj.ey(el,:), obj.epm, obj.Dt(4*obj.ngp*(el-1)+1:4*obj.ngp*el,:));
@@ -113,7 +112,7 @@ classdef Solver
                     deps = (obj.epsi(indxgp, :) - obj.eps(indxgp, :))';
                     [obj.sigi(indxgp, :), obj.Dt(indxMgp, :), obj.sigei(indxgp), obj.Dsi(indxMgp, :), obj.epi(indxgp)]...
                     = hill(obj, deps, obj.epsi(indxgp, :)', obj.sig(indxgp, :)', obj.sige(indxgp), obj.Ds(indxMgp, :), obj.ep(indxgp));
-                    fein = fein + B'*obj.sigi(indxgp, [1 2 4])'*J*obj.epm(2);
+                    fein = fein + B'*obj.sigi(indxgp, [1 2 4])'*J*obj.t;
                 end
                 % fein = plani4f(obj.ex(el, :), obj.ey(el, :), obj.epm, obj.sigi((el-1)*obj.ngp+1:obj.ngp*el, :))';
                 tripf((el-1)*8+1:el*8,:) = [obj.edof(el, :)', fein];
@@ -147,8 +146,8 @@ classdef Solver
             end
             while norm(r2) > obj.r2tol || iter == 0
                 iter = iter + 1;
-                Ds = inv(obj.C + obj.sig_y0^2/sige*ep*obj.P);
-                Dsn = obj.X*diag(1./diag(eye(4)+obj.sig_y0^2/sige*ep*obj.T))*obj.X';
+                % Ds = inv(obj.C + obj.sig_y0^2/sige*ep*obj.P);
+                Ds = obj.X*diag(1./diag(eye(4)+obj.sig_y0^2/sige*ep*obj.T))*obj.X';
                 dDsdep = -Ds*obj.P*Ds*(obj.sig_y0^2*(sige-ep*obj.H)/sige^2);
                 detdDs = 2*obj.P*Ds*eps*eps'; 
                 epst = eps'*Ds*obj.P*Ds*eps;
@@ -156,7 +155,8 @@ classdef Solver
                 delta_ep = -r2/drdep;
                 ep = ep + delta_ep;
                 sige = obj.sig_y0 + obj.H*ep;
-                Ds = inv(obj.C + obj.sig_y0^2/sige*ep*obj.P);
+                % Ds = inv(obj.C + obj.sig_y0^2/sige*ep*obj.P);
+                Ds = obj.X*diag(1./diag(eye(4)+obj.sig_y0^2/sige*ep*obj.T))*obj.X';
                 epst = eps'*Ds*obj.P*Ds*eps;
                 r2 = sige - obj.sig_y0*sqrt(epst);
                 % fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
@@ -213,14 +213,14 @@ classdef Solver
             end
         end
 
-        function [X, T] = diagDe(obj)
+        function [X, T] = diagDs(obj)
             [Q, L] = eig(obj.De);
             sL = sqrt(L);
             B = sL*Q'*obj.P*Q*sL;
-            [R, T] = eig(B);
-            X = Q*L*diag(1./diag(sL))*R;
+            [R, T, ~] = svd(B);
+            X = Q*sL*R;
         end
-
+        
         function bc = addBC(~, bc, ly, le, ndof)
             nR = ly/le + 1;
             fix = [ndof/nR*(1:nR)'; ndof/nR*(1:nR)'-1];
