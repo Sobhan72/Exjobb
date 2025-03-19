@@ -137,6 +137,27 @@ classdef Solver
             end
         end
 
+        function [sig] = hill_ep(obj, sige, T,  U, P, X, Xinv, sigtr)
+            dep = 0;
+            sigt = sigtr'*U*P*U*sigtr;
+            r2 = sige + obj.H*dep - obj.sig_y0 *sqrt(sigt);
+            iter = 0;
+            I = eye(4);
+            while norm(r2) > obj.r2tol || iter == 0
+                iter = iter + 1;
+                U = X*(I + obj.sig_y0^2*(dep/(sige+obj.H*dep)*T))*Xinv;
+                dUdep = -U*T*U'*(obj.sig_y0^2*sige/(sige+obj.H*dep)^2);
+                dsigtdU = 2*P*U*sigtr*sigtr';
+                drddep = obj.H - obj.sig_y0/(2*sqrt(sigt)) *trace(dUdep*dsigtdU);
+                dep = -r2/drddep;
+                sige = sige+obj.H*dep;
+                sigt = sigtr'*U*P*U'*sigtr;
+                r2 = sige + obj.H*dep - obj.sig_y0 *sqrt(sigt);              
+                fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
+            end
+            sig =  X*(I + obj.sig_y0^2*(dep/(sige+obj.H*dep)*T))*Xinv*sigtr;
+        end
+
         function [Dt, sige, Ds, ep] = DMat(obj, eps, sige, Ds, ep)
             epst = eps'*Ds*obj.P*Ds*eps;
             r2 = sige - obj.sig_y0*sqrt(epst);
