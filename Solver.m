@@ -124,15 +124,15 @@ classdef Solver
 
         function [siggp, Dtgp, sigegp, Dsgp, epgp] = hill(obj, deps, epsgp, siggp, sigegp, Dsgp, epgp)
             siggp = obj.De*deps + siggp;
-            siget = sqrt(obj.sig_y0^2*siggp'*obj.P*siggp);
-            % if sigegp > siget
+            sigetr = sqrt(obj.sig_y0^2*siggp'*obj.P*siggp);
+            % if sigegp > sigetr
             %     warning("Stress reducing")
             % end
-            if siget > obj.sig_y0
+            if sigetr > obj.sig_y0
                 [Dtgp, sigegp, Dsgp, epgp] = DMat(obj, epsgp, sigegp, Dsgp, epgp);
                 siggp = Dsgp*epsgp;
             else
-                sigegp = siget;
+                sigegp = sigetr;
                 Dtgp = obj.De;
             end
         end
@@ -149,11 +149,11 @@ classdef Solver
             while norm(r2) > obj.r2tol || iter == 0
                 iter = iter + 1;
                 U = obj.X*(I + obj.sig_y0^2*(Dep/(sige+obj.H*Dep)*obj.Gam))*Xinv;
-                dUdep = -U*obj.Gam*U*(obj.sig_y0^2*sige/(sige+obj.H*Dep)^2);
+                dUdDep = -U*obj.Gam*U*(obj.sig_y0^2*sige/(sige+obj.H*Dep)^2);
                 dsigtdU = 2*obj.P*U*sigtr*sigtr';
                 sigt = sigtr'*U'*obj.P*U*sigtr;
-                drddep = obj.H - obj.sig_y0/(2*sqrt(sigt))*trace(dsigtdU*dUdep);
-                DDep = -r2/drddep;
+                drdDep = obj.H - obj.sig_y0/(2*sqrt(sigt))*trace(dsigtdU*dUdDep);
+                DDep = -r2/drdDep;
                 Dep = Dep + DDep;
                 sigt = sigtr'*U'*obj.P*U*sigtr;
                 r2 = sige + obj.H*Dep - obj.sig_y0 *sqrt(sigt);              

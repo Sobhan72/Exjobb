@@ -66,12 +66,12 @@ for n = 1:N
     sige(n) = sigegp;
 end
 
-% figure;
-% plot([0; epse], [0; sige]/1e6, 'LineWidth', 2);
-% xlabel('$\epsilon_{eff}$', 'Interpreter', 'latex'); 
-% ylabel('$\sigma_{eff}$ (MPa)', 'Interpreter', 'latex');
-% title("Hill Deformation Model")
-% grid on;
+figure;
+plot([0; epse], [0; sige]/1e6, 'LineWidth', 2);
+xlabel('$\epsilon_{eff}$', 'Interpreter', 'latex'); 
+ylabel('$\sigma_{eff}$ (MPa)', 'Interpreter', 'latex');
+title("Hill Deformation Model")
+grid on;
 
 %% FDM
 delta = 1e-8;
@@ -98,14 +98,18 @@ epsgp = [0;0;0;0];
 deps = [1e-4, 0, 0, 1e-4]';
 sigegp = 0;
 
-epgp = 0;
-
 for n = 1:N
     fprintf("Load step: %i \n", n)
     epsgp = epsgp + deps;
     epse(n) = strain_eff(epsgp);
     depsm = deps + [0;0;0;1]*deps(4);
-    [siggp, sigegp] = hill_ep(sol, depsm, siggp, sigegp);
+    siggp = sol.De*depsm + siggp;
+    sigetr = sqrt(sol.sig_y0^2*siggp'*sol.P*siggp);
+    if sigetr > sol.sig_y0
+        [siggp, sigegp] = hill_ep(sol, depsm, siggp, sigegp);
+    else
+        sigegp = sigetr;
+    end 
     sige(n) = sigegp;
 end
 
