@@ -148,18 +148,20 @@ classdef Solver
             I = eye(4);
             while norm(r2) > obj.r2tol || iter == 0
                 iter = iter + 1;
-                U = obj.X*(I + obj.sig_y0^2*(Dep/(sige+obj.H*Dep)*obj.Gam))*Xinv;
-                dUdDep = -U*obj.Gam*U*(obj.sig_y0^2*sige/(sige+obj.H*Dep)^2);
+                V = inv(I + obj.sig_y0^2*(Dep/(sige+obj.H*Dep)*obj.Gam));
+                U = obj.X*V*Xinv;
+                dUdDep = -obj.X*V*obj.Gam*V*Xinv*(obj.sig_y0^2*sige/(sige+obj.H*Dep)^2);
                 dsigtdU = 2*obj.P*U*sigtr*sigtr';
                 sigt = sigtr'*U'*obj.P*U*sigtr;
                 drdDep = obj.H - obj.sig_y0/(2*sqrt(sigt))*trace(dsigtdU*dUdDep);
                 DDep = -r2/drdDep;
                 Dep = Dep + DDep;
+                U = obj.X*inv(I + obj.sig_y0^2*(Dep/(sige+obj.H*Dep)*obj.Gam))*Xinv;
                 sigt = sigtr'*U'*obj.P*U*sigtr;
                 r2 = sige + obj.H*Dep - obj.sig_y0 *sqrt(sigt);              
                 fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
             end
-            sig =  obj.X*(I + obj.sig_y0^2*(Dep/(sige+obj.H*Dep)*obj.Gam))*Xinv*sigtr;
+            sig =  obj.X*inv(I + obj.sig_y0^2*(Dep/(sige+obj.H*Dep)*obj.Gam))*Xinv*sigtr;
             sige = sige + obj.H*Dep;
         end
 
