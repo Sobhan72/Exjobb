@@ -106,7 +106,7 @@ for n = 1:N
     siggp = sol.De*depsm + siggp;
     sigetr = sqrt(sol.sig_y0^2*siggp'*sol.P*siggp);
     if sigetr > sol.sig_y0
-        [~,siggp, sigegp] = hill_ep(sol, depsm, siggp, sigegp);
+        [~, siggp, sigegp] = hill_ep(sol, siggp, sigegp);
     else
         sigegp = sigetr;
     end 
