@@ -43,15 +43,15 @@ dof = sol.ndof-3;
 fprintf("Disp DOF %i: %4.2g", [dof, sol.a(dof)])
 
 %% Hill model test for von Mises
-N = 10; 
-% N = 50;
+% N = 10; 
+N = 50;
 
 epse = zeros(N,1); % eps eff
 sige = zeros(N,1); % sig eff
 siggp = [0;0;0;0];
 epsgp = [0;0;0;0];
-deps = [0, 1e-3, 0, 5e-4]'; 
-% deps = [1e-4, 0, 0, 1e-4]';
+% deps = [0, 1e-3, 0, 5e-4]'; 
+deps = [1e-4, 0, 0, 1e-4]';
 sigegp = 0;
 Dsgp = sol.De;
 epgp = 0;
@@ -106,7 +106,7 @@ for n = 1:N
     siggp = sol.De*depsm + siggp;
     sigetr = sqrt(sol.sig_y0^2*siggp'*sol.P*siggp);
     if sigetr > sol.sig_y0
-        [siggp, sigegp] = hill_ep(sol, depsm, siggp, sigegp);
+        [~,siggp, sigegp] = hill_ep(sol, depsm, siggp, sigegp);
     else
         sigegp = sigetr;
     end 

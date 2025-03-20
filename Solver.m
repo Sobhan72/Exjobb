@@ -4,7 +4,7 @@ classdef Solver
         t; ngp
         ndof; nel; bcS; disp
         De; Ds; Dt; X; Gam
-        H; sig_y0; r2tol
+        H; sig_y0; sigy; r2tol
         P; C
         r1; r1tol; N
         eps; sig; sige; ep
@@ -29,6 +29,7 @@ classdef Solver
             obj.P = [p.Fco+p.Gco -p.Fco -p.Gco 0; -p.Fco p.Fco+p.Hco -p.Hco 0; -p.Gco -p.Hco p.Gco+p.Hco 0 ; 0 0 0 2*p.Lco];
             obj.H = p.H;
             obj.sig_y0 = p.sig_y0;
+            obj.sigy = p.sig_y0;
 
             obj.C = [1/p.E1, -p.v21/p.E2, -p.v31/p.E3, 0;
                     -p.v12/p.E1, 1/p.E2, -p.v32/p.E3, 0;
@@ -137,32 +138,34 @@ classdef Solver
             end
         end
 
-        function [sig, sige] = hill_ep(obj, deps, sig, sige)
-            sigtr = sig + obj.De*deps;
+        function [obj, sig, sige] = hill_ep(obj, deps, sigtr, sige)
+            % sigtr = sig   + obj.De*deps;
+            if sige < obj.sigy
+                sige = obj.sigy;
+            end
             Dep = 0;
             Xinv = inv(obj.X);
-            % sigt = sigtr'*U'*obj.P*U*sigtr;
-            % r2 = sige + obj.H*Dep - obj.sig_y0 *sqrt(sigt);
             r2 = sige + obj.H*Dep;
             iter = 0;
             I = eye(4);
             while norm(r2) > obj.r2tol || iter == 0
                 iter = iter + 1;
-                V = inv(I + obj.sig_y0^2*(Dep/(sige+obj.H*Dep)*obj.Gam));
+                V = inv(I + obj.sig_y0^2*(Dep/(sige+obj.H*Dep))*obj.Gam);
                 U = obj.X*V*Xinv;
                 dUdDep = -obj.X*V*obj.Gam*V*Xinv*(obj.sig_y0^2*sige/(sige+obj.H*Dep)^2);
                 dsigtdU = 2*obj.P*U*sigtr*sigtr';
-                sigt = sigtr'*U'*obj.P*U*sigtr;
-                drdDep = obj.H - obj.sig_y0/(2*sqrt(sigt))*trace(dsigtdU*dUdDep);
+                sigt = sigtr'*U*obj.P*U'*sigtr;
+                drdDep = obj.H - obj.sig_y0/(2*sqrt(sigt))*trace(dUdDep*dsigtdU);
                 DDep = -r2/drdDep;
                 Dep = Dep + DDep;
-                U = obj.X*inv(I + obj.sig_y0^2*(Dep/(sige+obj.H*Dep)*obj.Gam))*Xinv;
-                sigt = sigtr'*U'*obj.P*U*sigtr;
+                U = obj.X*inv(I + obj.sig_y0^2*(Dep/(sige+obj.H*Dep))*obj.Gam)*Xinv;
+                sigt = sigtr'*U*obj.P*U'*sigtr;
                 r2 = sige + obj.H*Dep - obj.sig_y0 *sqrt(sigt);              
                 fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
             end
-            sig =  obj.X*inv(I + obj.sig_y0^2*(Dep/(sige+obj.H*Dep)*obj.Gam))*Xinv*sigtr;
+            sig =  obj.X*inv(I + obj.sig_y0^2*(Dep/(sige+obj.H*Dep))*obj.Gam)*Xinv*sigtr;
             sige = sige + obj.H*Dep;
+            obj.sigy = sige;
         end
 
         function [Dt, sige, Ds, ep] = DMat(obj, eps, sige, Ds, ep)
