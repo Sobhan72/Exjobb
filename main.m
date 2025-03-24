@@ -70,6 +70,12 @@ sigygp = 360e6;
 Dsgp = sol.De;
 epgp = 0;
 
+R = 2/3*[2/3, -1/3, -1/3,  0;
+        -1/3,  2/3, -1/3,  0;
+        -1/3, -1/3,  2/3,  0;
+         0,     0,    0,   2];
+
+
 for n = 1:N
     if n == 30 && reverse
         deps = -deps;
@@ -78,7 +84,8 @@ for n = 1:N
     end
     fprintf("Load step: %i \n", n)
     epsgp = epsgp + deps;
-    epse(n) = strain_eff(epsgp);
+    % epse(n) = strain_eff(epsgp);
+    epse(n) = sqrt(epsgp'*R*epsgp);
     depsm = deps + [0;0;0;1]*deps(4);
     epsgpm = epsgp + [0;0;0;1]*epsgp(4);
     sigtr = sol.De*depsm + siggp;
