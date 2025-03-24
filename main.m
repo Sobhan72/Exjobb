@@ -11,20 +11,20 @@ params.t = 2;
 params.ngp = 4;
 params.sigy0 = 360e6;
 params.H = 10e9;
-params.r2tol = 1e-6;
-params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
+params.r2tol = 1e-5;
+params.DP = 0; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
 params.E1 = params.E; params.E2 = params.E; params.E3 = params.E;
 params.v12 = params.v; params.v13 = params.v; params.v23 = params.v;
 params.v21 = params.v; params.v32 = params.v; params.v31 = params.v;
 
-params.Fco = 1/(2*params.sigy0^2); 
-params.Gco = 1/(2*params.sigy0^2); 
-params.Hco = 1/(2*params.sigy0^2); 
+params.Fco = 1/(2*params.sigy0^2);
+params.Gco = 1/(2*params.sigy0^2);
+params.Hco = 1/(2*params.sigy0^2);
 params.Lco = 3/(2*params.sigy0^2);
 
 params.N = 100;
-params.r1tol = 1e-6;
+params.r1tol = 1e-5;
 params.disp = [2 -2e-3;
                4 -2e-3;
                6 -2e-3]; % displacement [nodes total-size]
@@ -101,22 +101,6 @@ xlabel('$\epsilon_{eff}$', 'Interpreter', 'latex');
 ylabel('$\sigma_{eff}$ (MPa)', 'Interpreter', 'latex');
 title("Hill Deformation Model")
 grid on;
-
-%% FDM
-delta = 1e-8;
-
-Dtf = zeros(4);
-for i = 1:4
-    epsgp = [0;1;0;1]*1e-2;
-    deps = [0; 0; 0; 0];
-    deps(i) = delta;
-    epsgp2 = epsgp - deps;
-    epsgp3 = epsgp + deps;
-    [siggp2, ~, ~, ~, ~] = hill(sol, -deps, epsgp2, siggp, sigegp, Dsgp, epgp);
-    [siggp3, ~, ~, ~, ~] = hill(sol, deps, epsgp3, siggp, sigegp, Dsgp, epgp);
-    Dtf(:, i) = (siggp3-siggp2)/2/delta;
-end
-
 
 function strain_eff_out = strain_eff(eps)    % Calculate effective stress
 e = [eps(1:3)-mean(eps(1:3)); eps(4)];
