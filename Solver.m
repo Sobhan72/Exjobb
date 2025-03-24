@@ -8,8 +8,8 @@ classdef Solver
         sigy; r2tol; DP
         P; C
         r1; r1tol; N
-        eps; sig; sige; ep
-        epsi; sigi; sigei; epi; Dsi; sigyi
+        eps; sig; ep %sige
+        epsi; sigi; epi; Dsi; sigyi %sigei
     end
 
     methods
@@ -54,14 +54,14 @@ classdef Solver
             obj.eps = zeros(obj.nel*obj.ngp, 4);
             obj.sig = zeros(obj.nel*obj.ngp, 4);
             obj.ep = zeros(obj.nel*obj.ngp, 1);
-            obj.sige = zeros(obj.nel*obj.ngp, 1);
+            % obj.sige = zeros(obj.nel*obj.ngp, 1);
             obj.sigy = p.sigy0*ones(obj.nel*obj.ngp, 1);
 
             obj.epsi = zeros(obj.nel*obj.ngp, 4);
             obj.sigi = zeros(obj.nel*obj.ngp, 4);
             obj.epi = zeros(obj.nel*obj.ngp, 1);
-            obj.sigei = zeros(obj.nel*obj.ngp, 1);
-            obj.sigyi = zeros(obj.nel*obj.ngp, 1);
+            % obj.sigei = zeros(obj.nel*obj.ngp, 1);
+            obj.sigyi = p.sigy0*ones(obj.nel*obj.ngp, 1);
         end
 
         function obj = newt(obj)
@@ -77,7 +77,7 @@ classdef Solver
                 end
                 obj.eps = obj.epsi;
                 obj.sig = obj.sigi;
-                obj.sige = obj.sigei;
+                % obj.sige = obj.sigei;
                 obj.ep = obj.epi;
                 obj.Ds = obj.Dsi;
                 obj.sigy = obj.sigyi;
@@ -90,8 +90,8 @@ classdef Solver
                 ke = zeros(8);
                 for gp = 1:obj.ngp
                     [B, J] = NablaB(obj, gp, el);
-                    indxMgp = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
-                    ke = ke + B'*obj.Dt(indxMgp([1 2 4]),[1 2 4])*B*J*obj.t;
+                    ixM = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
+                    ke = ke + B'*obj.Dt(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
                 end
                 [rows, cols] = ndgrid(obj.edof(el, :));
                 % ke = plani4e(obj.ex(el,:), obj.ey(el,:), obj.epm, obj.Dt(4*obj.ngp*(el-1)+1:4*obj.ngp*el,:));
@@ -103,21 +103,33 @@ classdef Solver
             da = obj.solvelin(K, -obj.r1, bc);
             obj.a = obj.a + da;
             obj.ed = obj.a(obj.edof);
-            
+
             tripf = zeros(obj.nel*8,2);
             for el = 1:obj.nel
                 % fprintf("El: %i \n", el)
                 % [~, obj.epsi((el-1)*obj.ngp+1:obj.ngp*el,:)] = plani4s(obj.ex(el,:), obj.ey(el,:), obj.epm, eye(4), obj.ed(el,:));
                 fein = zeros(8,1);
                 for gp = 1:obj.ngp
-                    indxgp = obj.ngp*(el-1) + gp;
-                    indxMgp = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
+                    ix = obj.ngp*(el-1) + gp;
+                    ixM = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
                     [B, J] = NablaB(obj, gp, el);
-                    obj.epsi(indxgp, [1 2 4]) = B*obj.ed(el, :)';
-                    deps = (obj.epsi(indxgp, :) - obj.eps(indxgp, :))';
-                    [obj.Dt(indxMgp, :), obj.sigi(indxgp, :), obj.sigei(indxgp), obj.Dsi(indxMgp, :), obj.epi(indxgp), obj.sigy(indxgp)]...
-                    = hill(obj, deps, obj.epsi(indxgp, :)', obj.sig(indxgp, :)', obj.sige(indxgp), obj.Ds(indxMgp, :), obj.ep(indxgp), obj.sigy(indxgp));
-                    fein = fein + B'*obj.sigi(indxgp, [1 2 4])'*J*obj.t;
+                    obj.epsi(ix, [1 2 4]) = B*obj.ed(el, :)';
+                    deps = (obj.epsi(ix, :) - obj.eps(ix, :))';
+                    sigtr = obj.De*deps + obj.sig(ix, :)';
+                    if sqrt(obj.sigy0^2*sigtr'*obj.P*sigtr) > obj.sigy(ix)
+                        % [obj.Dt(ixM, :), obj.sigi(ix, :), obj.Dsi(ixM, :), obj.epi(ix), obj.sigyi(ix)]...
+                        % = hill(obj, Deps, obj.epsi(ix, :)', obj.sig(ix, :)', obj.Ds(ixM, :), obj.ep(ix), obj.sigy(ix));
+                        if obj.DP
+                            [obj.Dt(ixM, :), obj.sigi(ix, :), obj.Dsi(ixM, :), obj.epi(ix)] = DPMat(obj, obj.epsi(ix, :)',obj.Ds(ixM, :), obj.ep(ix));
+                        else
+                            [obj.Dt(ixM, :), obj.sigi(ix, :), obj.sigyi(ix)] = EPMat(obj, sigtr, obj.sigy(ix));
+                        end
+                    else
+                        obj.sigi(ix, :) = sigtr;
+                        % obj.sigei(ix) = sigetr;
+                        obj.Dt(ixM, :) = obj.De;
+                    end
+                    fein = fein + B'*obj.sigi(ix, [1 2 4])'*J*obj.t;
                 end
                 % fein = plani4f(obj.ex(el, :), obj.ey(el, :), obj.epm, obj.sigi((el-1)*obj.ngp+1:obj.ngp*el, :))';
                 tripf((el-1)*8+1:el*8,:) = [obj.edof(el, :)', fein];
@@ -127,22 +139,24 @@ classdef Solver
             obj.r1 = fin;
         end
 
-        function [Dtgp, siggp, sigegp, Dsgp, epgp, sigygp] = hill(obj, deps, epsgp, siggp, sigegp, Dsgp, epgp, sigygp)
-            siggp = obj.De*deps + siggp;
-            sigetr = sqrt(obj.sigy0^2*siggp'*obj.P*siggp);
-            if sigetr > sigygp
-                if obj.DP
-                    [Dtgp, siggp, sigegp, Dsgp, epgp] = DPMat(obj, epsgp, sigegp, Dsgp, epgp);
-                else
-                    [Dtgp, siggp, sigygp] = EPMat(obj, siggp, sigygp);
-                end
-            else
-                sigegp = sigetr;
-                Dtgp = obj.De;
-            end
-        end
+        % function vararg = hill(obj, deps, epsgp, siggp, Dsgp, epgp, sigygp) %[Dtgp, siggp, Dsgp, epgp, sigygp]
+        %     sigtr = obj.De*deps + siggp;
+        %     sigetr = sqrt(obj.sigy0^2*sigtr'*obj.P*sigtr);
+        %     if sigetr > sigygp
+        %         if obj.DP
+        %             [vararg{1}, vararg{2}, vararg{3}, vararg{4}] = DPMat(obj, epsgp, Dsgp, epgp);
+        %         else
+        %             [vararg{1}, vararg{2}, vararg{3}] = EPMat(obj, sigtr, sigygp);
+        %         end
+        %     else
+        %         % sigegp = sigetr;
+        %         vararg{1} = obj.De;
+        %         vararg{2} = sigtr;
+        %         vararg{3} = Dsgp;
+        %     end
+        % end
 
-        function [sig, sigy] = EPMat(obj, sigtr, sigy)
+        function [Dt, sig, sigy] = EPMat(obj, sigtr, sigy)
             Dep = 0;
             sigt = sigtr'*obj.P*sigtr;
             r2 = sigy - obj.sigy0*sqrt(sigt);
@@ -161,14 +175,21 @@ classdef Solver
                 U = obj.X*inv(I + obj.sigy0^2*(Dep/(sigy+obj.H*Dep))*obj.Gam)*obj.iX;
                 sigt = sigtr'*U*obj.P*U'*sigtr;
                 r2 = sigy + obj.H*Dep - obj.sigy0 *sqrt(sigt);           
-                fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
+                % fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
             end
             sig =  obj.X*inv(I + obj.sigy0^2*(Dep/(sigy+obj.H*Dep))*obj.Gam)*obj.iX*sigtr;
             sigy = sigy + obj.H*Dep;
+            dUdDep = -obj.X*V*obj.Gam*V*obj.iX*(obj.sigy0^2*sigy/(sigy+obj.H*Dep)^2);
+            dsigtdU = 2*obj.P*U*sigtr*sigtr';
+            drdDep = obj.H - obj.sigy0/(2*sqrt(sigt))*trace(dUdDep*dsigtdU);
+            drdDeps = -obj.sigy0/sqrt(sigt)*obj.De*U*obj.P*U*sigtr;
+            dDepdDeps = -drdDeps/drdDep;
+            Dt = U*obj.De + dUdDep*sigtr*dDepdDeps';
         end
 
-        function [Dt, sig, sige, Ds, ep] = DPMat(obj, eps, sige, Ds, ep)
+        function [Dt, sig, Ds, ep] = DPMat(obj, eps, Ds, ep)
             epst = eps'*Ds*obj.P*Ds*eps;
+            sige = obj.sigy0 + obj.H*ep;
             r2 = sige - obj.sigy0*sqrt(epst);
             iter = 0;
             if isnan(norm(r2))
@@ -189,13 +210,13 @@ classdef Solver
                 Ds = obj.X*diag(1./diag(eye(4)+obj.sigy0^2/sige*ep*obj.Gam))*obj.X';
                 epst = eps'*Ds*obj.P*Ds*eps;
                 r2 = sige - obj.sigy0*sqrt(epst);
-                fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
+                % fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
             end
             sig = Ds*eps;
-            drdeps = -obj.sigy0/sqrt(epst)*Ds*obj.P*Ds*eps;
-            dDsdep = -Ds*obj.P*Ds*(obj.sigy0^2*(sige-ep*obj.H)/sige^2);
             detdDs = 2*obj.P*Ds*eps*eps'; 
+            dDsdep = -Ds*obj.P*Ds*(obj.sigy0^2*(sige-ep*obj.H)/sige^2);
             drdep = obj.H - obj.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep);
+            drdeps = -obj.sigy0/sqrt(epst)*Ds*obj.P*Ds*eps;
             depdeps = -drdeps/drdep;
             Dt = Ds + dDsdep*eps*depdeps';
         end
