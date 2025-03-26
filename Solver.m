@@ -27,7 +27,7 @@ classdef Solver
             obj.t = p.t;
             obj.ngp = p.ngp;
             G12 = p.E/(2*(1+p.v));
-            obj.P = [p.Fco+p.Gco -p.Fco -p.Gco 0; -p.Fco p.Fco+p.Hco -p.Hco 0; -p.Gco -p.Hco p.Gco+p.Hco 0 ; 0 0 0 2*p.Lco];
+            obj.P = [p.Fco+p.Gco -p.Fco -p.Gco 0; -p.Fco p.Fco+p.Hco -p.Hco 0; -p.Gco -p.Hco p.Gco+p.Hco 0; 0 0 0 2*p.Lco];
             obj.H = p.H;
             obj.sigy0 = p.sigy0;
 
@@ -132,18 +132,18 @@ classdef Solver
             iter = 0;
             while norm(r2) > obj.r2tol || iter == 0
                 iter = iter + 1;
-                V = diag(1./diag(eye(4) + obj.sigy0^2*(Dep/(sigy+obj.H*Dep))*obj.Gam));
+                V = diag(1./diag(eye(4) + obj.sigy0^2*(Dep/(sigy + obj.H*Dep))*obj.Gam));
                 U = obj.X*V*obj.iX;
-                dUdDep = -obj.X*V*obj.Gam*V*obj.iX*(obj.sigy0^2*sigy/(sigy+obj.H*Dep)^2);
+                dUdDep = -obj.X*V*obj.Gam*V*obj.iX*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2);
                 dsigtdU = 2*obj.P*U*(sigtr*sigtr');
                 sigt = sigtr'*U*obj.P*U'*sigtr;
                 drdDep = obj.H - obj.sigy0/(2*sqrt(sigt))*trace(dUdDep*dsigtdU);
                 DDep = -r2/drdDep;
                 Dep = Dep + DDep;
-                V = diag(1./diag(eye(4) + obj.sigy0^2*(Dep/(sigy+obj.H*Dep))*obj.Gam));
+                V = diag(1./diag(eye(4) + obj.sigy0^2*(Dep/(sigy + obj.H*Dep))*obj.Gam));
                 U = obj.X*V*obj.iX;
                 sigt = sigtr'*U*obj.P*U'*sigtr;
-                r2 = sigy + obj.H*Dep - obj.sigy0 *sqrt(sigt);           
+                r2 = sigy + obj.H*Dep - obj.sigy0*sqrt(sigt);           
                 % fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
             end
             sig = U*sigtr;
@@ -163,22 +163,22 @@ classdef Solver
             iter = 0;
             while norm(r2) > obj.r2tol || iter == 0
                 iter = iter + 1;
-                Ds = obj.X*diag(1./diag(eye(4)+obj.sigy0^2/sige*ep*obj.Gam))*obj.X';
-                dDsdep = -Ds*obj.P*Ds*(obj.sigy0^2*(sige-ep*obj.H)/sige^2);
-                detdDs = 2*obj.P*Ds*(eps*eps'); 
+                Ds = obj.X*diag(1./diag(eye(4) + obj.sigy0^2/sige*ep*obj.Gam))*obj.X';
+                dDsdep = -Ds*obj.P*Ds*(obj.sigy0^2*(sige-obj.H*ep)/sige^2);
+                detdDs = 2*obj.P*Ds*(eps*eps');
                 epst = eps'*Ds*obj.P*Ds*eps;
                 drdep = obj.H - obj.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep);
                 Dep = -r2/drdep;
                 ep = ep + Dep;
                 sige = obj.sigy0 + obj.H*ep;
-                Ds = obj.X*diag(1./diag(eye(4)+obj.sigy0^2/sige*ep*obj.Gam))*obj.X';
+                Ds = obj.X*diag(1./diag(eye(4) + obj.sigy0^2/sige*ep*obj.Gam))*obj.X';
                 epst = eps'*Ds*obj.P*Ds*eps;
                 r2 = sige - obj.sigy0*sqrt(epst);
                 % fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
             end
             sig = Ds*eps;
             detdDs = 2*obj.P*Ds*(eps*eps'); 
-            dDsdep = -Ds*obj.P*Ds*(obj.sigy0^2*(sige-ep*obj.H)/sige^2);
+            dDsdep = -Ds*obj.P*Ds*(obj.sigy0^2*(sige-obj.H*ep)/sige^2);
             drdep = obj.H - obj.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep);
             drdeps = -obj.sigy0/sqrt(epst)*Ds*obj.P*Ds*eps;
             depdeps = -drdeps/drdep;
@@ -237,11 +237,38 @@ classdef Solver
             X = Q*sL*R;
             iX = inv(X);
         end
+
+        function plotFigs(obj)
+            vM = zeros(obj.nel, 1);
+            for ii = 1:obj.nel
+                ix = (ii-1)*4+1:ii*4;
+                vM(ii) = sqrt(obj.sigy0^2*trace(obj.sig(ix, :)*obj.P*obj.sig(ix, :)')/4);
+            end
+            figure;
+            title("von Mises stress")
+            patch(obj.ex', obj.ey', vM);
+            colormap jet;
+            colorbar;
+
+            figure;
+            title("Plastic Zone")
+            pl = obj.ep>0;
+            pl = reshape(pl, 4, obj.nel)';
+            pl = any(pl, 2);
+            patch(obj.ex', obj.ey', int8(pl));
+            
+            easyjet = [linspace(0.1, 1, 256)', ...
+                       linspace(0.1, 0, 256)', ...
+                       linspace(0.8, 0.1, 256)'];
+            colormap(easyjet)
+        end
         
         function bc = addBC(~, bc, ly, le, ndof)
             nR = ly/le + 1;
             fix = [ndof/nR*(1:nR)'; ndof/nR*(1:nR)'-1];
             bc = [bc; [fix zeros(2*nR,1)]];
         end
+
+
     end
 end
