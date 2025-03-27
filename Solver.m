@@ -6,11 +6,10 @@ classdef Solver
         De; Ds; Dt; X; iX; Gam
         H; sigy0; Kinf; del
         sigy; r2tol; DP
-        P; C
+        P; C; DeP
         r1; r1tol; N
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
-        DeP;
     end
 
     methods
@@ -27,14 +26,24 @@ classdef Solver
             
             obj.t = p.t;
             obj.ngp = p.ngp;
-            G12 = p.E/(2*(1+p.v));
-            obj.P = [p.Fco+p.Gco -p.Fco -p.Gco 0; -p.Fco p.Fco+p.Hco -p.Hco 0; -p.Gco -p.Hco p.Gco+p.Hco 0; 0 0 0 2*p.Lco];
+
+            Fco = 1/2*(1/p.sigy01^2+1/p.sigy02^2-1/p.sigy03^2);
+            Gco = 1/2*(1/p.sigy01^2-1/p.sigy02^2+1/p.sigy03^2);
+            Hco = 1/2*(-1/p.sigy01^2+1/p.sigy02^2+1/p.sigy03^2);
+            obj.sigy0 = sqrt(3/(2*(Fco+Gco+Hco)));
+            Lco = 3/(2*obj.sigy0^2);
+            
+            if 4/(p.sigy01^2*p.sigy02^2) <= (1/p.sigy03^2-(1/p.sigy01^2+1/p.sigy02^2))^2
+                error("Not positive definite")
+            end
+
+            obj.P = [Fco+Gco -Fco -Gco 0; -Fco Fco+Hco -Hco 0; -Gco -Hco Gco+Hco 0; 0 0 0 2*Lco];
             obj.H = p.H;
-            obj.sigy0 = p.sigy0;
 
             obj.Kinf = p.Kinf;
             obj.del = p.del;
 
+            G12 = p.E1/(2*(1+p.v12));
             obj.C = [1/p.E1, -p.v21/p.E2, -p.v31/p.E3, 0;
                     -p.v12/p.E1, 1/p.E2, -p.v32/p.E3, 0;
                     -p.v13/p.E1, -p.v23/p.E2, 1/p.E3, 0;
@@ -116,7 +125,8 @@ classdef Solver
                         if obj.DP
                             [obj.Dt(ixM, :), obj.sigi(ix, :), obj.Dsi(ixM, :), obj.epi(ix)] = DPMat(obj, obj.epsi(ix, :)',obj.Ds(ixM, :), obj.ep(ix));
                         else
-                            [obj.Dt(ixM, :), obj.sigi(ix, :), obj.sigyi(ix)] = EPMat(obj, sigtr, obj.sigy(ix));
+                            [obj.Dt(ixM, :), obj.sigi(ix, :), obj.sigyi(ix), Dep] = EPMat(obj, sigtr, obj.sigy(ix));
+                            obj.epi(ix) = obj.epi(ix) + Dep;
                         end
                     else
                         obj.sigi(ix, :) = sigtr;
@@ -131,7 +141,7 @@ classdef Solver
             obj.r1 = fin;
         end
 
-        function [Dt, sig, sigy] = EPMat(obj, sigtr, sigy)
+        function [Dt, sig, sigy, Dep] = EPMat(obj, sigtr, sigy)
             Dep = 0;
             sigt = sigtr'*obj.P*sigtr;
             r2 = sigy - obj.sigy0*sqrt(sigt);

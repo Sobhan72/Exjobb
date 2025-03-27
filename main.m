@@ -5,42 +5,37 @@ params.le = 0.05;
 params.lx = 1;
 params.ly = 1;
 
-params.E = 210e9;
-params.v = 0.3;
 params.t = 2;
 params.ngp = 4;
 
 params.sigy0 = 360e6;
 params.H = 10e9;
 
-params.Kinf = 0.3*params.sigy0; %extra terms linHard (sat. stress)
+params.Kinf = 0;%0.3*params.sigy0; %extra terms linHard (sat. stress)
 params.del = 1e-3; %extra terms linHard (sat. exp)
 
 params.r2tol = 1e-5;
 params.DP = 0; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
-params.E1 = params.E; params.E2 = params.E; params.E3 = params.E;
-params.v12 = params.v; params.v13 = params.v; params.v23 = params.v;
-params.v21 = params.v; params.v32 = params.v; params.v31 = params.v;
+E = 210e9;
+v = 0.3;
+params.E1 = E; params.E2 = E; params.E3 = E;
+params.v12 = v; params.v13 = v; params.v23 = v;
+params.v21 = v; params.v32 = v; params.v31 = v;
 
-params.Fco = 1/(2*params.sigy0^2);
-params.Gco = 1/(2*params.sigy0^2);
-params.Hco = 1/(2*params.sigy0^2);
-params.Lco = 3/(2*params.sigy0^2);
+params.sigy01 = 360e6;
+params.sigy02 = 360e6;
+params.sigy03 = 360e6;
 
 params.N = 50;
-params.r1tol = 1e-5;
-params.disp = [2 -2e-3;
-               4 -2e-3;
-               6 -2e-3]; % displacement [nodes total-size]
+params.r1tol = 1e-4;
+params.disp = [2 -1.5e-2;
+               4 -1.5e-2;
+               6 -1.5e-2]; % displacement [nodes total-size]
 sol = Solver(params);
 
 %% Mesh
-patch(sol.ex', sol.ey', int8(rand(sol.nel, 1)>0.5))
-easyjet = [linspace(0.1, 1, 256)', ...
-           linspace(0.1, 0, 256)', ...
-           linspace(0.8, 0.1, 256)'];
-colormap(easyjet)
+patch(sol.ex', sol.ey', 1)
 
 %% Newton-Raphson
 sol = newt(sol);
@@ -59,12 +54,14 @@ sol = Solver(params);
 sol = newt(sol);
 dof = sol.ndof/2+1;
 disp1 = sol.a(dof);
+sol.plotFigs
 
 params.DP = 1;
-params.N = params.N/10;
+params.N = 5;
 sol = Solver(params);
 sol = newt(sol);
 disp2 = sol.a(dof);
+sol.plotFigs
 fprintf("\nDisp1: %.5g \nDisp2: %.5g \nDiff: %.5g%% \n", [disp1, disp2, (1-disp2/disp1)*100])
 
 %% FEM model test
@@ -99,7 +96,7 @@ title("Effective stress-strain")
 grid on;
 
 %% Hill material model test
-N = 100;
+N = 50; 
 reverse = 0;
 
 epse = zeros(N,1); % eps eff
