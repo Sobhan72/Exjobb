@@ -9,10 +9,15 @@ params.E = 210e9;
 params.v = 0.3;
 params.t = 2;
 params.ngp = 4;
+
 params.sigy0 = 360e6;
 params.H = 10e9;
+
+params.Kinf = 0.3*params.sigy0; %extra terms linHard (sat. stress)
+params.del = 1e-3; %extra terms linHard (sat. exp)
+
 params.r2tol = 1e-5;
-params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
+params.DP = 0; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
 params.E1 = params.E; params.E2 = params.E; params.E3 = params.E;
 params.v12 = params.v; params.v13 = params.v; params.v23 = params.v;
@@ -23,11 +28,11 @@ params.Gco = 1/(2*params.sigy0^2);
 params.Hco = 1/(2*params.sigy0^2);
 params.Lco = 3/(2*params.sigy0^2);
 
-params.N = 5;
+params.N = 50;
 params.r1tol = 1e-5;
-params.disp = [2 -3e-3;
-               4 -3e-3;
-               6 -3e-3]; % displacement [nodes total-size]
+params.disp = [2 -2e-3;
+               4 -2e-3;
+               6 -2e-3]; % displacement [nodes total-size]
 sol = Solver(params);
 
 %% Mesh
@@ -49,17 +54,18 @@ sol.plotFigs
 % fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
 
 %% Model validation
-% params.DP = 0;
-% sol = Solver(params);
-% sol = newt(sol);
+params.DP = 0;
+sol = Solver(params);
+sol = newt(sol);
 dof = sol.ndof/2+1;
-% disp1 = sol.a(dof);
+disp1 = sol.a(dof);
 
 params.DP = 1;
+params.N = params.N/10;
 sol = Solver(params);
 sol = newt(sol);
 disp2 = sol.a(dof);
-% fprintf("\nDisp1: %.5g \nDisp2: %.5g \nDiff: %.5g%% \n", [disp1, disp2, (1-disp2/disp1)*100])
+fprintf("\nDisp1: %.5g \nDisp2: %.5g \nDiff: %.5g%% \n", [disp1, disp2, (1-disp2/disp1)*100])
 
 %% FEM model test
 epse = zeros(sol.N, 1);
@@ -93,7 +99,7 @@ title("Effective stress-strain")
 grid on;
 
 %% Hill material model test
-N = 50;
+N = 100;
 reverse = 0;
 
 epse = zeros(N,1); % eps eff
