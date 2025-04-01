@@ -1,5 +1,5 @@
 classdef Solver
-    properties %#ok<*MINV>
+    properties
         edof; ex; ey; ed; a
         t; ngp
         ndof; nel; bcS; disp
@@ -10,19 +10,16 @@ classdef Solver
         r1; r1tol; N
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
+        Z
     end
 
     methods
         function obj = Solver(p)  % Constructor
-            % fields = fieldnames(p);
-            % for i = 1:numel(fields)
-            %     obj.(fields{i}) = p.(fields{i});
-            % end
-
             % Mesh
             [~, ~, ~, obj.edof, obj.ex, obj.ey, bc] = designDomain(p.lx, p.ly, p.le);
             obj.ndof = 2*((p.lx/p.le + 1)*(p.ly/p.le + 1));
             obj.nel = round(p.lx*p.ly/p.le^2);
+            obj.Z = filterMatrix(obj, p.le, p.re);
             
             obj.t = p.t;
             obj.ngp = p.ngp;
@@ -77,7 +74,8 @@ classdef Solver
             obj.sigyi = p.sigy0*ones(obj.nel*obj.ngp, 1);
         end
 
-        function obj = newt(obj)
+        %% FEM
+        function obj = newt(obj) % Newton-Raphson method
             for n = 1:obj.N
                 fprintf("Load step: %i \n", n);
                 bcD = obj.disp;
@@ -92,7 +90,7 @@ classdef Solver
             end
         end
 
-        function obj = FEM(obj, bcD)
+        function obj = FEM(obj, bcD) % Main FEM function
             tripK = zeros(obj.nel*64,3);
             for el = 1:obj.nel
                 ke = zeros(8);
@@ -141,6 +139,37 @@ classdef Solver
             obj.r1 = fin;
         end
 
+        function [Bgp, detJ] = NablaB(obj, gp, el) % Spatial gradient of shape functions
+            node = sqrt(1/3);
+            gps = [-node -node; -node node; node node; node -node];
+            eta = gps(gp,1); xi = gps(gp,2);
+            Npz = 1/4*[eta-1, 1-eta, 1+eta, -1-eta;
+                       xi-1, -1-xi, 1+xi, 1-xi];
+            Jt = [Npz*obj.ex(el,:)', Npz*obj.ey(el,:)'];
+            detJ = det(Jt);
+            Npx = Jt\Npz;
+            Bgp = zeros(3,8);
+            Bgp(1,1:2:8) = Npx(1,:);
+            Bgp(2,2:2:8) = Npx(2,:);
+            Npx_f = flip(Npx);
+            Bgp(3,:) = Npx_f(:);
+        end
+
+        function a = solvelin(~,K,f,bc) % Solve FE-equations
+            [nr, nc] = size(f);
+            if nargin == 2
+                a = K\f;
+            else
+                fdof = (1:nr)';
+                fdof(bc(:,1)) = [];
+                s = K(fdof,fdof)\(f(fdof,:)-K(fdof,bc(:,1))*bc(:,2));
+                a = zeros([nr, nc]);
+                a(fdof,:) = s;
+                a(bc(:,1),:) = repmat(bc(:,2),1,nc);
+            end
+        end
+
+        %% Material Functions 
         function [Dt, sig, sigy, Dep] = EPMat(obj, sigtr, sigy)
             Dep = 0;
             sigt = sigtr'*obj.P*sigtr;
@@ -195,56 +224,12 @@ classdef Solver
                 % fprintf("    iter: %i, r2: %4.2g \n", [iter, norm(r2)])
             end
             sig = Ds*eps;
-            detdDs = 2*obj.P*Ds*(eps*eps'); 
+            detdDs = 2*obj.P*Ds*(eps*eps');
             dDsdep = -Ds*obj.P*Ds*(obj.sigy0^2*(sige-(obj.H + obj.Kinf*obj.del*exp(-obj.del*ep))*ep)/sige^2);
             drdep = obj.H + obj.Kinf*obj.del*exp(-obj.del*ep) - obj.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep);
             drdeps = -obj.sigy0/sqrt(epst)*Ds*obj.P*Ds*eps;
             depdeps = -drdeps/drdep;
             Dt = Ds + dDsdep*eps*depdeps';
-        end
-
-        function [Bgp, detJ] = NablaB(obj, gp, el) % Spatial gradient of shape functions
-            node = sqrt(1/3);
-            gps = [-node -node; -node node; node node; node -node];
-            eta = gps(gp,1); xi = gps(gp,2);
-            Npz = 1/4*[eta-1, 1-eta, 1+eta, -1-eta;
-                       xi-1, -1-xi, 1+xi, 1-xi];
-            Jt = [Npz*obj.ex(el,:)', Npz*obj.ey(el,:)'];
-            detJ = det(Jt);
-            Npx = Jt\Npz;
-            Bgp = zeros(3,8);
-            Bgp(1,1:2:8) = Npx(1,:);
-            Bgp(2,2:2:8) = Npx(2,:);
-            Npx_f = flip(Npx);
-            Bgp(3,:) = Npx_f(:);
-        end
-
-        function a = solvelin(~,K,f,bc)
-            % PURPOSE
-            %  Solve static FE-equations considering boundary conditions
-            %  for multiple load vectors.
-            %
-            % INPUT: K : global stiffness matrix, dim(K) = nd x nd
-            %        f : global load vector, dim(f) = nd x n      
-            %        bc : boundary condition matrix
-            %            dim(bc) = nbc x 2 
-            %
-            % OUTPUT:  a : solution including boundary values
-            %              dim(a) = nd x n, 
-            %          nd : number of dof's
-            %          nbc : number of b.c.'s
-            %          n : number of load vectors  
-            [nr, nc] = size(f);
-            if nargin == 2
-                a = K\f;
-            else
-                fdof = (1:nr)';
-                fdof(bc(:,1)) = [];
-                s = K(fdof,fdof)\(f(fdof,:)-K(fdof,bc(:,1))*bc(:,2));
-                a = zeros([nr, nc]);
-                a(fdof,:) = s;
-                a(bc(:,1),:) = repmat(bc(:,2),1,nc);
-            end
         end
 
         function [X, iX, Gam] = diagDs(obj)
@@ -256,6 +241,25 @@ classdef Solver
             iX = inv(X);
         end
 
+        %% Optimization
+        function Z = filterMatrix(obj, le, re)
+            ec = [obj.ex(:, 1) + le/2, obj.ey(:, 1) + le/2];
+            I = [];
+            n = ceil(re/1.4); % 2*n is max kernel size
+            [x, y] = meshgrid(-n:n, -n:n);
+            weights = max(0, 1 - sqrt(x.^2 + y.^2)/re); % Kernel is hat function
+            sw = sum(weights(:));
+            r0 = le*re;
+            for ii = 1:obj.nel
+                r = vecnorm(ec - ec(ii, :), 2, 2);
+                ix = find(r < r0);
+                w = 1-r(ix)/r0;
+                I = [I; [ii*ones(length(ix), 1), ix, w/sw]];
+            end
+            Z = sparse(I(:, 1), I(:, 2), I(:, 3), obj.nel, obj.nel);
+        end
+
+        %% Misc. Function
         function plotFigs(obj)
             vM = zeros(obj.nel, 1);
             for ii = 1:obj.nel
@@ -286,7 +290,5 @@ classdef Solver
             fix = [ndof/nR*(1:nR)'; ndof/nR*(1:nR)'-1];
             bc = [bc; [fix zeros(2*nR,1)]];
         end
-
-
     end
 end

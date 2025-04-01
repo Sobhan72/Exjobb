@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 0.05;
+params.le = 0.25;
 params.lx = 1;
 params.ly = 1;
 
@@ -11,11 +11,11 @@ params.ngp = 4;
 params.sigy0 = 360e6;
 params.H = 10e9;
 
-params.Kinf = 0;%0.3*params.sigy0; %extra terms linHard (sat. stress)
+params.Kinf = 0; %0.3*params.sigy0; %extra terms linHard (sat. stress)
 params.del = 1e-3; %extra terms linHard (sat. exp)
 
 params.r2tol = 1e-5;
-params.DP = 0; % 1 for Deformation plasticity, 0 for Elastoplasticity
+params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
 E = 210e9;
 v = 0.3;
@@ -27,11 +27,14 @@ params.sigy01 = 360e6;
 params.sigy02 = 360e6;
 params.sigy03 = 360e6;
 
-params.N = 50;
+params.N = 500;
 params.r1tol = 1e-4;
-params.disp = [2 -1.5e-2;
-               4 -1.5e-2;
-               6 -1.5e-2]; % displacement [nodes total-size]
+params.disp = [2 -4e-3;
+               4 -4e-3;
+               6 -4e-3]; % displacement [nodes total-size]
+
+params.re = 2; % Elements in radius
+
 sol = Solver(params);
 
 %% Mesh
@@ -96,14 +99,14 @@ title("Effective stress-strain")
 grid on;
 
 %% Hill material model test
-N = 50; 
+N = 5; 
 reverse = 0;
 
 epse = zeros(N,1); % eps eff
 sige = zeros(N,1); % sig eff
 siggp = [0;0;0;0];
 epsgp = [0;0;0;0];
-deps = [1e-4, 0, 0, 1e-4]';
+deps = [1e-4, 0, 0, 1e-4]'*10;
 sigegp = 0;
 sigygp = 360e6;
 Dsgp = sol.De;
