@@ -244,19 +244,21 @@ classdef Solver
         %% Optimization
         function Z = filterMatrix(obj, le, re)
             ec = [obj.ex(:, 1) + le/2, obj.ey(:, 1) + le/2];
-            I = [];
-            n = ceil(re/1.4); % 2*n is max kernel size
-            [x, y] = meshgrid(-n:n, -n:n);
-            weights = max(0, 1 - sqrt(x.^2 + y.^2)/re); % Kernel is hat function
+            I = zeros(obj.nel*(2*re)^2, 3);
+            [x, y] = meshgrid(-re:re, -re:re);
+            weights = max(0, 1 - sqrt(x.^2 + y.^2)/re);
             sw = sum(weights(:));
             r0 = le*re;
+            i = 0;
             for ii = 1:obj.nel
                 r = vecnorm(ec - ec(ii, :), 2, 2);
                 ix = find(r < r0);
+                ixn = length(ix);
                 w = 1-r(ix)/r0;
-                I = [I; [ii*ones(length(ix), 1), ix, w/sw]];
+                I(i+1:i+ixn, :) = [ii*ones(ixn, 1), ix, w/sw];
+                i = i + ixn;
             end
-            Z = sparse(I(:, 1), I(:, 2), I(:, 3), obj.nel, obj.nel);
+            Z = sparse(I(1:i, 1), I(1:i, 2), I(1:i, 3), obj.nel, obj.nel);
         end
 
         %% Misc. Function
