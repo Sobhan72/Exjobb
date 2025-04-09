@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 0.0025;
+params.le = 0.05;
 params.lx = 1;
 params.ly = 1;
 
@@ -27,7 +27,7 @@ params.sigy01 = 360e6;
 params.sigy02 = 360e6;
 params.sigy03 = 360e6;
 
-params.N = 500;
+params.N = 10;
 params.r1tol = 1e-4;
 params.disp = [2 -4e-3;
                4 -4e-3;
@@ -97,6 +97,63 @@ xlabel('$\epsilon_{eff}$', 'Interpreter', 'latex');
 ylabel('$\sigma_{eff}$ (MPa)', 'Interpreter', 'latex');
 title("Effective stress-strain")
 grid on;
+
+
+%% Finite diff
+epse = zeros(sol.N, 1);
+sige = zeros(sol.N, 1);
+gp = 12;
+R = 2/3*[2/3, -1/3, -1/3,  0;
+        -1/3,  2/3, -1/3,  0;
+        -1/3, -1/3,  2/3,  0;
+         0,     0,    0,   1/2];
+
+for n = 1:sol.N
+    fprintf("Load step: %i \n", n);
+    bcD = sol.disp;
+    Nr = 0;
+    while norm(sol.r1) > sol.r1tol || Nr == 0
+        Nr = Nr + 1;
+        sol = FEM(sol, bcD);
+        bcD(:, 2) = bcD(:, 2)*0;
+        fprintf("  Nr: %i, r1: %4.2g \n", [Nr, norm(sol.r1)]);
+    end
+    sol.eps = sol.epsi; sol.sig = sol.sigi; sol.ep = sol.epi; sol.Ds = sol.Dsi; sol.sigy = sol.sigyi;
+end
+
+p = 6;
+q = 5;
+d = 1e-9;
+x=0.5;
+
+k0 = sol.ep(gp)*sol.sigy0^2/sol.sigy(gp);
+gam = d + (1-d)*x^p;
+phi = d + (1-d)*x^q;
+dgam = p*(1-d)*x^(p-1); 
+dphi = q*(1-d)*x^(q-1);
+V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
+h = 1e-8;
+
+th = (dgam*phi-dphi*gam)/(phi)^2;
+
+dDsdx = dgam*sol.De*V*sol.De - gam*sol.De*V*(th*k0*sol.De*sol.P*sol.De)*V*sol.De;
+
+Ds = gam*sol.De*(sol.De +gam/phi*k0*sol.De*sol.P*sol.De)*V*sol.De;
+x=0.5+h;
+
+gam = d + (1-d)*x^p;
+phi = d + (1-d)*x^q;
+dgam = p*(1-d)*x^(p-1); 
+dphi = q*(1-d)*x^(q-1);
+V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
+
+
+th = (dgam*phi-dphi*gam)/(phi)^2;
+Ds2 = gam*sol.De*(sol.De +gam/phi*k0*sol.De*sol.P*sol.De)*V*sol.De;
+
+dDs = (Ds2-Ds)/h;
+
+(dDsdx-dDs)
 
 %% Hill material model test
 N = 5; 
