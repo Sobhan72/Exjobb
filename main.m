@@ -33,7 +33,10 @@ params.disp = [2 -4e-2;
                4 -4e-2;
                6 -4e-2]; % displacement [nodes total-size]
 
+% Optimization Parameters
 params.re = 2; % Elements in radius
+params.p = 3;
+params.q = 2;
 
 sol = Solver(params);
 
@@ -113,81 +116,47 @@ for n = 1:sol.N
     sol.eps = sol.epsi; sol.sig = sol.sigi; sol.ep = sol.epi; sol.Ds = sol.Dsi; sol.sigy = sol.sigyi;
 end
 
+gp = 12;
 p = 6;
 q = 5;
 d = 1e-9;
-x=0.5;
+x = 0.5;
+h = 1e-8;
 
-tripK = zeros(64,3);
-el = 1;
-ke = zeros(8);
-for gp = 1:sol.ngp
-    [B, J] = NablaB(sol, gp, el);
-    ixM = 4*sol.ngp*(el-1) + (gp-1)*4 + 1:4*sol.ngp*(el-1) + gp*4;
+k0 = sol.ep(gp)*sol.sigy0^2/(sol.sigy0+sol.H*sol.ep(gp));
+gam = d + (1-d)*x^p;
+phi = d + (1-d)*x^q;
+V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
+Ds = gam*sol.De*V*sol.De;
+epst = 1/phi^2*sol.eps(gp, :)*Ds*sol.P*Ds*sol.eps(gp, :)';
 
-        k0 = sol.ep(gp)*sol.sigy0^2/(sol.sigy0+sol.H*sol.ep(gp));
-        gam = d + (1-d)*x^p;
-        phi = d + (1-d)*x^q;
-        dgam = p*(1-d)*x^(p-1); 
-        dphi = q*(1-d)*x^(q-1);
-        V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
-        
-        th = (dgam*phi-dphi*gam)/(phi)^2;
-        
-        dDsdx = dgam*sol.De*V*sol.De - gam*sol.De*V*(th*k0*sol.De*sol.P*sol.De)*V*sol.De;
+dgam = p*(1-d)*x^(p-1); 
+dphi = q*(1-d)*x^(q-1);
+th = (dgam*phi-dphi*gam)/(phi)^2;
+dDsdx = dgam*sol.De*V*sol.De - gam*sol.De*V*(th*k0*sol.De*sol.P*sol.De)*V*sol.De;
+dPdx = -2/phi^3*sol.P;
+depstdx = sol.eps(gp, :)*dDsdx*sol.P/phi^2*Ds*sol.eps(gp, :)' - sol.eps(gp, :)*Ds*sol.P*2*dphi/phi^3*Ds*sol.eps(gp, :)' + sol.eps(gp, :)*Ds*sol.P/phi^2*dDsdx*sol.eps(gp, :)';
+dR2dx = dphi*(sol.sigy0+sol.H*sol.ep(gp))-dphi*sol.sigy0*sqrt(epst)-phi*sol.sigy0/2/sqrt(epst)*depstdx;
 
-    ke = ke + B'*dDsdx([1 2 4],[1 2 4])*B*J*sol.t;
-end
-[rows, cols] = ndgrid(sol.edof(el, :));
-tripK((el-1)*64+1:el*64,:) = [rows(:), cols(:), ke(:)];
-Kt = sparse(tripK(:,1), tripK(:,2), tripK(:,3), sol.ndof, sol.ndof);
-g0t = params.disp(:, 2)'*Kt(params.disp(:, 1),:)*ones(sol.ndof, 1)*1e-2;
+x = 0.5 - h;
+gam = d + (1-d)*x^p;
+phi = d + (1-d)*x^q;
+V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
+Ds = gam*sol.De*V*sol.De;
+epst = 1/phi^2*sol.eps(gp, :)*Ds*sol.P*Ds*sol.eps(gp, :)';
+r1 = phi*(sol.sigy0 + sol.H*sol.ep(gp)) - phi*sol.sigy0*sqrt(epst);
 
-x = 0.5 - 1e-8;
-tripK = zeros(64,3);
-el = 1;
-ke = zeros(8);
-for gp = 1:sol.ngp
-    [B, J] = NablaB(sol, gp, el);
-    ixM = 4*sol.ngp*(el-1) + (gp-1)*4 + 1:4*sol.ngp*(el-1) + gp*4;
+x = 0.5 + h;
+gam = d + (1-d)*x^p;
+phi = d + (1-d)*x^q;
+V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
+Ds = gam*sol.De*V*sol.De;
+epst = 1/phi^2*sol.eps(gp, :)*Ds*sol.P*Ds*sol.eps(gp, :)';
+r2 = phi*(sol.sigy0 + sol.H*sol.ep(gp)) - phi*sol.sigy0*sqrt(epst);
 
-        k0 = sol.ep(gp)*sol.sigy0^2/(sol.sigy0+sol.H*sol.ep(gp));
-        gam = d + (1-d)*x^p;
-        phi = d + (1-d)*x^q;
-        V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
-        Ds = gam*sol.De*V*sol.De;
+dr = (r2-r1)/(2*h);
 
-    ke = ke + B'*Ds([1 2 4],[1 2 4])*B*J*sol.t;
-end
-[rows, cols] = ndgrid(sol.edof(el, :));
-tripK((el-1)*64+1:el*64,:) = [rows(:), cols(:), ke(:)];
-K1 = sparse(tripK(:,1), tripK(:,2), tripK(:,3), sol.ndof, sol.ndof);
-g01 = params.disp(:, 2)'*K1(params.disp(:, 1),:)*ones(sol.ndof, 1)*1e-2;
-
-x = 0.5 + 1e-8;
-tripK = zeros(64,3);
-el = 1;
-ke = zeros(8);
-for gp = 1:sol.ngp
-    [B, J] = NablaB(sol, gp, el);
-    ixM = 4*sol.ngp*(el-1) + (gp-1)*4 + 1:4*sol.ngp*(el-1) + gp*4;
-
-        k0 = sol.ep(gp)*sol.sigy0^2/(sol.sigy0+sol.H*sol.ep(gp));
-        gam = d + (1-d)*x^p;
-        phi = d + (1-d)*x^q;
-        V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
-        Ds = gam*sol.De*V*sol.De;
-
-    ke = ke + B'*Ds([1 2 4],[1 2 4])*B*J*sol.t;
-end
-[rows, cols] = ndgrid(sol.edof(el, :));
-tripK((el-1)*64+1:el*64,:) = [rows(:), cols(:), ke(:)];
-K2 = sparse(tripK(:,1), tripK(:,2), tripK(:,3), sol.ndof, sol.ndof);
-g02 = params.disp(:, 2)'*K2(params.disp(:, 1),:)*ones(sol.ndof, 1)*1e-2;
-
-dg = (g02-g01)/(2e-8);
-
-g0t-dg
+dr - dR2dx
 %% Hill material model test
 N = 5; 
 reverse = 0;

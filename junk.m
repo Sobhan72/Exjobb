@@ -6,7 +6,7 @@ phi = d + (1-d)*x^q;
 dgam = p*(1-d)*x^(p-1); 
 dphi = q*(1-d)*x^(q-1);
 V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
-h = 1e-7;
+h = 1e-8;
 
 th = (dgam*phi-dphi*gam)/(phi)^2;
 
@@ -29,9 +29,79 @@ Ds2 = gam*sol.De*V*sol.De;
 
 dDs = (Ds2-Ds)/(2*h);
 
+dDsdx-dDs;
 
-dDsdx-dDs
 
+tripK = zeros(64,3);
+el = 1;
+ke = zeros(8);
+for gp = 1:sol.ngp
+    [B, J] = NablaB(sol, gp, el);
+    ixM = 4*sol.ngp*(el-1) + (gp-1)*4 + 1:4*sol.ngp*(el-1) + gp*4;
+
+        k0 = sol.ep(gp)*sol.sigy0^2/(sol.sigy0+sol.H*sol.ep(gp));
+        gam = d + (1-d)*x^p;
+        phi = d + (1-d)*x^q;
+        dgam = p*(1-d)*x^(p-1); 
+        dphi = q*(1-d)*x^(q-1);
+        V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
+        
+        th = (dgam*phi-dphi*gam)/(phi)^2;
+        
+        dDsdx = dgam*sol.De*V*sol.De - gam*sol.De*V*(th*k0*sol.De*sol.P*sol.De)*V*sol.De;
+
+    ke = ke + B'*dDsdx([1 2 4],[1 2 4])*B*J*sol.t;
+end
+[rows, cols] = ndgrid(sol.edof(el, :));
+tripK((el-1)*64+1:el*64,:) = [rows(:), cols(:), ke(:)];
+Kt = sparse(tripK(:,1), tripK(:,2), tripK(:,3), sol.ndof, sol.ndof);
+g0t = params.disp(:, 2)'*Kt(params.disp(:, 1),:)*disp2;
+
+x = 0.5 - h;
+tripK = zeros(64,3);
+el = 1;
+ke = zeros(8);
+for gp = 1:sol.ngp
+    [B, J] = NablaB(sol, gp, el);
+    ixM = 4*sol.ngp*(el-1) + (gp-1)*4 + 1:4*sol.ngp*(el-1) + gp*4;
+
+        k0 = sol.ep(gp)*sol.sigy0^2/(sol.sigy0+sol.H*sol.ep(gp));
+        gam = d + (1-d)*x^p;
+        phi = d + (1-d)*x^q;
+        V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
+        Ds = gam*sol.De*V*sol.De;
+
+    ke = ke + B'*Ds([1 2 4],[1 2 4])*B*J*sol.t;
+end
+[rows, cols] = ndgrid(sol.edof(el, :));
+tripK((el-1)*64+1:el*64,:) = [rows(:), cols(:), ke(:)];
+K1 = sparse(tripK(:,1), tripK(:,2), tripK(:,3), sol.ndof, sol.ndof);
+g01 = params.disp(:, 2)'*K1(params.disp(:, 1),:)*disp2;
+
+x = 0.5 + h;
+tripK = zeros(64,3);
+el = 1;
+ke = zeros(8);
+for gp = 1:sol.ngp
+    [B, J] = NablaB(sol, gp, el);
+    ixM = 4*sol.ngp*(el-1) + (gp-1)*4 + 1:4*sol.ngp*(el-1) + gp*4;
+
+        k0 = sol.ep(gp)*sol.sigy0^2/(sol.sigy0+sol.H*sol.ep(gp));
+        gam = d + (1-d)*x^p;
+        phi = d + (1-d)*x^q;
+        V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
+        Ds = gam*sol.De*V*sol.De;
+
+    ke = ke + B'*Ds([1 2 4],[1 2 4])*B*J*sol.t;
+end
+[rows, cols] = ndgrid(sol.edof(el, :));
+tripK((el-1)*64+1:el*64,:) = [rows(:), cols(:), ke(:)];
+K2 = sparse(tripK(:,1), tripK(:,2), tripK(:,3), sol.ndof, sol.ndof);
+g02 = params.disp(:, 2)'*K2(params.disp(:, 1),:)*disp2;
+
+dg = (g02-g01)/(2*h);
+
+g0t-dg;
 
 %% Func.
 function D = Dloop(obj, Ds, dDsdep, depdeps, eps)
