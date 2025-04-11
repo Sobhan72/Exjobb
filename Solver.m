@@ -1,10 +1,11 @@
 classdef Solver
     properties
-        edof; ex; ey;
+        edof; ex; ey
         ed; a; K
-        t; ngp
+        A; t; ngp; Vbox
         ndof; nel; bcS; disp
         De; Ds; Dt; X; iX; Gam
+        dDsdep; dR2dep, epst
         H; sigy0; Kinf; del
         sigy; r2tol; DP
         P; C; DeP
@@ -12,6 +13,7 @@ classdef Solver
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
         Z, delta, p, q
+        gam, phi
     end
 
     methods
@@ -24,8 +26,10 @@ classdef Solver
             obj.p = p.p;
             obj.q = p.q;
             
+            obj.A = p.le^2*ones(obj.nel, 1);
             obj.t = p.t;
             obj.ngp = p.ngp;
+            obj.Vbox = sum(p.Vf*obj.A);
 
             Fco = 1/2*(1/p.sigy01^2+1/p.sigy02^2-1/p.sigy03^2);
             Gco = 1/2*(1/p.sigy01^2-1/p.sigy02^2+1/p.sigy03^2);
@@ -104,20 +108,18 @@ classdef Solver
             tripf = zeros(obj.nel*8,2);
             for el = 1:obj.nel
                 fein = zeros(8,1);
-                gam = obj.delta + (1-obj.delta)*x(el)^obj.p;
-                phi = obj.delta + (1-obj.delta)*x(el)^obj.q;
                 for gp = 1:obj.ngp
                     ix = obj.ngp*(el-1) + gp;
                     ixM = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
                     [B, J] = NablaB(obj, gp, el);
                     obj.epsi(ix, [1 2 4]) = B*obj.ed(el, :)';
                     deps = (obj.epsi(ix, :) - obj.eps(ix, :))';
-                    sigtr = gam*obj.De*deps + obj.sig(ix, :)';
+                    sigtr = obj.gam*obj.De*deps + obj.sig(ix, :)';
 
                     if sqrt(obj.sigy0^2*sigtr'*obj.P*sigtr) > obj.sigy(ix)
                         if obj.DP
-                            [obj.Dt(ixM, :), obj.sigi(ix, :), obj.Dsi(ixM, :), obj.epi(ix)]...
-                             = DPMat(obj, obj.epsi(ix, :)', obj.Ds(ixM, :), obj.ep(ix), gam, phi);
+                            [obj.Dt(ixM, :), obj.sigi(ix, :), obj.Dsi(ixM, :), obj.epi(ix), obj.dDsdep(ixM, :), obj.dR2dep(ix), obj.epst(ix)]...
+                             = DPMat(obj, obj.epsi(ix, :)', obj.Ds(ixM, :), obj.ep(ix), obj.gam(el), obj.phi(el));
                         else
                             error("Not implemented SIMP for EPMat")
                             [obj.Dt(ixM, :), obj.sigi(ix, :), obj.sigyi(ix), Dep] = EPMat(obj, sigtr, obj.sigy(ix));
@@ -125,7 +127,7 @@ classdef Solver
                         end
                     else
                         obj.sigi(ix, :) = sigtr;
-                        obj.Dt(ixM, :) = gam*obj.De;
+                        obj.Dt(ixM, :) = obj.gam(el)*obj.De;
                     end
                     fein = fein + B'*obj.sigi(ix, [1 2 4])'*J*obj.t;
                 end
@@ -215,7 +217,7 @@ classdef Solver
             Dt = U*obj.De + dUdDep*sigtr*dDepdDeps';
         end
 
-        function [Dt, sig, Ds, ep] = DPMat(obj, eps, Ds, ep, gam, phi)
+        function [Dt, sig, Ds, ep, dDsdep, drdep, epst] = DPMat(obj, eps, Ds, ep, gam, phi)
             epst = 1/phi^2*eps'*Ds*obj.P*Ds*eps;
             sige = phi*(obj.sigy0 + obj.H*ep + obj.Kinf*(1-exp(-obj.del*ep)));
             r = sige - phi*obj.sigy0*sqrt(epst);
@@ -274,28 +276,64 @@ classdef Solver
         end
 
         function obj = optimizer(obj, x)
-            gam = obj.delta + (1-obj.delta)*x.^obj.p;
-            gam = repelem(gam, obj.ngp);
-            obj.Ds = gam.*obj.Ds;
+            obj.gam = obj.delta + (1-obj.delta)*x.^obj.p;
+            obj.phi = obj.delta + (1-obj.delta)*x.^obj.q;   
+            gam4 = repelem(obj.gam, obj.ngp);
+            obj.Ds = gam4.*obj.Ds;
             obj.Dsi = obj.Ds;
             obj.Dt = obj.Ds;
 
-
+            FEM();
+            funcEval();
 
         end
 
-        function dgdx = sens(obj)
+        function [g0, dg0, g1, dg1] = funcEval(obj, x)
+            pdof = [obj.bcS; obj.disp(:, 1)];
+            fdof = (1:obj.ndof)';
+            fdof(pdof) = [];
+            dDsdx = zeros(4*obj.nel*obj.ngp, 4);
+            dR2dx = zeros(obj.nel*obj.ngp);
+            dg0dep = zeros(obj.nel*obj.ngp);
             for el = 1:obj.nel
-                k0 = sol.ep(gp)*sol.sigy0^2/(sol.sigy0+sol.H*sol.ep(gp));
-                gam = d + (1-d)*x^obj.p;
-                phi = d + (1-d)*x^obj.q;
-                dgam = obj.p*(1-d)*x^(obj.p-1);
-                dphi = obj.q*(1-d)*x^(obj.q-1);
-                V = inv(obj.De + gam/phi*k0*obj.De*obj.P*obj.De);
-                th = (dgam*phi-dphi*gam)/(phi)^2;
-                dDsdx() = dgam*obj.De*V*obj.De - gam*obj.De*V*(th*k0*obj.De*obj.P*obj.De)*V*obj.De;
+                dgam = obj.p*(1-obj.delta)*x(el)^(obj.p-1);
+                dphi = obj.q*(1-obj.delta)*x(el)^(obj.q-1);
+                th = (dgam*obj.phi(el)-dphi*obj.gam(el))/(obj.phi(el))^2;
+                for gp = 1:obj.ngp
+                    ix = obj.ngp*(el-1) + gp; 
+                    ixM = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
+                    k0 = obj.ep(ix)*obj.sigy0^2/(obj.sigy0+obj.H*obj.ep(ix));
+                    V = inv(obj.De + obj.gam(el)/obj.phi(el)*k0*obj.De*obj.P*obj.De);
+                    dDsdx(ixM, :) = dgam*obj.De*V*obj.De - obj.gam(el)*obj.De*V*(th*k0*obj.De*obj.P*obj.De)*V*obj.De;
+
+                    depstdx = obj.eps(ix, :)*dDsdx(ixM, :)*obj.P/obj.phi(el)^2*obj.Ds(ixM, :)*obj.eps(ix, :)'...
+                              - obj.eps(ix, :)*obj.Ds(ixM, :)*obj.P*2*dphi/obj.phi(el)^3*obj.Ds(ixM, :)*obj.eps(ix, :)'...
+                              + obj.eps(ix, :)*obj.Ds(ixM, :)*obj.P/obj.phi(el)^2*dDsdx(ixM, :)*obj.eps(ix, :)';
+                    dR2dx(ix) = dphi*(obj.sigy0 + obj.H*obj.ep(ix))...
+                                - dphi*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx;
+                    
+                    % [B, J] = NablaB(obj, gp, el);
+                    % ixM = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
+                    % Kh = B'*obj.dDsdep(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
+                    % dg0dep(ix) = obj.a(pdof)*Kh;
+                    % dR1dep = Kh(fdof, pdof)*obj.a(pdof);
+                end
             end
             Kt = assemK(obj, dDsdx);
+            
+            dg0dx = obj.a(pdof)'*obj.K(pdof, :)*obj.a;
+            dg0du = obj.a(pdof)'*obj.K(pdof, fdof);
+            dR1dx = Kt(fdof, :)*obj.a;
+
+            lamt = -dg0du(fdof)/obj.K(fdof, fdof);
+            idR2dep = diag(1./obj.dR2dep);
+            mut = -dg0dep'*idR2dep - lamt*dR1dep*idR2dep;
+
+            dg0 = dg0dx + lamt*dR1dx + mut*dR2dx;
+            g0 = obj.a(pdof)'*obj.K(pdof, pdof)*obj.a(pdof);
+
+            g1 = x'*obj.A*obj.t/obj.Vbox - 1;
+            dg1 = obj.A*obj.t/obj.Vbox;
         end
 
         %% Misc. Function
