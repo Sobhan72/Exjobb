@@ -295,6 +295,9 @@ classdef Solver
             dDsdx = zeros(4*obj.nel*obj.ngp, 4);
             dR2dx = zeros(obj.nel*obj.ngp);
             dg0dep = zeros(obj.nel*obj.ngp);
+            dR1depe = zeros(obj.nel*obj.ngp, 8);
+            ap = zeros(obj.ndof, 1);
+            ap(pdof) = obj.a(pdof);
             for el = 1:obj.nel
                 dgam = obj.p*(1-obj.delta)*x(el)^(obj.p-1);
                 dphi = obj.q*(1-obj.delta)*x(el)^(obj.q-1);
@@ -302,6 +305,7 @@ classdef Solver
                 for gp = 1:obj.ngp
                     ix = obj.ngp*(el-1) + gp; 
                     ixM = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
+                    eix = obj.edof(el, :);
                     k0 = obj.ep(ix)*obj.sigy0^2/(obj.sigy0+obj.H*obj.ep(ix));
                     V = inv(obj.De + obj.gam(el)/obj.phi(el)*k0*obj.De*obj.P*obj.De);
                     dDsdx(ixM, :) = dgam*obj.De*V*obj.De - obj.gam(el)*obj.De*V*(th*k0*obj.De*obj.P*obj.De)*V*obj.De;
@@ -312,15 +316,21 @@ classdef Solver
                     dR2dx(ix) = dphi*(obj.sigy0 + obj.H*obj.ep(ix))...
                                 - dphi*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx;
                     
-                    % [B, J] = NablaB(obj, gp, el);
-                    % ixM = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
-                    % Kh = B'*obj.dDsdep(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
-                    % dg0dep(ix) = obj.a(pdof)*Kh;
-                    % dR1dep = Kh(fdof, pdof)*obj.a(pdof);
+                    [B, J] = NablaB(obj, gp, el);
+                    ixM = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
+                    Kh = B'*obj.dDsdep(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
+                    dR1depe(ix, :) = Kh*obj.a(eix);
+                    dg0dep(ix) = ap(eix)'*dR1depe(ix, :);
                 end
             end
-            Kt = assemK(obj, dDsdx);
+            Kt = assemK(obj, dDsdx); % Gör elementvis
             
+            dR1dep = zeros(obj.ndof, obj.nel*obj.ngp);
+            for i = 1:size(obj.edof,1)
+                dR1dep(obj.edof(i, :), i) = dR1depe(i, :);
+            end
+            dR1dep = dR1dep(fdof, :);
+
             dg0dx = obj.a(pdof)'*obj.K(pdof, :)*obj.a;
             dg0du = obj.a(pdof)'*obj.K(pdof, fdof);
             dR1dx = Kt(fdof, :)*obj.a;
