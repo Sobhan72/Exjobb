@@ -6,13 +6,13 @@ classdef Solver
         ndof; nel; endof; bcS; disp
         De; Ds; Dt; X; iX; Gam
         dDsdep; dR2dep, epst
-        H; sigy0; Kinf; del
+        H; sigy0; Kinf; xi
         sigy; r2tol; DP
         P; C; DeP
         r1; r1tol; N
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
-        Z, delta, p, q
+        Z, del, p, q
         gam, phi
     end
 
@@ -26,6 +26,7 @@ classdef Solver
             obj.Z = filterMatrix(obj, p.le, p.re);
             obj.p = p.p;
             obj.q = p.q;
+            obj.del = p.del;
             
             obj.A = p.le^2*ones(obj.nel, 1);
             obj.t = p.t;
@@ -47,7 +48,7 @@ classdef Solver
             obj.H = p.H;
 
             obj.Kinf = p.Kinf;
-            obj.del = p.del;
+            obj.xi = p.xi;
 
             G12 = p.E1/(2*(1+p.v12));
             obj.C = [1/p.E1, -p.v21/p.E2, -p.v31/p.E3, 0;
@@ -221,19 +222,19 @@ classdef Solver
 
         function [Dt, sig, Ds, ep, dDsdep, drdep, epst] = DPMat(obj, eps, Ds, ep, gam, phi)
             epst = 1/phi^2*eps'*Ds*obj.P*Ds*eps;
-            sige = phi*(obj.sigy0 + obj.H*ep + obj.Kinf*(1-exp(-obj.del*ep)));
+            sige = phi*(obj.sigy0 + obj.H*ep + obj.Kinf*(1-exp(-obj.xi*ep)));
             r = sige - phi*obj.sigy0*sqrt(epst);
             iter = 0;
             while norm(r) > obj.r2tol || iter == 0
                 iter = iter + 1;
                 Ds = gam*obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/sige*ep*obj.Gam))*obj.X';
                 detdDs = 1/phi^2*(2*obj.P*Ds*(eps*eps'));
-                dDsdep = 1/phi*(-Ds*obj.P*Ds*(obj.sigy0^2*(sige-(obj.H + obj.Kinf*obj.del*exp(-obj.del*ep))*ep)/sige^2));
+                dDsdep = 1/phi*(-Ds*obj.P*Ds*(obj.sigy0^2*(sige-(obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep))*ep)/sige^2));
                 epst = 1/phi^2*(eps'*Ds*obj.P*Ds*eps);
-                drdep = phi*(obj.H + obj.Kinf*obj.del*exp(-obj.del*ep) - obj.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
+                drdep = phi*(obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep) - obj.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
                 Dep = -r/drdep;
                 ep = ep + Dep;
-                sige = phi*(obj.sigy0 + obj.H*ep + obj.Kinf*(1-exp(-obj.del*ep)));
+                sige = phi*(obj.sigy0 + obj.H*ep + obj.Kinf*(1-exp(-obj.xi*ep)));
                 Ds = gam*obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/sige*ep*obj.Gam))*obj.X';
                 epst = 1/phi^2*(eps'*Ds*obj.P*Ds*eps);
                 r = sige - phi*obj.sigy0*sqrt(epst);
@@ -241,8 +242,8 @@ classdef Solver
             end
             sig = Ds*eps;
             detdDs = 1/phi^2*(2*obj.P*Ds*(eps*eps'));
-            dDsdep = 1/phi*(-Ds*obj.P*Ds*(obj.sigy0^2*(sige-(obj.H + obj.Kinf*obj.del*exp(-obj.del*ep))*ep)/sige^2));
-            drdep =  phi*(obj.H + obj.Kinf*obj.del*exp(-obj.del*ep) - obj.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
+            dDsdep = 1/phi*(-Ds*obj.P*Ds*(obj.sigy0^2*(sige-(obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep))*ep)/sige^2));
+            drdep =  phi*(obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep) - obj.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
             drdeps = 1/phi*(-obj.sigy0/sqrt(epst)*Ds*obj.P*Ds*eps);
             depdeps = -drdeps/drdep;
             Dt = Ds + dDsdep*eps*depdeps';
@@ -278,8 +279,8 @@ classdef Solver
         end
 
         function obj = optimizer(obj, x)
-            obj.gam = obj.delta + (1-obj.delta)*x.^obj.p;
-            obj.phi = obj.delta + (1-obj.delta)*x.^obj.q;   
+            obj.gam = obj.del + (1-obj.del)*x.^obj.p;
+            obj.phi = obj.del + (1-obj.del)*x.^obj.q;   
             gam4 = repelem(obj.gam, obj.ngp);
             obj.Ds = gam4.*obj.Ds;
             obj.Dsi = obj.Ds;
@@ -302,10 +303,10 @@ classdef Solver
             dR1dep = zeros(obj.ndof, obj.tgp);
             ap = zeros(obj.ndof, 1);
             ap(pdof) = obj.a(pdof);
-            
+
             for el = 1:obj.nel
-                dgam = obj.p*(1-obj.delta)*x(el)^(obj.p-1);
-                dphi = obj.q*(1-obj.delta)*x(el)^(obj.q-1);
+                dgam = obj.p*(1-obj.del)*x(el)^(obj.p-1);
+                dphi = obj.q*(1-obj.del)*x(el)^(obj.q-1);
                 th = (dgam*obj.phi(el)-dphi*obj.gam(el))/(obj.phi(el))^2;
                 Kte = zeros(obj.endof);
                 eix = obj.edof(el, :);

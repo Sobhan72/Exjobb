@@ -4,6 +4,7 @@ clc, clear, close all
 params.le = 0.05;
 params.lx = 1;
 params.ly = 1;
+params.Vf = 0.25;
 
 params.t = 2;
 params.ngp = 4;
@@ -37,6 +38,7 @@ params.disp = [2 -4e-2;
 params.re = 2; % Elements in radius
 params.p = 3;
 params.q = 2;
+params.delta = 1e-9;
 
 sol = Solver(params);
 
