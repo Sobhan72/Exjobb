@@ -302,13 +302,18 @@ classdef Solver
                 dgam = obj.p*(1-obj.delta)*x(el)^(obj.p-1);
                 dphi = obj.q*(1-obj.delta)*x(el)^(obj.q-1);
                 th = (dgam*obj.phi(el)-dphi*obj.gam(el))/(obj.phi(el))^2;
+                Kte = zeros(8);
                 for gp = 1:obj.ngp
+                    [B, J] = NablaB(obj, gp, el);
                     ix = obj.ngp*(el-1) + gp; 
                     ixM = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
                     eix = obj.edof(el, :);
                     k0 = obj.ep(ix)*obj.sigy0^2/(obj.sigy0+obj.H*obj.ep(ix));
                     V = inv(obj.De + obj.gam(el)/obj.phi(el)*k0*obj.De*obj.P*obj.De);
-                    dDsdx(ixM, :) = dgam*obj.De*V*obj.De - obj.gam(el)*obj.De*V*(th*k0*obj.De*obj.P*obj.De)*V*obj.De;
+                    
+                    dDsdx = dgam*obj.De*V*obj.De - obj.gam(el)*obj.De*V*(th*k0*obj.De*obj.P*obj.De)*V*obj.De;
+                    Kte = Kte + B*dDsdx(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
+                    dfdx(el,:) = Kte*obj.a(eix);
 
                     depstdx = obj.eps(ix, :)*dDsdx(ixM, :)*obj.P/obj.phi(el)^2*obj.Ds(ixM, :)*obj.eps(ix, :)'...
                               - obj.eps(ix, :)*obj.Ds(ixM, :)*obj.P*2*dphi/obj.phi(el)^3*obj.Ds(ixM, :)*obj.eps(ix, :)'...
@@ -316,12 +321,12 @@ classdef Solver
                     dR2dx(ix) = dphi*(obj.sigy0 + obj.H*obj.ep(ix))...
                                 - dphi*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx;
                     
-                    [B, J] = NablaB(obj, gp, el);
                     ixM = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
                     Kh = B'*obj.dDsdep(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
                     dR1depe(ix, :) = Kh*obj.a(eix);
                     dg0dep(ix) = ap(eix)'*dR1depe(ix, :);
                 end
+
             end
             Kt = assemK(obj, dDsdx); % Gör elementvis
             
