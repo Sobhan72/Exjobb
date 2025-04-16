@@ -294,16 +294,15 @@ classdef Solver
             pdof = [obj.bcS; obj.disp(:, 1)];
             fdof = (1:obj.ndof)';
             fdof(pdof) = [];
-            dg0dx = zeros(obj.nel, 1);
-            % dR1dxe = zeros(obj.nel, obj.endof);
+            dg0dx = zeros(1, obj.nel);
             dR1dx = zeros(obj.ndof, obj.nel);
             dR2dxe = zeros(obj.ngp, 1);
             dR2dx = zeros(obj.tgp, obj.nel);
             dg0dep = zeros(obj.tgp, 1);
-            % dR1depe = zeros(obj.tgp, obj.endof);
             dR1dep = zeros(obj.ndof, obj.tgp);
             ap = zeros(obj.ndof, 1);
             ap(pdof) = obj.a(pdof);
+            
             for el = 1:obj.nel
                 dgam = obj.p*(1-obj.delta)*x(el)^(obj.p-1);
                 dphi = obj.q*(1-obj.delta)*x(el)^(obj.q-1);
@@ -317,11 +316,11 @@ classdef Solver
                     k0 = obj.ep(ix)*obj.sigy0^2/(obj.sigy0+obj.H*obj.ep(ix));
                     V = inv(obj.De + obj.gam(el)/obj.phi(el)*k0*obj.De*obj.P*obj.De);
                     dDsdx = dgam*obj.De*V*obj.De - obj.gam(el)*obj.De*V*(th*k0*obj.De*obj.P*obj.De)*V*obj.De;
-                    Kte = Kte + B*dDsdx(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
+                    Kte = Kte + B*dDsdx(([1 2 4]),[1 2 4])*B*J*obj.t;
 
-                    depstdx = obj.eps(ix, :)*dDsdx(ixM, :)*obj.P/obj.phi(el)^2*obj.Ds(ixM, :)*obj.eps(ix, :)'...
+                    depstdx = obj.eps(ix, :)*dDsdx*obj.P/obj.phi(el)^2*obj.Ds(ixM, :)*obj.eps(ix, :)'...
                               - obj.eps(ix, :)*obj.Ds(ixM, :)*obj.P*2*dphi/obj.phi(el)^3*obj.Ds(ixM, :)*obj.eps(ix, :)'...
-                              + obj.eps(ix, :)*obj.Ds(ixM, :)*obj.P/obj.phi(el)^2*dDsdx(ixM, :)*obj.eps(ix, :)';
+                              + obj.eps(ix, :)*obj.Ds(ixM, :)*obj.P/obj.phi(el)^2*dDsdx*obj.eps(ix, :)';
                     dR2dxe(gp) = dphi*(obj.sigy0 + obj.H*obj.ep(ix))...
                                  - dphi*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx;
 
@@ -336,16 +335,13 @@ classdef Solver
                 dR2dx(ix-3:ix, el) = dR2dxe;
             end
 
-            dR1dx = dR1dx(fdof, :);
-            dR1dep = dR1dep(fdof, :);
-
             dg0du = obj.a(pdof)'*obj.K(pdof, fdof);
 
-            lamt = -dg0du(fdof)/obj.K(fdof, fdof);
+            lamt = -dg0du/obj.K(fdof, fdof);
             idR2dep = diag(1./obj.dR2dep);
-            mut = -dg0dep'*idR2dep - lamt*dR1dep*idR2dep;
+            mut = -dg0dep'*idR2dep - lamt*dR1dep(fdof, :)*idR2dep;
 
-            dg0 = dg0dx + lamt*dR1dx + mut*dR2dx;
+            dg0 = dg0dx + lamt*dR1dx(fdof, :) + mut*dR2dx;
             g0 = obj.a(pdof)'*obj.K(pdof, pdof)*obj.a(pdof);
 
             g1 = x'*obj.A*obj.t/obj.Vbox - 1;
