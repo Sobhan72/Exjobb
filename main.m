@@ -28,7 +28,7 @@ params.sigy01 = 360e6;
 params.sigy02 = 360e6;
 params.sigy03 = 360e6;
 
-params.N = 10;
+params.N = 15;
 params.r1tol = 1e-4;
 params.disp = [2 -4e-2;
                4 -4e-2;
@@ -37,13 +37,13 @@ params.disp = [2 -4e-2;
 % Optimization Parameters
 params.re = 2; % Elements in radius
 params.p = 3;
-params.q = 2;
+params.q = 3;
 params.del = 1e-9;
 
 sol = Solver(params);
 
 %% Opt test
-x = 0.5*ones(sol.nel, 1);
+x = ones(sol.nel, 1);
 sol = optimizer(sol, x);
 
 %% Mesh
