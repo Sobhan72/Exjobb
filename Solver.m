@@ -117,7 +117,7 @@ classdef Solver
                     [B, J] = NablaB(obj, gp, el);
                     obj.epsi(ix, [1 2 4]) = B*obj.ed(el, :)';
                     deps = (obj.epsi(ix, :) - obj.eps(ix, :))';
-                    sigtr = obj.gam*obj.De*deps + obj.sig(ix, :)';
+                    sigtr = obj.gam(el)*obj.De*deps + obj.sig(ix, :)';
 
                     if sqrt(obj.sigy0^2*sigtr'*obj.P*sigtr) > obj.sigy(ix)
                         if obj.DP
@@ -159,9 +159,9 @@ classdef Solver
         function [Bgp, detJ] = NablaB(obj, gp, el) % Spatial gradient of shape functions
             node = sqrt(1/3);
             gps = [-node -node; -node node; node node; node -node];
-            eta = gps(gp,1); xi = gps(gp,2);
-            Npz = 1/4*[eta-1, 1-eta, 1+eta, -1-eta;
-                       xi-1, -1-xi, 1+xi, 1-xi];
+            etas = gps(gp,1); xis = gps(gp,2);
+            Npz = 1/4*[etas-1, 1-etas, 1+etas, -1-etas;
+                       xis-1, -1-xis, 1+xis, 1-xis];
             Jt = [Npz*obj.ex(el,:)', Npz*obj.ey(el,:)'];
             detJ = det(Jt);
             Npx = Jt\Npz;
@@ -238,7 +238,7 @@ classdef Solver
                 Ds = gam*obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/sige*ep*obj.Gam))*obj.X';
                 epst = 1/phi^2*(eps'*Ds*obj.P*Ds*eps);
                 r = sige - phi*obj.sigy0*sqrt(epst);
-                % fprintf("    iter: %i, r: %4.2g \n", [iter, norm(r)])
+                fprintf("    iter: %i, r: %4.2g \n", [iter, norm(r)])
             end
             sig = Ds*eps;
             detdDs = 1/phi^2*(2*obj.P*Ds*(eps*eps'));
@@ -281,14 +281,13 @@ classdef Solver
         function obj = optimizer(obj, x)
             obj.gam = obj.del + (1-obj.del)*x.^obj.p;
             obj.phi = obj.del + (1-obj.del)*x.^obj.q;   
-            gam4 = repelem(obj.gam, obj.ngp);
+            gam4 = repelem(obj.gam, 4*obj.ngp);
             obj.Ds = gam4.*obj.Ds;
             obj.Dsi = obj.Ds;
             obj.Dt = obj.Ds;
 
-            FEM();
-            funcEval();
-
+            obj = newt(obj);
+            [g0, dg0, g1, dg1] = funcEval(obj, x);
         end
 
         function [g0, dg0, g1, dg1] = funcEval(obj, x)
@@ -342,8 +341,8 @@ classdef Solver
             idR2dep = diag(1./obj.dR2dep);
             mut = -dg0dep'*idR2dep - lamt*dR1dep(fdof, :)*idR2dep;
 
-            dg0 = dg0dx + lamt*dR1dx(fdof, :) + mut*dR2dx;
             g0 = obj.a(pdof)'*obj.K(pdof, pdof)*obj.a(pdof);
+            dg0 = dg0dx + lamt*dR1dx(fdof, :) + mut*dR2dx;
 
             g1 = x'*obj.A*obj.t/obj.Vbox - 1;
             dg1 = obj.A*obj.t/obj.Vbox;

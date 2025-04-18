@@ -13,7 +13,7 @@ params.sigy0 = 360e6;
 params.H = 10e9;
 
 params.Kinf = 0; %0.3*params.sigy0; %extra terms linHard (sat. stress)
-params.del = 1e-3; %extra terms linHard (sat. exp)
+params.xi = 1e-3; %extra terms linHard (sat. exp)
 
 params.r2tol = 1e-5;
 params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
@@ -38,9 +38,13 @@ params.disp = [2 -4e-2;
 params.re = 2; % Elements in radius
 params.p = 3;
 params.q = 2;
-params.delta = 1e-9;
+params.del = 1e-9;
 
 sol = Solver(params);
+
+%% Opt test
+x = 0.5*ones(sol.nel, 1);
+sol = optimizer(sol, x);
 
 %% Mesh
 patch(sol.ex', sol.ey', 1)
@@ -72,6 +76,58 @@ disp2 = sol.a(dof);
 sol.plotFigs
 fprintf("\nDisp1: %.5g \nDisp2: %.5g \nDiff: %.5g%% \n", [disp1, disp2, (1-disp2/disp1)*100])
 
+%% Hill material model test
+N = 5; 
+reverse = 0;
+
+epse = zeros(N,1); % eps eff
+sige = zeros(N,1); % sig eff
+siggp = [0;0;0;0];
+epsgp = [0;0;0;0];
+deps = [1e-4, 0, 0, 1e-4]'*10;
+sigegp = 0;
+sigygp = 360e6;
+Dsgp = sol.De;
+epgp = 0;
+
+R = 2/3*[2/3, -1/3, -1/3,  0;
+        -1/3,  2/3, -1/3,  0;
+        -1/3, -1/3,  2/3,  0;
+         0,     0,    0,   2];
+
+for n = 1:N
+    if n == 30 && reverse
+        deps = -deps;
+    elseif n == 40 && reverse
+        deps = -deps;
+    end
+    fprintf("Load step: %i \n", n)
+    epsgp = epsgp + deps;
+    % epse(n) = strain_eff(epsgp);
+    epse(n) = sqrt(epsgp'*R*epsgp);
+    depsm = deps + [0;0;0;1]*deps(4);
+    epsgpm = epsgp + [0;0;0;1]*epsgp(4);
+    sigtr = sol.De*depsm + siggp;
+    if sqrt(sol.sigy0^2*sigtr'*sol.P*sigtr) > sigygp
+        if sol.DP
+            [Dtgp, siggp, Dsgp, epgp] = DPMat(sol, epsgpm, Dsgp, epgp);
+        else
+            [Dtgp, siggp, sigygp] = EPMat(sol, sigtr, sigygp);
+        end
+    else
+        siggp = sigtr;
+        Dtgp = sol.De;
+    end
+    sige(n) = sqrt(sol.sigy0^2*siggp'*sol.P*siggp);
+end
+
+figure;
+plot([0; epse], [0; sige]/1e6, 'LineWidth', 2);
+xlabel('$\epsilon_{eff}$', 'Interpreter', 'latex'); 
+ylabel('$\sigma_{eff}$ (MPa)', 'Interpreter', 'latex');
+title("Hill Deformation Model")
+grid on;
+
 %% FEM model test
 epse = zeros(sol.N, 1);
 sige = zeros(sol.N, 1);
@@ -102,7 +158,6 @@ xlabel('$\epsilon_{eff}$', 'Interpreter', 'latex');
 ylabel('$\sigma_{eff}$ (MPa)', 'Interpreter', 'latex');
 title("Effective stress-strain")
 grid on;
-
 
 %% Finite diff
 for n = 1:sol.N
@@ -159,59 +214,3 @@ r2 = phi*(sol.sigy0 + sol.H*sol.ep(gp)) - phi*sol.sigy0*sqrt(epst);
 dr = (r2-r1)/(2*h);
 
 dr - dR2dx
-%% Hill material model test
-N = 5; 
-reverse = 0;
-
-epse = zeros(N,1); % eps eff
-sige = zeros(N,1); % sig eff
-siggp = [0;0;0;0];
-epsgp = [0;0;0;0];
-deps = [1e-4, 0, 0, 1e-4]'*10;
-sigegp = 0;
-sigygp = 360e6;
-Dsgp = sol.De;
-epgp = 0;
-
-R = 2/3*[2/3, -1/3, -1/3,  0;
-        -1/3,  2/3, -1/3,  0;
-        -1/3, -1/3,  2/3,  0;
-         0,     0,    0,   2];
-
-for n = 1:N
-    if n == 30 && reverse
-        deps = -deps;
-    elseif n == 40 && reverse
-        deps = -deps;
-    end
-    fprintf("Load step: %i \n", n)
-    epsgp = epsgp + deps;
-    % epse(n) = strain_eff(epsgp);
-    epse(n) = sqrt(epsgp'*R*epsgp);
-    depsm = deps + [0;0;0;1]*deps(4);
-    epsgpm = epsgp + [0;0;0;1]*epsgp(4);
-    sigtr = sol.De*depsm + siggp;
-    if sqrt(sol.sigy0^2*sigtr'*sol.P*sigtr) > sigygp
-        if sol.DP
-            [Dtgp, siggp, Dsgp, epgp] = DPMat(sol, epsgpm, Dsgp, epgp);
-        else
-            [Dtgp, siggp, sigygp] = EPMat(sol, sigtr, sigygp);
-        end
-    else
-        siggp = sigtr;
-        Dtgp = sol.De;
-    end
-    sige(n) = sqrt(sol.sigy0^2*siggp'*sol.P*siggp);
-end
-
-figure;
-plot([0; epse], [0; sige]/1e6, 'LineWidth', 2);
-xlabel('$\epsilon_{eff}$', 'Interpreter', 'latex'); 
-ylabel('$\sigma_{eff}$ (MPa)', 'Interpreter', 'latex');
-title("Hill Deformation Model")
-grid on;
-
-function strain_eff_out = strain_eff(eps)    % Calculate effective stress
-e = [eps(1:3)-mean(eps(1:3)); eps(4)];
-strain_eff_out = sqrt(2/3*(e'*e + e(4)*e(4)));
-end
