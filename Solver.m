@@ -5,15 +5,15 @@ classdef Solver
         A; t; ngp; tgp; Vbox
         ndof; nel; endof; bcS; disp
         De; Ds; Dt; X; iX; Gam
-        dDsdep; dR2dep, epst
+        dDsdep; dR2dep; epst
         H; sigy0; Kinf; xi
         sigy; r2tol; DP
         P; C; DeP
         r1; r1tol; N
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
-        Z, del, p, q
-        gam, phi
+        Z; del; p; q
+        gam; phi
     end
 
     methods
@@ -61,6 +61,10 @@ classdef Solver
             obj.Dsi = obj.Ds;
             obj.Dt = obj.Ds;
 
+            obj.dDsdep = zeros(size(obj.Ds)); 
+            obj.dR2dep = zeros(obj.tgp, 1); 
+            obj.epst = zeros(obj.tgp, 1);
+
             obj.DeP = obj.De*obj.P;
 
             obj.r2tol = p.r2tol;
@@ -76,12 +80,12 @@ classdef Solver
             obj.eps = zeros(obj.tgp, 4);
             obj.sig = zeros(obj.tgp, 4);
             obj.ep = zeros(obj.tgp, 1);
-            obj.sigy = p.sigy0*ones(obj.tgp, 1);
+            obj.sigy = obj.sigy0*ones(obj.tgp, 1);
 
             obj.epsi = zeros(obj.tgp, 4);
             obj.sigi = zeros(obj.tgp, 4);
             obj.epi = zeros(obj.tgp, 1);
-            obj.sigyi = p.sigy0*ones(obj.tgp, 1);
+            obj.sigyi = obj.sigy0*ones(obj.tgp, 1);
         end
 
         %% FEM
@@ -119,7 +123,7 @@ classdef Solver
                     deps = (obj.epsi(ix, :) - obj.eps(ix, :))';
                     sigtr = obj.gam(el)*obj.De*deps + obj.sig(ix, :)';
 
-                    if sqrt(obj.sigy0^2*sigtr'*obj.P*sigtr) > obj.sigy(ix)
+                    if sqrt(obj.sigy0^2*sigtr'*obj.P*sigtr) > obj.phi(el)*obj.sigy(ix)
                         if obj.DP
                             [obj.Dt(ixM, :), obj.sigi(ix, :), obj.Dsi(ixM, :), obj.epi(ix), obj.dDsdep(ixM, :), obj.dR2dep(ix), obj.epst(ix)]...
                              = DPMat(obj, obj.epsi(ix, :)', obj.Ds(ixM, :), obj.ep(ix), obj.gam(el), obj.phi(el));
@@ -131,6 +135,7 @@ classdef Solver
                     else
                         obj.sigi(ix, :) = sigtr;
                         obj.Dt(ixM, :) = obj.gam(el)*obj.De;
+                        obj.epst(ix) = (obj.gam(el)/obj.phi(el))^2*obj.epsi(ix, :)*obj.De*obj.P*obj.De*obj.epsi(ix, :)';
                     end
                     fein = fein + B'*obj.sigi(ix, [1 2 4])'*J*obj.t;
                 end
@@ -316,7 +321,7 @@ classdef Solver
                     k0 = obj.ep(ix)*obj.sigy0^2/(obj.sigy0+obj.H*obj.ep(ix));
                     V = inv(obj.De + obj.gam(el)/obj.phi(el)*k0*obj.De*obj.P*obj.De);
                     dDsdx = dgam*obj.De*V*obj.De - obj.gam(el)*obj.De*V*(th*k0*obj.De*obj.P*obj.De)*V*obj.De;
-                    Kte = Kte + B*dDsdx(([1 2 4]),[1 2 4])*B*J*obj.t;
+                    Kte = Kte + B'*dDsdx(([1 2 4]),[1 2 4])*B*J*obj.t;
 
                     depstdx = obj.eps(ix, :)*dDsdx*obj.P/obj.phi(el)^2*obj.Ds(ixM, :)*obj.eps(ix, :)'...
                               - obj.eps(ix, :)*obj.Ds(ixM, :)*obj.P*2*dphi/obj.phi(el)^3*obj.Ds(ixM, :)*obj.eps(ix, :)'...
@@ -339,6 +344,7 @@ classdef Solver
 
             lamt = -dg0du/obj.K(fdof, fdof);
             idR2dep = diag(1./obj.dR2dep);
+            idR2dep(isinf(idR2dep)) = 0;
             mut = -dg0dep'*idR2dep - lamt*dR1dep(fdof, :)*idR2dep;
 
             g0 = obj.a(pdof)'*obj.K(pdof, pdof)*obj.a(pdof);
