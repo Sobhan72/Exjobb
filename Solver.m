@@ -283,19 +283,19 @@ classdef Solver
             Z = sparse(I(1:i, 1), I(1:i, 2), I(1:i, 3), obj.nel, obj.nel);
         end
 
-        function obj = optimizer(obj, x)
+        function [g0, dg0, g1, dg1, test] = optimizer(obj, x)
             obj.gam = obj.del + (1-obj.del)*x.^obj.p;
-            obj.phi = obj.del + (1-obj.del)*x.^obj.q;   
+            obj.phi = obj.del + (1-obj.del)*x.^obj.q;
             gam4 = repelem(obj.gam, 4*obj.ngp);
             obj.Ds = gam4.*obj.Ds;
             obj.Dsi = obj.Ds;
             obj.Dt = obj.Ds;
 
             obj = newt(obj);
-            [g0, dg0, g1, dg1] = funcEval(obj, x);
+            [g0, dg0, g1, dg1, test] = funcEval(obj, x);
         end
 
-        function [g0, dg0, g1, dg1] = funcEval(obj, x)
+        function [g0, dg0, g1, dg1, test] = funcEval(obj, x)
             pdof = [obj.bcS(:, 1); obj.disp(:, 1)];
             fdof = (1:obj.ndof)';
             fdof(pdof) = [];
@@ -352,6 +352,8 @@ classdef Solver
 
             g1 = x'*obj.A*obj.t/obj.Vbox - 1;
             dg1 = obj.A*obj.t/obj.Vbox;
+
+            test = dg0dx;
         end
 
         %% Misc. Function

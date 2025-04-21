@@ -1,5 +1,63 @@
 clc, clear, close all
 
+for n = 1:sol.N
+    fprintf("Load step: %i \n", n);
+    bcD = sol.disp;
+    Nr = 0;
+    while norm(sol.r1) > sol.r1tol || Nr == 0
+        Nr = Nr + 1;
+        sol = FEM(sol, bcD);
+        bcD(:, 2) = bcD(:, 2)*0;
+        fprintf("  Nr: %i, r1: %4.2g \n", [Nr, norm(sol.r1)]);
+    end
+    sol.eps = sol.epsi; sol.sig = sol.sigi; sol.ep = sol.epi; sol.Ds = sol.Dsi; sol.sigy = sol.sigyi;
+end
+
+gp = 12;
+p = 6;
+q = 5;
+d = 1e-9;
+x = 0.5;
+h = 1e-8;
+
+k0 = sol.ep(gp)*sol.sigy0^2/(sol.sigy0+sol.H*sol.ep(gp));
+gam = d + (1-d)*x^p;
+phi = d + (1-d)*x^q;
+V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
+Ds = gam*sol.De*V*sol.De;
+epst = 1/phi^2*sol.eps(gp, :)*Ds*sol.P*Ds*sol.eps(gp, :)';
+
+dgam = p*(1-d)*x^(p-1); 
+dphi = q*(1-d)*x^(q-1);
+th = (dgam*phi-dphi*gam)/(phi)^2;
+dDsdx = dgam*sol.De*V*sol.De - gam*sol.De*V*(th*k0*sol.De*sol.P*sol.De)*V*sol.De;
+dPdx = -2/phi^3*sol.P;
+depstdx = sol.eps(gp, :)*dDsdx*sol.P/phi^2*Ds*sol.eps(gp, :)' - sol.eps(gp, :)*Ds*sol.P*2*dphi/phi^3*Ds*sol.eps(gp, :)' + sol.eps(gp, :)*Ds*sol.P/phi^2*dDsdx*sol.eps(gp, :)';
+dR2dx = dphi*(sol.sigy0+sol.H*sol.ep(gp))-dphi*sol.sigy0*sqrt(epst)-phi*sol.sigy0/2/sqrt(epst)*depstdx;
+
+x = 0.5 - h;
+gam = d + (1-d)*x^p;
+phi = d + (1-d)*x^q;
+V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
+Ds = gam*sol.De*V*sol.De;
+epst = 1/phi^2*sol.eps(gp, :)*Ds*sol.P*Ds*sol.eps(gp, :)';
+r1 = phi*(sol.sigy0 + sol.H*sol.ep(gp)) - phi*sol.sigy0*sqrt(epst);
+
+x = 0.5 + h;
+gam = d + (1-d)*x^p;
+phi = d + (1-d)*x^q;
+V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
+Ds = gam*sol.De*V*sol.De;
+epst = 1/phi^2*sol.eps(gp, :)*Ds*sol.P*Ds*sol.eps(gp, :)';
+r2 = phi*(sol.sigy0 + sol.H*sol.ep(gp)) - phi*sol.sigy0*sqrt(epst);
+
+dr = (r2-r1)/(2*h);
+
+dr - dR2dx
+
+
+
+
 k0 = sol.ep(gp)*sol.sigy0^2/(sol.sigy0+sol.H*sol.ep(gp));
 gam = d + (1-d)*x^p;
 phi = d + (1-d)*x^q;
@@ -13,12 +71,9 @@ th = (dgam*phi-dphi*gam)/(phi)^2;
 dDsdx = dgam*sol.De*V*sol.De - gam*sol.De*V*(th*k0*sol.De*sol.P*sol.De)*V*sol.De;
 
 x=0.5-h;
-
 gam = d + (1-d)*x^p;
 phi = d + (1-d)*x^q;
 V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
-
-
 Ds = gam*sol.De*V*sol.De;
 
 x=0.5+h;
@@ -28,7 +83,6 @@ V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
 Ds2 = gam*sol.De*V*sol.De;
 
 dDs = (Ds2-Ds)/(2*h);
-
 dDsdx-dDs;
 
 

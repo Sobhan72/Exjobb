@@ -27,7 +27,7 @@ params.sigy01 = 360e6;
 params.sigy02 = 360e6;
 params.sigy03 = 360e6;
 
-params.N = 10;
+params.N = 13;
 params.r1tol = 1e-4;
 params.disp = [2 -4e-2;
                4 -4e-2;
@@ -36,16 +36,18 @@ params.disp = [2 -4e-2;
 % Optimization Parameters
 params.re = 2; % Elements in radius
 params.p = 3;
-params.q = 2;
+params.q = 3;
 params.del = 1e-9;
 
 sol = Solver(params);
 
 %% Opt test
-% c = [0.3 0.5 0.2 0.7 0.9]';
-% x = repmat(c, sol.nel/5, 1);
-x = 0.5*ones(sol.nel, 1);
+c = [0.3 0.5 0.2 0.7 0.9]';
+x = repmat(c, sol.nel/5, 1);
+% x = ones(sol.nel, 1);
+
 sol = optimizer(sol, x);
+sol.plotFigs
 
 %% Mesh
 patch(sol.ex', sol.ey', 1)
@@ -104,7 +106,6 @@ for n = 1:N
     end
     fprintf("Load step: %i \n", n)
     epsgp = epsgp + deps;
-    % epse(n) = strain_eff(epsgp);
     epse(n) = sqrt(epsgp'*R*epsgp);
     depsm = deps + [0;0;0;1]*deps(4);
     epsgpm = epsgp + [0;0;0;1]*epsgp(4);
@@ -161,57 +162,23 @@ title("Effective stress-strain")
 grid on;
 
 %% Finite diff
-for n = 1:sol.N
-    fprintf("Load step: %i \n", n);
-    bcD = sol.disp;
-    Nr = 0;
-    while norm(sol.r1) > sol.r1tol || Nr == 0
-        Nr = Nr + 1;
-        sol = FEM(sol, bcD);
-        bcD(:, 2) = bcD(:, 2)*0;
-        fprintf("  Nr: %i, r1: %4.2g \n", [Nr, norm(sol.r1)]);
-    end
-    sol.eps = sol.epsi; sol.sig = sol.sigi; sol.ep = sol.epi; sol.Ds = sol.Dsi; sol.sigy = sol.sigyi;
-end
-
-gp = 12;
-p = 6;
-q = 5;
-d = 1e-9;
-x = 0.5;
+sol1 = Solver(params);
+sol2 = Solver(params);
 h = 1e-8;
 
-k0 = sol.ep(gp)*sol.sigy0^2/(sol.sigy0+sol.H*sol.ep(gp));
-gam = d + (1-d)*x^p;
-phi = d + (1-d)*x^q;
-V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
-Ds = gam*sol.De*V*sol.De;
-epst = 1/phi^2*sol.eps(gp, :)*Ds*sol.P*Ds*sol.eps(gp, :)';
+c = [0.3 0.5 0.2 0.7 0.9]';
+x = repmat(c, sol.nel/5, 1);
+x1 = x;
+x2 = x;
+el = 10;
 
-dgam = p*(1-d)*x^(p-1); 
-dphi = q*(1-d)*x^(q-1);
-th = (dgam*phi-dphi*gam)/(phi)^2;
-dDsdx = dgam*sol.De*V*sol.De - gam*sol.De*V*(th*k0*sol.De*sol.P*sol.De)*V*sol.De;
-dPdx = -2/phi^3*sol.P;
-depstdx = sol.eps(gp, :)*dDsdx*sol.P/phi^2*Ds*sol.eps(gp, :)' - sol.eps(gp, :)*Ds*sol.P*2*dphi/phi^3*Ds*sol.eps(gp, :)' + sol.eps(gp, :)*Ds*sol.P/phi^2*dDsdx*sol.eps(gp, :)';
-dR2dx = dphi*(sol.sigy0+sol.H*sol.ep(gp))-dphi*sol.sigy0*sqrt(epst)-phi*sol.sigy0/2/sqrt(epst)*depstdx;
+x1(el) = x1(el) - h;
+x2(el) = x2(el) + h;
+[~, dg, ~, ~, dg0dx] = optimizer(sol, x);
+[g1, ~, ~, ~, ~] = optimizer(sol1, x1);
+[g2, ~, ~, ~, ~] = optimizer(sol2, x2);
 
-x = 0.5 - h;
-gam = d + (1-d)*x^p;
-phi = d + (1-d)*x^q;
-V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
-Ds = gam*sol.De*V*sol.De;
-epst = 1/phi^2*sol.eps(gp, :)*Ds*sol.P*Ds*sol.eps(gp, :)';
-r1 = phi*(sol.sigy0 + sol.H*sol.ep(gp)) - phi*sol.sigy0*sqrt(epst);
-
-x = 0.5 + h;
-gam = d + (1-d)*x^p;
-phi = d + (1-d)*x^q;
-V = inv(sol.De + gam/phi*k0*sol.De*sol.P*sol.De);
-Ds = gam*sol.De*V*sol.De;
-epst = 1/phi^2*sol.eps(gp, :)*Ds*sol.P*Ds*sol.eps(gp, :)';
-r2 = phi*(sol.sigy0 + sol.H*sol.ep(gp)) - phi*sol.sigy0*sqrt(epst);
-
-dr = (r2-r1)/(2*h);
-
-dr - dR2dx
+dgf = (g2-g1)/2/h;
+disp(dg(el)-dgf)
+disp(dg(el));
+disp(dgf);
