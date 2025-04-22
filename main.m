@@ -28,7 +28,7 @@ params.sigy02 = 360e6;
 params.sigy03 = 360e6;
 
 params.N = 13;
-params.r1tol = 1e-4;
+params.R1tol = 1e-4;
 params.disp = [2 -4e-2;
                4 -4e-2;
                6 -4e-2]; % displacement [nodes total-size]
@@ -166,19 +166,87 @@ sol1 = Solver(params);
 sol2 = Solver(params);
 h = 1e-8;
 
-c = [0.3 0.5 0.2 0.7 0.9]';
-x = repmat(c, sol.nel/5, 1);
+% c = [0.3 0.5 0.2 0.7 0.9]';
+% x = repmat(c, sol.nel/5, 1);
+x = ones(sol.nel, 1);
 x1 = x;
 x2 = x;
-el = 10;
+el = 12;
 
 x1(el) = x1(el) - h;
 x2(el) = x2(el) + h;
-[~, dg, ~, ~, dg0dx] = optimizer(sol, x);
-[g1, ~, ~, ~, ~] = optimizer(sol1, x1);
-[g2, ~, ~, ~, ~] = optimizer(sol2, x2);
+[~, ~, dg, ~, ~, ~] = optimizer(sol, x);
+[~, g1, ~, ~, ~, ~] = optimizer(sol1, x1);
+[~, g2, ~, ~, ~, ~] = optimizer(sol2, x2);
 
 dgf = (g2-g1)/2/h;
 disp(dg(el)-dgf)
 disp(dg(el));
 disp(dgf);
+
+%% Finite diff gt0
+h = 1e-8;
+sol1 = Solver(params);
+sol2 = Solver(params);
+
+% c = [0.3 0.5 0.2 0.7 0.9]';
+% x = repmat(c, sol.nel/5, 1);
+x = ones(sol.nel, 1);
+x1 = x;
+x2 = x;
+el = 11;
+
+x1(el) = x1(el) - h;
+x2(el) = x2(el) + h;
+[sol, ~, ~, ~, ~, ~, dg] = optimizer(sol, x);
+sol1.ep = sol.ep;
+sol1.eps = sol.eps;
+sol1.a = sol.a;
+sol2.ep = sol.ep;
+sol2.eps = sol.eps;
+sol2.a = sol.a;
+
+sol1.gam = sol1.del + (1-sol1.del)*x1.^sol1.p;
+sol1.phi = sol1.del + (1-sol1.del)*x1.^sol1.q;
+
+sol2.gam = sol2.del + (1-sol2.del)*x2.^sol2.p;
+sol2.phi = sol2.del + (1-sol2.del)*x2.^sol2.q;
+
+for el = 1:sol.nel
+    gam1 = sol1.gam(el);
+    gam2 = sol2.gam(el);
+    phi1 = sol1.phi(el);
+    phi2 = sol2.phi(el);
+
+    for gp = 1:sol.ngp
+        ix = sol.ngp*(el-1) + gp;
+        ixM = 4*sol.ngp*(el-1) + (gp-1)*4 + 1:4*sol.ngp*(el-1) + gp*4;
+        sol1.Ds(ixM, :) = gam1*sol.X*diag(1./diag(eye(4) + gam1/phi1*sol.sigy0^2/(sol.sigy0+sol.H*sol1.ep(ix))*sol1.ep(ix)*sol.Gam))*sol.X';
+        sol2.Ds(ixM, :) = gam2*sol.X*diag(1./diag(eye(4) + gam2/phi2*sol.sigy0^2/(sol.sigy0+sol.H*sol2.ep(ix))*sol2.ep(ix)*sol.Gam))*sol.X';
+        
+        epst = 1/phi1^2*(sol1.eps(ix, :)*sol1.Ds(ixM, :)*sol.P*sol1.Ds(ixM, :)*sol1.eps(ix, :)');
+        detdDs = 1/phi1^2*(2*sol.P*sol1.Ds(ixM, :)*(sol1.eps(ix, :)'*sol1.eps(ix, :)));
+        dDsdep = 1/phi1*(-sol1.Ds(ixM, :)*sol.P*sol1.Ds(ixM, :)*(sol.sigy0^2*(sol.sigy0+sol.H*sol1.ep(ix)-sol.H*sol1.ep(ix))/(sol.sigy0+sol.H*sol1.ep(ix))^2));
+        drdep =  phi1*(sol.H - sol.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
+        drdeps = 1/phi1*(-sol.sigy0/sqrt(epst)*sol1.Ds(ixM, :)*sol.P*sol1.Ds(ixM, :)*sol1.eps(ix, :)');
+        depdeps = -drdeps/drdep;
+        sol1.Dt(ixM, :) = sol1.Ds(ixM, :) + dDsdep*sol1.eps(ix, :)'*depdeps';
+
+        epst = 1/phi2^2*(sol2.eps(ix, :)*sol2.Ds(ixM, :)*sol.P*sol2.Ds(ixM, :)*sol2.eps(ix, :)');
+        detdDs = 1/phi2^2*(2*sol.P*sol2.Ds(ixM, :)*(sol2.eps(ix, :)'*sol2.eps(ix, :)));
+        dDsdep = 1/phi2*(-sol2.Ds(ixM, :)*sol.P*sol2.Ds(ixM, :)*(sol.sigy0^2*(sol.sigy0+sol.H*sol2.ep(ix)-sol.H*sol2.ep(ix))/(sol.sigy0+sol.H*sol2.ep(ix))^2));
+        drdep =  phi2*(sol.H - sol.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
+        drdeps = 1/phi2*(-sol.sigy0/sqrt(epst)*sol2.Ds(ixM, :)*sol.P*sol2.Ds(ixM, :)*sol2.eps(ix, :)');
+        depdeps = -drdeps/drdep;
+        sol2.Dt(ixM, :) = sol2.Ds(ixM, :) + dDsdep*sol2.eps(ix, :)'*depdeps';
+    end
+end
+
+assemK(sol1, sol1.Dt);
+assemK(sol2, sol2.Dt);
+
+[~, ~, ~, ~, gf1, ~]  = funcEval(sol1, x1);
+[~, ~, ~, ~, gf2, ~]  = funcEval(sol2, x2);
+
+dgf = (gf2-gf1)/2/h;
+fprintf("\nDiff: %.5g \ndg: %.5g \ndgf: %.5g", [dgf-dg, dg, dgf])
