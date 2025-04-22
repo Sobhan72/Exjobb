@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 0.05;
+params.le = 0.25;
 params.lx = 1;
 params.ly = 1;
 params.Vf = 0.25;
@@ -171,7 +171,7 @@ h = 1e-8;
 x = ones(sol.nel, 1);
 x1 = x;
 x2 = x;
-el = 12;
+el = 2;
 
 x1(el) = x1(el) - h;
 x2(el) = x2(el) + h;
@@ -180,9 +180,7 @@ x2(el) = x2(el) + h;
 [~, g2, ~, ~, ~, ~] = optimizer(sol2, x2);
 
 dgf = (g2-g1)/2/h;
-disp(dg(el)-dgf)
-disp(dg(el));
-disp(dgf);
+fprintf("\nDiff: %.5g \ndg: %.5g \ndgf: %.5g", [dgf-dg(el), dg(el), dgf])
 
 %% Finite diff gt0
 h = 1e-8;
@@ -191,14 +189,15 @@ sol2 = Solver(params);
 
 % c = [0.3 0.5 0.2 0.7 0.9]';
 % x = repmat(c, sol.nel/5, 1);
-x = ones(sol.nel, 1);
+x = 0.8*ones(sol.nel, 1);
 x1 = x;
 x2 = x;
-el = 11;
+elc = 3;
+x1(elc) = x1(elc) - h;
+x2(elc) = x2(elc) + h;
 
-x1(el) = x1(el) - h;
-x2(el) = x2(el) + h;
 [sol, ~, ~, ~, ~, ~, dg] = optimizer(sol, x);
+
 sol1.ep = sol.ep;
 sol1.eps = sol.eps;
 sol1.a = sol.a;
@@ -212,41 +211,94 @@ sol1.phi = sol1.del + (1-sol1.del)*x1.^sol1.q;
 sol2.gam = sol2.del + (1-sol2.del)*x2.^sol2.p;
 sol2.phi = sol2.del + (1-sol2.del)*x2.^sol2.q;
 
+
+tripf1 = zeros(sol.nel*sol.endof, 2);
+tripf2 = zeros(sol.nel*sol.endof, 2);
 for el = 1:sol.nel
     gam1 = sol1.gam(el);
     gam2 = sol2.gam(el);
     phi1 = sol1.phi(el);
     phi2 = sol2.phi(el);
 
+    fein1 = zeros(sol.endof, 1);
+    fein2 = zeros(sol.endof, 1);
+
     for gp = 1:sol.ngp
         ix = sol.ngp*(el-1) + gp;
         ixM = 4*sol.ngp*(el-1) + (gp-1)*4 + 1:4*sol.ngp*(el-1) + gp*4;
-        sol1.Ds(ixM, :) = gam1*sol.X*diag(1./diag(eye(4) + gam1/phi1*sol.sigy0^2/(sol.sigy0+sol.H*sol1.ep(ix))*sol1.ep(ix)*sol.Gam))*sol.X';
-        sol2.Ds(ixM, :) = gam2*sol.X*diag(1./diag(eye(4) + gam2/phi2*sol.sigy0^2/(sol.sigy0+sol.H*sol2.ep(ix))*sol2.ep(ix)*sol.Gam))*sol.X';
+
+        if sol1.ep(ix) ~= 0
+            sol1.Ds(ixM, :) = gam1*sol.X*diag(1./diag(eye(4) + gam1/phi1*sol.sigy0^2/(sol.sigy0+sol.H*sol1.ep(ix))*sol1.ep(ix)*sol.Gam))*sol.X';
         
-        epst = 1/phi1^2*(sol1.eps(ix, :)*sol1.Ds(ixM, :)*sol.P*sol1.Ds(ixM, :)*sol1.eps(ix, :)');
-        detdDs = 1/phi1^2*(2*sol.P*sol1.Ds(ixM, :)*(sol1.eps(ix, :)'*sol1.eps(ix, :)));
-        dDsdep = 1/phi1*(-sol1.Ds(ixM, :)*sol.P*sol1.Ds(ixM, :)*(sol.sigy0^2*(sol.sigy0+sol.H*sol1.ep(ix)-sol.H*sol1.ep(ix))/(sol.sigy0+sol.H*sol1.ep(ix))^2));
-        drdep =  phi1*(sol.H - sol.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
-        drdeps = 1/phi1*(-sol.sigy0/sqrt(epst)*sol1.Ds(ixM, :)*sol.P*sol1.Ds(ixM, :)*sol1.eps(ix, :)');
-        depdeps = -drdeps/drdep;
-        sol1.Dt(ixM, :) = sol1.Ds(ixM, :) + dDsdep*sol1.eps(ix, :)'*depdeps';
+            epst = 1/phi1^2*(sol1.eps(ix, :)*sol1.Ds(ixM, :)*sol.P*sol1.Ds(ixM, :)*sol1.eps(ix, :)');
+            detdDs = 1/phi1^2*(2*sol.P*sol1.Ds(ixM, :)*(sol1.eps(ix, :)'*sol1.eps(ix, :)));
+            dDsdep = 1/phi1*(-sol1.Ds(ixM, :)*sol.P*sol1.Ds(ixM, :)*(sol.sigy0^2*(sol.sigy0+sol.H*sol1.ep(ix)-sol.H*sol1.ep(ix))/(sol.sigy0+sol.H*sol1.ep(ix))^2));
+            drdep =  phi1*(sol.H - sol.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
+            drdeps = 1/phi1*(-sol.sigy0/sqrt(epst)*sol1.Ds(ixM, :)*sol.P*sol1.Ds(ixM, :)*sol1.eps(ix, :)');
+            depdeps = -drdeps/drdep;
+            sol1.Dt(ixM, :) = sol1.Ds(ixM, :) + dDsdep*sol1.eps(ix, :)'*depdeps';
+        else
+            sol1.Dt(ixM, :) = gam1*sol.De;
+        end
+        
 
-        epst = 1/phi2^2*(sol2.eps(ix, :)*sol2.Ds(ixM, :)*sol.P*sol2.Ds(ixM, :)*sol2.eps(ix, :)');
-        detdDs = 1/phi2^2*(2*sol.P*sol2.Ds(ixM, :)*(sol2.eps(ix, :)'*sol2.eps(ix, :)));
-        dDsdep = 1/phi2*(-sol2.Ds(ixM, :)*sol.P*sol2.Ds(ixM, :)*(sol.sigy0^2*(sol.sigy0+sol.H*sol2.ep(ix)-sol.H*sol2.ep(ix))/(sol.sigy0+sol.H*sol2.ep(ix))^2));
-        drdep =  phi2*(sol.H - sol.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
-        drdeps = 1/phi2*(-sol.sigy0/sqrt(epst)*sol2.Ds(ixM, :)*sol.P*sol2.Ds(ixM, :)*sol2.eps(ix, :)');
-        depdeps = -drdeps/drdep;
-        sol2.Dt(ixM, :) = sol2.Ds(ixM, :) + dDsdep*sol2.eps(ix, :)'*depdeps';
+        if sol2.ep(ix) ~= 0
+            sol2.Ds(ixM, :) = gam2*sol.X*diag(1./diag(eye(4) + gam2/phi2*sol.sigy0^2/(sol.sigy0+sol.H*sol2.ep(ix))*sol2.ep(ix)*sol.Gam))*sol.X';
+    
+            epst = 1/phi2^2*(sol2.eps(ix, :)*sol2.Ds(ixM, :)*sol.P*sol2.Ds(ixM, :)*sol2.eps(ix, :)');
+            detdDs = 1/phi2^2*(2*sol.P*sol2.Ds(ixM, :)*(sol2.eps(ix, :)'*sol2.eps(ix, :)));
+            dDsdep = 1/phi2*(-sol2.Ds(ixM, :)*sol.P*sol2.Ds(ixM, :)*(sol.sigy0^2*(sol.sigy0+sol.H*sol2.ep(ix)-sol.H*sol2.ep(ix))/(sol.sigy0+sol.H*sol2.ep(ix))^2));
+            drdep =  phi2*(sol.H - sol.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
+            drdeps = 1/phi2*(-sol.sigy0/sqrt(epst)*sol2.Ds(ixM, :)*sol.P*sol2.Ds(ixM, :)*sol2.eps(ix, :)');
+            depdeps = -drdeps/drdep;
+            sol2.Dt(ixM, :) = sol2.Ds(ixM, :) + dDsdep*sol2.eps(ix, :)'*depdeps';
+        else
+            sol2.Dt(ixM, :) = gam2*sol.De;  
+        end
+
+        [B, J] = NablaB(sol, gp, el);
+        sig1 = sol1.Ds(ixM, :)*sol1.eps(ix, :)';
+        sig2 = sol2.Ds(ixM, :)*sol2.eps(ix, :)';
+        fein1 = fein1 + B'*sig1([1 2 4])*J*sol.t;
+        fein2 = fein2 + B'*sig2([1 2 4])*J*sol.t;
     end
+    tripf1((el-1)*sol.endof+1:el*sol.endof, :) = [sol.edof(el, :)', fein1];
+    tripf2((el-1)*sol.endof+1:el*sol.endof, :) = [sol.edof(el, :)', fein2];
 end
+bc = [sol.bcS; sol.disp];
 
-assemK(sol1, sol1.Dt);
-assemK(sol2, sol2.Dt);
+fin1 = sparse(tripf1(:, 1), 1, tripf1(:, 2), sol.ndof, 1);
+fin2 = sparse(tripf2(:, 1), 1, tripf2(:, 2), sol.ndof, 1);
 
-[~, ~, ~, ~, gf1, ~]  = funcEval(sol1, x1);
-[~, ~, ~, ~, gf2, ~]  = funcEval(sol2, x2);
+fin1(bc(:, 1)) = 0;
+fin2(bc(:, 1)) = 0;
 
-dgf = (gf2-gf1)/2/h;
-fprintf("\nDiff: %.5g \ndg: %.5g \ndgf: %.5g", [dgf-dg, dg, dgf])
+sol1.R1 = fin1;
+sol2.R1 = fin2;
+    
+% sol1.K = assemK(sol1, sol1.Dt);
+% sol2.K = assemK(sol2, sol2.Dt);
+
+% ke1 = zeros(sol.endof);
+% for gp = 1:sol.ngp
+%     [B, J] = NablaB(sol, gp, elc);
+%     ixM = 4*sol.ngp*(elc-1) + (gp-1)*4 + 1:4*sol.ngp*(elc-1) + gp*4;
+%     ke1 = ke1 + B'*sol1.Ds(ixM([1 2 4]),[1 2 4])*B*J*sol.t;
+% end
+% 
+% ke2 = zeros(sol.endof);
+% for gp = 1:sol.ngp
+%     [B, J] = NablaB(sol, gp, elc);
+%     ixM = 4*sol.ngp*(elc-1) + (gp-1)*4 + 1:4*sol.ngp*(elc-1) + gp*4;
+%     ke2 = ke2 + B'*sol2.Ds(ixM([1 2 4]),[1 2 4])*B*J*sol.t;
+% end
+
+
+% [~, ~, ~, ~, gf1, ~]  = funcEval(sol1, x1);
+% [~, ~, ~, ~, gf2, ~]  = funcEval(sol2, x2);
+
+% dgf = (gf2-gf1)/2/h;
+% dgf = (ke2 - ke1)/(2*h);
+dgf = (sol2.R1 - sol1.R1)/(2*h);
+dDs = (sol2.Ds(4*sol.ngp*(elc-1) + 1:4*sol.ngp*(elc-1) + 16, :) - sol1.Ds(4*sol.ngp*(elc-1) + 1:4*sol.ngp*(elc-1) + 16, :))/(2*h);
+% fprintf("\nDiff: %.5g \ndg: %.5g \ndgf: %.5g", [dgf-dg(elc), dg(elc), dgf])

@@ -308,6 +308,8 @@ classdef Solver
             ap = zeros(obj.ndof, 1);
             ap(pdof) = obj.a(pdof);
 
+                % dgf = zeros(16, 4);
+
             for el = 1:obj.nel
                 dgam = obj.p*(1-obj.del)*x(el)^(obj.p-1);
                 dphi = obj.q*(1-obj.del)*x(el)^(obj.q-1);
@@ -317,10 +319,13 @@ classdef Solver
                 for gp = 1:obj.ngp
                     [B, J] = NablaB(obj, gp, el);
                     ix = obj.ngp*(el-1) + gp;
-                    ixM = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
+                    ixM =  (gp-1)*4 + 1: gp*4;
                     k0 = obj.ep(ix)*obj.sigy0^2/(obj.sigy0+obj.H*obj.ep(ix));
                     V = inv(obj.De + obj.gam(el)/obj.phi(el)*k0*obj.De*obj.P*obj.De);
                     dDsdx = dgam*obj.De*V*obj.De - obj.gam(el)*obj.De*V*(th*k0*obj.De*obj.P*obj.De)*V*obj.De;
+                    % if el == 3
+                    %     dgf(ixM, :) = dDsdx;
+                    % end
                     Kte = Kte + B'*dDsdx(([1 2 4]),[1 2 4])*B*J*obj.t;
 
                     depstdx = obj.eps(ix, :)*dDsdx*obj.P/obj.phi(el)^2*obj.Ds(ixM, :)*obj.eps(ix, :)'...
@@ -334,11 +339,15 @@ classdef Solver
                     dgt0dep(ix) = ap(eix)'*dR1depe;
                     dR1dep(obj.edof(el, :), ix) = dR1depe;
                 end
+                % if el == 3
+                %     dgf = Kte;
+                % end
                 dR1dxe = Kte*obj.a(eix);
                 dgt0dx(el) = ap(eix)'*dR1dxe;
                 dR1dx(obj.edof(el, :), el) = dR1dxe;
                 dR2dx(ix-3:ix, el) = dR2dxe;
             end
+                 dgf = dR1dx;
 
             dgt0du = obj.a(pdof)'*obj.K(pdof, fdof);
 
@@ -354,7 +363,7 @@ classdef Solver
             dg1 = obj.A*obj.t/obj.Vbox;
             
             gf = g0;
-            dgf = dgt0dx;
+            % dgf = dgt0dx;
         end
 
         %% Misc. Function
