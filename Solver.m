@@ -3,7 +3,8 @@ classdef Solver
         edof; ex; ey
         ed; a; K
         A; t; ngp; tgp; Vbox
-        ndof; nel; endof; bcS; disp
+        ndof; nel; endof; pdof; fdof; 
+        bcS; disp
         De; Ds; Dt; X; iX; Gam
         dDsdep; dR2dep; epst
         H; sigy0; Kinf; xi
@@ -14,7 +15,6 @@ classdef Solver
         epsi; sigi; epi; Dsi; sigyi
         Z; del; p; q
         gam; phi
-        fint
     end
 
     methods
@@ -77,6 +77,8 @@ classdef Solver
             obj.disp(:, 2) = obj.disp(:, 2)/obj.N;
             obj.a = zeros(obj.ndof, 1);
             obj.bcS = obj.addBC(bc, p.ly, p.le, obj.ndof);
+            obj.pdof = [obj.bcS(:, 1); obj.disp(:, 1)];
+            obj.fdof = setdiff((1:obj.ndof)', obj.pdof);
 
             obj.eps = zeros(obj.tgp, 4);
             obj.sig = zeros(obj.tgp, 4);
@@ -93,22 +95,21 @@ classdef Solver
         function obj = newt(obj) % Newton-Raphson method
             for n = 1:obj.N
                 fprintf("Load step: %i \n", n);
-                bcD = obj.disp;
+                bc = [obj.bcS; obj.disp];
                 Nr = 0;
-                while norm(obj.R1) > obj.R1tol || Nr == 0
+                while norm(obj.R1(obj.fdof)) > obj.R1tol || Nr == 0
                     Nr = Nr + 1;
-                    obj = FEM(obj, bcD);
-                    bcD(:, 2) = bcD(:, 2)*0;
-                    fprintf("  Nr: %i, R1: %4.2g \n", [Nr, norm(obj.R1)]);
+                    obj = FEM(obj, bc);
+                    bc(:, 2) = bc(:, 2)*0;
+                    fprintf("  Nr: %i, R1: %4.2g \n", [Nr, norm(obj.R1(obj.fdof))]);
                 end
                 obj.eps = obj.epsi; obj.sig = obj.sigi; obj.ep = obj.epi; obj.Ds = obj.Dsi; obj.sigy = obj.sigyi;
             end
         end
 
-        function obj = FEM(obj, bcD) % Main FEM function
+        function obj = FEM(obj, bc) % Main FEM function
             obj.K = assemK(obj, obj.Dt);
 
-            bc = [obj.bcS; bcD];
             da = obj.solvelin(obj.K, -obj.R1, bc);
             obj.a = obj.a + da;
             obj.ed = obj.a(obj.edof);
@@ -142,10 +143,7 @@ classdef Solver
                 end
                 tripf((el-1)*obj.endof+1:el*obj.endof, :) = [obj.edof(el, :)', fein];
             end
-            fin = sparse(tripf(:, 1), 1, tripf(:, 2), obj.ndof, 1);
-            obj.fint = fin;
-            fin(bc(:, 1)) = 0;
-            obj.R1 = fin;
+            obj.R1 = sparse(tripf(:, 1), 1, tripf(:, 2), obj.ndof, 1);
         end
 
         function K = assemK(obj, D)
@@ -179,16 +177,14 @@ classdef Solver
             Bgp(3, :) = Npx_f(:);
         end
 
-        function a = solvelin(~,K,f,bc) % Solve FE-equations
-            [nr, nc] = size(f);
+        function a = solvelin(obj,K,f,bc) % Solve FE-equations
+            nc = size(f, 2);
             if nargin == 2
                 a = K\f;
             else
-                fdof = (1:nr)';
-                fdof(bc(:,1)) = [];
-                s = K(fdof,fdof)\(f(fdof,:)-K(fdof,bc(:,1))*bc(:,2));
-                a = zeros([nr, nc]);
-                a(fdof,:) = s;
+                s = K(obj.fdof,obj.fdof)\(f(obj.fdof,:)-K(obj.fdof,bc(:,1))*bc(:,2));
+                a = zeros([obj.ndof, nc]);
+                a(obj.fdof,:) = s;
                 a(bc(:,1),:) = repmat(bc(:,2),1,nc);
             end
         end
@@ -298,9 +294,6 @@ classdef Solver
         end
 
         function [g0, dg0, g1, dg1, gf, dgf] = funcEval(obj, x)
-            pdof = [obj.bcS(:, 1); obj.disp(:, 1)];
-            fdof = (1:obj.ndof)';
-            fdof(pdof) = [];
             dgt0dx = zeros(1, obj.nel);
             dR1dx = zeros(obj.ndof, obj.nel);
             dR2dxe = zeros(obj.ngp, 1);
@@ -308,10 +301,7 @@ classdef Solver
             dgt0dep = zeros(obj.tgp, 1);
             dR1dep = zeros(obj.ndof, obj.tgp);
             ap = zeros(obj.ndof, 1);
-            ap(pdof) = obj.a(pdof);
-            
-            dfpdx = zeros(obj.ndof, 1);
-                % dgf = zeros(16, 4);
+            ap(obj.pdof) = obj.a(obj.pdof);
 
             for el = 1:obj.nel
                 dgam = obj.p*(1-obj.del)*x(el)^(obj.p-1);
@@ -326,9 +316,6 @@ classdef Solver
                     k0 = obj.ep(ix)*obj.sigy0^2/(obj.sigy0+obj.H*obj.ep(ix));
                     V = inv(obj.De + obj.gam(el)/obj.phi(el)*k0*obj.De*obj.P*obj.De);
                     dDsdx = dgam*obj.De*V*obj.De - obj.gam(el)*obj.De*V*(th*k0*obj.De*obj.P*obj.De)*V*obj.De;
-                    % if el == 3
-                    %     dgf(ixM, :) = dDsdx;
-                    % end
                     Kte = Kte + B'*dDsdx(([1 2 4]),[1 2 4])*B*J*obj.t;
 
                     depstdx = obj.eps(ix, :)*dDsdx*obj.P/obj.phi(el)^2*obj.Ds(ixM, :)*obj.eps(ix, :)'...
@@ -342,33 +329,28 @@ classdef Solver
                     dgt0dep(ix) = ap(eix)'*dR1depe;
                     dR1dep(eix, ix) = dR1depe;
                 end
-                % if el == 3
-                %     dgf = Kte;
-                % end
+
                 dR1dxe = Kte*obj.a(eix);
-                dfpdx(eix) = dfpdx(eix) + dR1dxe;
                 dgt0dx(el) = ap(eix)'*dR1dxe;
                 dR1dx(eix, el) = dR1dxe;
                 dR2dx(ix-3:ix, el) = dR2dxe;
             end
-                 % dgf = dR1dx;
+  
+            dgt0du = obj.a(obj.pdof)'*obj.K(obj.pdof, obj.fdof);
 
-            dgt0du = obj.a(pdof)'*obj.K(pdof, fdof);
-
-            lamt = -dgt0du/obj.K(fdof, fdof);
+            lamt = -dgt0du/obj.K(obj.fdof, obj.fdof);
             idR2dep = diag(1./obj.dR2dep);
             idR2dep(isinf(idR2dep)) = 0;
-            mut = -dgt0dep'*idR2dep - lamt*dR1dep(fdof, :)*idR2dep;
+            mut = -dgt0dep'*idR2dep - lamt*dR1dep(obj.fdof, :)*idR2dep;
 
-            % g0 = obj.a(pdof)'*obj.K(pdof, :)*obj.a(:);
-            g0 = obj.a(pdof)'*obj.fint(pdof);
-            dg0 = dgt0dx + lamt*dR1dx(fdof, :) + mut*dR2dx;
+            g0 = obj.a(obj.pdof)'*obj.R1(obj.pdof);
+            dg0 = dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx;
 
             g1 = x'*obj.A*obj.t/obj.Vbox - 1;
             dg1 = obj.A*obj.t/obj.Vbox;
-            
+
             gf = g0;
-            dgf = dgt0dx;
+            dgf = dR1dep;
         end
 
         %% Misc. Function
