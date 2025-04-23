@@ -192,7 +192,7 @@ sol2 = Solver(params);
 x = 0.8*ones(sol.nel, 1);
 x1 = x;
 x2 = x;
-elc = 3;
+elc = 2;
 x1(elc) = x1(elc) - h;
 x2(elc) = x2(elc) + h;
 
@@ -239,6 +239,7 @@ for el = 1:sol.nel
             sol1.Dt(ixM, :) = sol1.Ds(ixM, :) + dDsdep*sol1.eps(ix, :)'*depdeps';
         else
             sol1.Dt(ixM, :) = gam1*sol.De;
+            sol1.Ds(ixM, :) = gam1*sol.De;
         end
         
 
@@ -253,7 +254,8 @@ for el = 1:sol.nel
             depdeps = -drdeps/drdep;
             sol2.Dt(ixM, :) = sol2.Ds(ixM, :) + dDsdep*sol2.eps(ix, :)'*depdeps';
         else
-            sol2.Dt(ixM, :) = gam2*sol.De;  
+            sol2.Dt(ixM, :) = gam2*sol.De;
+            sol2.Ds(ixM, :) = gam2*sol.De;  
         end
 
         [B, J] = NablaB(sol, gp, el);
@@ -269,15 +271,12 @@ bc = [sol.bcS; sol.disp];
 
 fin1 = sparse(tripf1(:, 1), 1, tripf1(:, 2), sol.ndof, 1);
 fin2 = sparse(tripf2(:, 1), 1, tripf2(:, 2), sol.ndof, 1);
-
-fin1(bc(:, 1)) = 0;
-fin2(bc(:, 1)) = 0;
-
 sol1.R1 = fin1;
 sol2.R1 = fin2;
-    
-% sol1.K = assemK(sol1, sol1.Dt);
-% sol2.K = assemK(sol2, sol2.Dt);
+sol1.fint = fin1;
+sol2.fint = fin2;
+sol1.K = assemK(sol1, sol1.Dt);
+sol2.K = assemK(sol2, sol2.Dt);
 
 % ke1 = zeros(sol.endof);
 % for gp = 1:sol.ngp
@@ -294,11 +293,11 @@ sol2.R1 = fin2;
 % end
 
 
-% [~, ~, ~, ~, gf1, ~]  = funcEval(sol1, x1);
-% [~, ~, ~, ~, gf2, ~]  = funcEval(sol2, x2);
+[~, ~, ~, ~, gf1, ~]  = funcEval(sol1, x1);
+[~, ~, ~, ~, gf2, ~]  = funcEval(sol2, x2);
 
-% dgf = (gf2-gf1)/2/h;
+dgf = (gf2-gf1)/2/h;
 % dgf = (ke2 - ke1)/(2*h);
-dgf = (sol2.R1 - sol1.R1)/(2*h);
+% dgf = (sol2.R1 - sol1.R1)/(2*h);
 dDs = (sol2.Ds(4*sol.ngp*(elc-1) + 1:4*sol.ngp*(elc-1) + 16, :) - sol1.Ds(4*sol.ngp*(elc-1) + 1:4*sol.ngp*(elc-1) + 16, :))/(2*h);
-% fprintf("\nDiff: %.5g \ndg: %.5g \ndgf: %.5g", [dgf-dg(elc), dg(elc), dgf])
+fprintf("\nDiff: %.5g \ndg: %.5g \ndgf: %.5g", [dgf-dg(elc), dg(elc), dgf])

@@ -14,6 +14,7 @@ classdef Solver
         epsi; sigi; epi; Dsi; sigyi
         Z; del; p; q
         gam; phi
+        fint
     end
 
     methods
@@ -142,6 +143,7 @@ classdef Solver
                 tripf((el-1)*obj.endof+1:el*obj.endof, :) = [obj.edof(el, :)', fein];
             end
             fin = sparse(tripf(:, 1), 1, tripf(:, 2), obj.ndof, 1);
+            obj.fint = fin;
             fin(bc(:, 1)) = 0;
             obj.R1 = fin;
         end
@@ -307,7 +309,8 @@ classdef Solver
             dR1dep = zeros(obj.ndof, obj.tgp);
             ap = zeros(obj.ndof, 1);
             ap(pdof) = obj.a(pdof);
-
+            
+            dfpdx = zeros(obj.ndof, 1);
                 % dgf = zeros(16, 4);
 
             for el = 1:obj.nel
@@ -337,17 +340,18 @@ classdef Solver
                     Kh = B'*obj.dDsdep(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
                     dR1depe = Kh*obj.a(eix);
                     dgt0dep(ix) = ap(eix)'*dR1depe;
-                    dR1dep(obj.edof(el, :), ix) = dR1depe;
+                    dR1dep(eix, ix) = dR1depe;
                 end
                 % if el == 3
                 %     dgf = Kte;
                 % end
                 dR1dxe = Kte*obj.a(eix);
+                dfpdx(eix) = dfpdx(eix) + dR1dxe;
                 dgt0dx(el) = ap(eix)'*dR1dxe;
-                dR1dx(obj.edof(el, :), el) = dR1dxe;
+                dR1dx(eix, el) = dR1dxe;
                 dR2dx(ix-3:ix, el) = dR2dxe;
             end
-                 dgf = dR1dx;
+                 % dgf = dR1dx;
 
             dgt0du = obj.a(pdof)'*obj.K(pdof, fdof);
 
@@ -356,14 +360,15 @@ classdef Solver
             idR2dep(isinf(idR2dep)) = 0;
             mut = -dgt0dep'*idR2dep - lamt*dR1dep(fdof, :)*idR2dep;
 
-            g0 = obj.a(pdof)'*obj.K(pdof, pdof)*obj.a(pdof);
+            % g0 = obj.a(pdof)'*obj.K(pdof, :)*obj.a(:);
+            g0 = obj.a(pdof)'*obj.fint(pdof);
             dg0 = dgt0dx + lamt*dR1dx(fdof, :) + mut*dR2dx;
 
             g1 = x'*obj.A*obj.t/obj.Vbox - 1;
             dg1 = obj.A*obj.t/obj.Vbox;
             
             gf = g0;
-            % dgf = dgt0dx;
+            dgf = dgt0dx;
         end
 
         %% Misc. Function
