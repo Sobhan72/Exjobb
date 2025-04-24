@@ -103,7 +103,7 @@ classdef Solver
                     Nr = Nr + 1;
                     obj = FEM(obj, bc);
                     bc(:, 2) = bc(:, 2)*0;
-                    fprintf("  Nr: %i, R1: %4.2g \n", [Nr, norm(obj.R1(obj.fdof))]);
+                    % fprintf("  Nr: %i, R1: %4.2g \n", [Nr, norm(obj.R1(obj.fdof))]);
                 end
                 obj.eps = obj.epsi; obj.sig = obj.sigi; obj.ep = obj.epi; obj.Ds = obj.Dsi; obj.sigy = obj.sigyi;
             end
@@ -302,7 +302,7 @@ classdef Solver
                 
                 [g0, dg0, g1, dg1] = funcEval(obj, x);
                 [xnew,~,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon,obj.nel,iter,x,zeros(obj.nel,1),ones(obj.nel,1),xold1,xold2, ...
-                                                     g0,dg0,g1,dg1,low,upp,a0,a1,c,d);
+                                                     g0,dg0,g1,dg1',low,upp,a0,a1,c,d);
 
                 xold2 = xold1;
                 xold1 = x;
@@ -312,6 +312,7 @@ classdef Solver
 
                 iter = iter +1;
                 plotFigs(obj, x, 0);
+               
 
             end
         end
@@ -403,7 +404,7 @@ classdef Solver
 
             end
 
-            figure;
+            clf;
             patch(obj.ex',obj.ey',x)
             colorbar
             axis equal

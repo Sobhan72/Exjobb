@@ -1,10 +1,11 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 0.1;
+params.le = 0.05;
 params.lx = 1;
 params.ly = 1;
 params.Vf = 0.25;
+
 
 params.t = 2;
 params.ngp = 4;
@@ -27,11 +28,11 @@ params.sigy01 = 360e6;
 params.sigy02 = 360e6;
 params.sigy03 = 360e6;
 
-params.N = 13;
+params.N = 5;
 params.R1tol = 1e-4;
-params.disp = [2 -4e-2;
-               4 -4e-2;
-               6 -4e-2]; % displacement [nodes total-size]
+params.disp = [2 -4e-3;
+               4 -4e-3;
+               6 -4e-3]; % displacement [nodes total-size]
 
 % Optimization Parameters
 params.re = 2; % Elements in radius
