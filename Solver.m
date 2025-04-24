@@ -13,7 +13,7 @@ classdef Solver
         R1; R1tol; N
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
-        Z; del; p; q
+        Z; del; p; q; ncon; xTol
         gam; phi
     end
 
@@ -28,6 +28,8 @@ classdef Solver
             obj.p = p.p;
             obj.q = p.q;
             obj.del = p.del;
+            obj.ncon = p.ncon;
+            obj.xTol = p.xTol;
             
             obj.A = p.le^2*ones(obj.nel, 1);
             obj.t = p.t;
@@ -288,9 +290,30 @@ classdef Solver
             obj.Ds = gam4.*obj.Ds;
             obj.Dsi = obj.Ds;
             obj.Dt = obj.Ds;
+            a0 = 1; a1 = zeros(obj.ncon,1); c = 1000*ones(obj.ncon,1); d = ones(obj.ncon,1);
+            iter = 1;
+            xold1 = [];
+            xold2 = [];
+            low = [];
+            upp = [];
+            dx = 1;    
+            while dx > obj.xTol
+                obj = newt(obj);
+                
+                [g0, dg0, g1, dg1] = funcEval(obj, x);
+                [xnew,~,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon,obj.nel,iter,x,zeros(obj.nel,1),ones(obj.nel,1),xold1,xold2, ...
+                                                     g0,dg0,g1,dg1,low,upp,a0,a1,c,d);
 
-            obj = newt(obj);
-            [g0, dg0, g1, dg1] = funcEval(obj, x);
+                xold2 = xold1;
+                xold1 = x;
+  
+                dx = norm(xnew - xold1);
+                x = obj.Z*xnew;
+
+                iter = iter +1;
+                plotFigs(obj, x, 0);
+
+            end
         end
 
         function [g0, dg0, g1, dg1] = funcEval(obj, x)
@@ -345,15 +368,17 @@ classdef Solver
             mut = -dgt0dep'*idR2dep - lamt*dR1dep(obj.fdof, :)*idR2dep;
 
             g0 = -obj.a(obj.pdof)'*obj.R1(obj.pdof);
-            dg0 = dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx;
+            dg0 = obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
 
             g1 = x'*obj.A*obj.t/obj.Vbox - 1;
-            dg1 = obj.A*obj.t/obj.Vbox;
+            dg1 = obj.Z*obj.A*obj.t/obj.Vbox;
         end
 
         %% Misc. Function
-        function plotFigs(obj)
-            vM = zeros(obj.nel, 1);
+        function plotFigs(obj, x, flag)
+            clf;
+            if flag == 1
+                vM = zeros(obj.nel, 1);
             for ii = 1:obj.nel
                 ix = (ii-1)*4+1:ii*4;
                 vM(ii) = sqrt(obj.sigy0^2*trace(obj.sig(ix, :)*obj.P*obj.sig(ix, :)')/4);
@@ -375,7 +400,17 @@ classdef Solver
                        linspace(0.1, 0, 256)', ...
                        linspace(0.8, 0.1, 256)'];
             colormap(easyjet)
+
+            end
+
+            figure;
+            patch(obj.ex',obj.ey',x)
+            colorbar
+            axis equal
+            drawnow
+
         end
+
         
         function bc = addBC(~, bc, ly, le, ndof)
             nR = ly/le + 1;

@@ -38,6 +38,8 @@ params.re = 2; % Elements in radius
 params.p = 3;
 params.q = 3;
 params.del = 1e-9;
+params.ncon = 1; % Nr of constraints
+params.xTol = 1e-4;
 
 sol = Solver(params);
 
@@ -47,7 +49,7 @@ x = repmat(c, sol.nel/5, 1);
 % x = ones(sol.nel, 1);
 
 sol = optimizer(sol, x);
-sol.plotFigs
+% sol.plotFigs
 
 %% Mesh
 patch(sol.ex', sol.ey', 1)
