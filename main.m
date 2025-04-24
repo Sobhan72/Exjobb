@@ -6,8 +6,7 @@ params.lx = 1;
 params.ly = 1;
 params.Vf = 0.25;
 
-
-params.t = 2;
+params.t = 1;
 params.ngp = 4;
 
 params.H = 10e9;
@@ -37,7 +36,7 @@ params.disp = [2 -4e-3;
 % Optimization Parameters
 params.re = 2; % Elements in radius
 params.p = 3;
-params.q = 3;
+params.q = 2;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
 params.xTol = 1e-4;
@@ -45,26 +44,24 @@ params.xTol = 1e-4;
 sol = Solver(params);
 
 %% Opt test
-c = [0.3 0.5 0.2 0.7 0.9]';
-x = repmat(c, sol.nel/5, 1);
-% x = ones(sol.nel, 1);
-
+x = ones(sol.nel, 1);
 sol = optimizer(sol, x);
-% sol.plotFigs
 
 %% Mesh
 patch(sol.ex', sol.ey', 1)
 
 %% Newton-Raphson
+sol.gam = ones(sol.nel, 1);
+sol.phi = ones(sol.nel, 1);
 sol = newt(sol);
-sol.plotFigs
+plotFigs(sol, ones(sol.nel, 1), 1)
 
-% figure;
-% eldraw2(sol.ex, sol.ey, [1 2 1]);
-% hold on
-% eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
-% dof = sol.ndof-3;
-% fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
+figure;
+eldraw2(sol.ex, sol.ey, [1 2 1]);
+hold on
+eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
+dof = sol.ndof-3;
+fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
 
 %% Model validation
 params.DP = 0;

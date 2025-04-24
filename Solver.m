@@ -2,7 +2,7 @@ classdef Solver
     properties
         edof; ex; ey
         ed; a; K
-        A; t; ngp; tgp; Vbox
+        A; t; ngp; tgp; Amax
         ndof; nel; endof; pdof; fdof 
         bcS; disp
         De; Ds; Dt; X; iX; Gam
@@ -35,7 +35,7 @@ classdef Solver
             obj.t = p.t;
             obj.ngp = p.ngp;
             obj.tgp = obj.nel*obj.ngp;
-            obj.Vbox = sum(p.Vf*obj.A);
+            obj.Amax = sum(p.Vf*obj.A);
 
             Fco = 1/2*(1/p.sigy01^2+1/p.sigy02^2-1/p.sigy03^2);
             Gco = 1/2*(1/p.sigy01^2-1/p.sigy02^2+1/p.sigy03^2);
@@ -96,11 +96,16 @@ classdef Solver
         %% FEM
         function obj = newt(obj) % Newton-Raphson method
             for n = 1:obj.N
-                fprintf("Load step: %i \n", n);
+                % fprintf("Load step: %i \n", n);
                 bc = [obj.bcS; obj.disp];
                 Nr = 0;
                 while norm(obj.R1(obj.fdof)) > obj.R1tol || Nr == 0
                     Nr = Nr + 1;
+                    if Nr == 10
+                        warning("NR converging slowly")
+                    elseif Nr == 40
+                        error("NR not converging")
+                    end
                     obj = FEM(obj, bc);
                     bc(:, 2) = bc(:, 2)*0;
                     % fprintf("  Nr: %i, R1: %4.2g \n", [Nr, norm(obj.R1(obj.fdof))]);
@@ -232,6 +237,11 @@ classdef Solver
             iter = 0;
             while norm(r) > obj.r2tol || iter == 0
                 iter = iter + 1;
+                if iter == 10
+                    warning("Material converging slowly")
+                elseif iter == 40
+                    error("Material not converging")
+                end
                 Ds = gam*obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/sige*ep*obj.Gam))*obj.X';
                 detdDs = 1/phi^2*(2*obj.P*Ds*(eps*eps'));
                 dDsdep = 1/phi*(-Ds*obj.P*Ds*(obj.sigy0^2*(sige-(obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep))*ep)/sige^2));
@@ -283,7 +293,7 @@ classdef Solver
             Z = sparse(I(1:i, 1), I(1:i, 2), I(1:i, 3), obj.nel, obj.nel);
         end
 
-        function [obj, g0, dg0, g1, dg1] = optimizer(obj, x)
+        function obj = optimizer(obj, x)
             obj.gam = obj.del + (1-obj.del)*x.^obj.p;
             obj.phi = obj.del + (1-obj.del)*x.^obj.q;
             gam4 = repelem(obj.gam, 4*obj.ngp);
@@ -291,29 +301,27 @@ classdef Solver
             obj.Dsi = obj.Ds;
             obj.Dt = obj.Ds;
             a0 = 1; a1 = zeros(obj.ncon,1); c = 1000*ones(obj.ncon,1); d = ones(obj.ncon,1);
-            iter = 1;
-            xold1 = [];
-            xold2 = [];
-            low = [];
-            upp = [];
-            dx = 1;    
+            xold1 = []; xold2 = []; low = []; upp = [];
+            dx = 1;
+            iter = 0;
             while dx > obj.xTol
+                iter = iter + 1;
                 obj = newt(obj);
-                
                 [g0, dg0, g1, dg1] = funcEval(obj, x);
-                [xnew,~,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon,obj.nel,iter,x,zeros(obj.nel,1),ones(obj.nel,1),xold1,xold2, ...
-                                                     g0,dg0,g1,dg1',low,upp,a0,a1,c,d);
-
+                if iter == 1
+                    s = 100/g0;
+                end
+                [xnew,~,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon, obj.nel, iter, x, zeros(obj.nel, 1), ones(obj.nel, 1), ...
+                                                        xold1, xold2, s*g0, s*dg0, g1, dg1, low, upp, a0, a1, c, d);
                 xold2 = xold1;
                 xold1 = x;
   
                 dx = norm(xnew - xold1);
                 x = obj.Z*xnew;
 
-                iter = iter +1;
                 plotFigs(obj, x, 0);
-               
-
+                fprintf("Opt iter: %i\n", iter)
+                fprintf("   g0: %.2g, g1: %.2g \n", [g0, g1])
             end
         end
 
@@ -354,13 +362,12 @@ classdef Solver
                     dgt0dep(ix) = -ap(eix)'*dR1depe;
                     dR1dep(eix, ix) = dR1depe;
                 end
-
                 dR1dxe = Kte*obj.a(eix);
                 dgt0dx(el) = -ap(eix)'*dR1dxe;
                 dR1dx(eix, el) = dR1dxe;
                 dR2dx(ix-3:ix, el) = dR2dxe;
             end
-  
+
             dgt0du = -obj.a(obj.pdof)'*obj.K(obj.pdof, obj.fdof);
 
             lamt = -dgt0du/obj.K(obj.fdof, obj.fdof);
@@ -371,13 +378,19 @@ classdef Solver
             g0 = -obj.a(obj.pdof)'*obj.R1(obj.pdof);
             dg0 = obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
 
-            g1 = x'*obj.A*obj.t/obj.Vbox - 1;
-            dg1 = obj.Z*obj.A*obj.t/obj.Vbox;
+            g1 = x'*obj.A/obj.Amax - 1;
+            dg1 = (obj.Z'*obj.A/obj.Amax)';
         end
 
         %% Misc. Function
         function plotFigs(obj, x, flag)
             clf;
+            colormap(flipud(gray(256)));
+            patch(obj.ex',obj.ey',x)
+            colorbar
+            axis equal
+            drawnow
+
             if flag == 1
                 vM = zeros(obj.nel, 1);
             for ii = 1:obj.nel
@@ -401,15 +414,7 @@ classdef Solver
                        linspace(0.1, 0, 256)', ...
                        linspace(0.8, 0.1, 256)'];
             colormap(easyjet)
-
             end
-
-            clf;
-            patch(obj.ex',obj.ey',x)
-            colorbar
-            axis equal
-            drawnow
-
         end
 
         
