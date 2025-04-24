@@ -168,16 +168,16 @@ h = 1e-6;
 
 % c = [0.3 0.5 0.2 0.7 0.9]';
 % x = repmat(c, sol.nel/5, 1);
-x = 0.8*ones(sol.nel, 1);
+x = 0.5*ones(sol.nel, 1);
 x1 = x;
 x2 = x;
-el = 4;
+el = 11;
 
 x1(el) = x1(el) - h;
 x2(el) = x2(el) + h;
-[~, ~, dg, ~, ~, ~] = optimizer(sol, x);
-[~, g1, ~, ~, ~, ~] = optimizer(sol1, x1);
-[~, g2, ~, ~, ~, ~] = optimizer(sol2, x2);
+[~, ~, dg, ~] = optimizer(sol, x);
+[~, g1, ~, ~] = optimizer(sol1, x1);
+[~, g2, ~, ~] = optimizer(sol2, x2);
 
 dgf = (g2-g1)/2/h;
 fprintf("\nDiff: %.5g \ndg: %.5g \ndgf: %.5g", [dgf-dg(el), dg(el), dgf])

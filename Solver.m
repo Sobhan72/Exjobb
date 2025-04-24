@@ -281,7 +281,7 @@ classdef Solver
             Z = sparse(I(1:i, 1), I(1:i, 2), I(1:i, 3), obj.nel, obj.nel);
         end
 
-        function [obj, g0, dg0, g1, dg1, gf, dgf] = optimizer(obj, x)
+        function [obj, g0, dg0, g1, dg1] = optimizer(obj, x)
             obj.gam = obj.del + (1-obj.del)*x.^obj.p;
             obj.phi = obj.del + (1-obj.del)*x.^obj.q;
             gam4 = repelem(obj.gam, 4*obj.ngp);
@@ -290,10 +290,10 @@ classdef Solver
             obj.Dt = obj.Ds;
 
             obj = newt(obj);
-            [g0, dg0, g1, dg1, gf, dgf] = funcEval(obj, x);
+            [g0, dg0, g1, dg1] = funcEval(obj, x);
         end
 
-        function [g0, dg0, g1, dg1, gf, dgf] = funcEval(obj, x)
+        function [g0, dg0, g1, dg1] = funcEval(obj, x)
             dgt0dx = zeros(1, obj.nel);
             dR1dx = zeros(obj.ndof, obj.nel);
             dR2dxe = zeros(obj.ngp, 1);
@@ -306,7 +306,7 @@ classdef Solver
             for el = 1:obj.nel
                 dgam = obj.p*(1-obj.del)*x(el)^(obj.p-1);
                 dphi = obj.q*(1-obj.del)*x(el)^(obj.q-1);
-                th = (dgam*obj.phi(el)-dphi*obj.gam(el))/(obj.phi(el))^2;
+                th = (dgam*obj.phi(el)-dphi*obj.gam(el))/obj.phi(el)^2;
                 Kte = zeros(obj.endof);
                 eix = obj.edof(el, :);
                 for gp = 1:obj.ngp
@@ -314,43 +314,41 @@ classdef Solver
                     ix = obj.ngp*(el-1) + gp;
                     ixM =  4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
                     k0 = obj.ep(ix)*obj.sigy0^2/(obj.sigy0+obj.H*obj.ep(ix));
-                    V = inv(obj.De + obj.gam(el)/obj.phi(el)*k0*obj.De*obj.P*obj.De);
-                    dDsdx = dgam*obj.De*V*obj.De - obj.gam(el)*obj.De*V*(th*k0*obj.De*obj.P*obj.De)*V*obj.De;
+                    % V = inv(obj.De + obj.gam(el)/obj.phi(el)*k0*obj.De*obj.P*obj.De);
+                    % dDsdx = dgam*obj.De*V*obj.De - obj.gam(el)*obj.De*V*(th*k0*obj.De*obj.P*obj.De)*V*obj.De;
+                    dDsdx = (dgam*obj.Ds(ixM, :) - th*k0*obj.Ds(ixM, :)*obj.P*obj.Ds(ixM, :))/obj.gam(el);
                     Kte = Kte + B'*dDsdx(([1 2 4]),[1 2 4])*B*J*obj.t;
 
-                    depstdx = obj.eps(ix, :)*dDsdx*obj.P/obj.phi(el)^2*obj.Ds(ixM, :)*obj.eps(ix, :)'...
-                              - obj.eps(ix, :)*obj.Ds(ixM, :)*obj.P*2*dphi/obj.phi(el)^3*obj.Ds(ixM, :)*obj.eps(ix, :)'...
-                              + obj.eps(ix, :)*obj.Ds(ixM, :)*obj.P/obj.phi(el)^2*dDsdx*obj.eps(ix, :)';
+                    depstdx = obj.eps(ix, :)*(dDsdx*obj.P*obj.Ds(ixM, :)...
+                              - obj.Ds(ixM, :)*obj.P*2*dphi/obj.phi(el)*obj.Ds(ixM, :)...
+                              + obj.Ds(ixM, :)*obj.P*dDsdx)*obj.eps(ix, :)'/obj.phi(el)^2;
                     dR2dxe(gp) = dphi*(obj.sigy0 + obj.H*obj.ep(ix))...
                                  - dphi*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx;
 
                     Kh = B'*obj.dDsdep(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
                     dR1depe = Kh*obj.a(eix);
-                    dgt0dep(ix) = ap(eix)'*dR1depe;
+                    dgt0dep(ix) = -ap(eix)'*dR1depe;
                     dR1dep(eix, ix) = dR1depe;
                 end
 
                 dR1dxe = Kte*obj.a(eix);
-                dgt0dx(el) = ap(eix)'*dR1dxe;
+                dgt0dx(el) = -ap(eix)'*dR1dxe;
                 dR1dx(eix, el) = dR1dxe;
                 dR2dx(ix-3:ix, el) = dR2dxe;
             end
   
-            dgt0du = obj.a(obj.pdof)'*obj.K(obj.pdof, obj.fdof);
+            dgt0du = -obj.a(obj.pdof)'*obj.K(obj.pdof, obj.fdof);
 
             lamt = -dgt0du/obj.K(obj.fdof, obj.fdof);
             idR2dep = diag(1./obj.dR2dep);
             idR2dep(isinf(idR2dep)) = 0;
             mut = -dgt0dep'*idR2dep - lamt*dR1dep(obj.fdof, :)*idR2dep;
 
-            g0 = obj.a(obj.pdof)'*obj.R1(obj.pdof);
+            g0 = -obj.a(obj.pdof)'*obj.R1(obj.pdof);
             dg0 = dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx;
 
             g1 = x'*obj.A*obj.t/obj.Vbox - 1;
             dg1 = obj.A*obj.t/obj.Vbox;
-
-            gf = g0;
-            dgf = dR1dep;
         end
 
         %% Misc. Function
