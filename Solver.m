@@ -3,7 +3,7 @@ classdef Solver
         edof; ex; ey
         ed; a; K
         A; t; ngp; tgp; Vbox
-        ndof; nel; endof; pdof; fdof; 
+        ndof; nel; endof; pdof; fdof 
         bcS; disp
         De; Ds; Dt; X; iX; Gam
         dDsdep; dR2dep; epst
@@ -312,7 +312,7 @@ classdef Solver
                 for gp = 1:obj.ngp
                     [B, J] = NablaB(obj, gp, el);
                     ix = obj.ngp*(el-1) + gp;
-                    ixM =  (gp-1)*4 + 1: gp*4;
+                    ixM =  4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
                     k0 = obj.ep(ix)*obj.sigy0^2/(obj.sigy0+obj.H*obj.ep(ix));
                     V = inv(obj.De + obj.gam(el)/obj.phi(el)*k0*obj.De*obj.P*obj.De);
                     dDsdx = dgam*obj.De*V*obj.De - obj.gam(el)*obj.De*V*(th*k0*obj.De*obj.P*obj.De)*V*obj.De;
