@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 0.25;
+params.le = 0.1;
 params.lx = 1;
 params.ly = 1;
 params.Vf = 0.25;
