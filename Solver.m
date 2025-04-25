@@ -319,8 +319,9 @@ classdef Solver
                 xold2 = xold1;
                 xold1 = x;
   
-                dx = norm(xnew - xold1);
-                x = obj.Z*xnew;
+                dx = norm(xnew - x);
+                % x = obj.Z*xnew;
+                x = xnew;
 
                 plotFigs(obj, x, 0);
                 fprintf("Opt iter: %i\n", iter)
@@ -379,11 +380,12 @@ classdef Solver
             mut = -dgt0dep'*idR2dep - lamt*dR1dep(obj.fdof, :)*idR2dep;
 
             g0 = -obj.a(obj.pdof)'*obj.R1(obj.pdof);
-            dg0 = obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
+            % dg0 = obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
+            dg0 = (dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
 
             g1 = x'*obj.A/obj.Amax - 1;
-            dg1 = (obj.Z'*obj.A/obj.Amax)';
-            % dg1 = (obj.A/obj.Amax)';
+            % dg1 = (obj.Z'*obj.A/obj.Amax)';
+            dg1 = (obj.A/obj.Amax)';
         end
 
         function obj = initOpt(obj, x)

@@ -26,11 +26,11 @@ params.sigy03 = 360e6;
 
 params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
-params.N = 5;
+params.N = 6;
 params.R1tol = 1e-4;
-params.disp = [2 -4e-4;
-               4 -4e-4;
-               6 -4e-4]; % displacement [nodes total-size]
+params.disp = [2 -9e-4;
+               4 -9e-4;
+               6 -9e-4]; % displacement [nodes total-size]
 
 % Optimization Parameters
 params.re = 2; % Elements in radius
@@ -38,7 +38,7 @@ params.p = 3;
 params.q = 2;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
-params.xTol = 1e-4;
+params.xTol = 1e-3;
 params.iterMax = 750;
 
 sol = Solver(params);
