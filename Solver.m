@@ -294,17 +294,20 @@ classdef Solver
         end
 
         function obj = optimizer(obj, x)
-            obj.gam = obj.del + (1-obj.del)*x.^obj.p;
-            obj.phi = obj.del + (1-obj.del)*x.^obj.q;
-            gam4 = repelem(obj.gam, 4*obj.ngp);
-            obj.Ds = gam4.*obj.Ds;
-            obj.Dsi = obj.Ds;
-            obj.Dt = obj.Ds;
             a0 = 1; a1 = zeros(obj.ncon,1); c = 1000*ones(obj.ncon,1); d = ones(obj.ncon,1);
             xold1 = []; xold2 = []; low = []; upp = [];
             dx = 1;
             iter = 0;
             while dx > obj.xTol
+                obj.gam = obj.del + (1-obj.del)*x.^obj.p;
+                obj.phi = obj.del + (1-obj.del)*x.^obj.q;
+                gam4 = repelem(obj.gam, 4*obj.ngp);
+                obj.Ds = gam4.*obj.Ds;
+                if iter == 0
+                    obj.Dsi = obj.Ds;
+                    obj.Dt = obj.Ds;
+                end
+
                 iter = iter + 1;
                 obj = newt(obj);
                 [g0, dg0, g1, dg1] = funcEval(obj, x);
@@ -312,7 +315,7 @@ classdef Solver
                     s = 100/g0;
                 end
                 [xnew,~,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon, obj.nel, iter, x, zeros(obj.nel, 1), ones(obj.nel, 1), ...
-                                                        xold1, xold2, s*g0, s*dg0, g1, dg1, low, upp, a0, a1, c, d);
+                                                            xold1, xold2, s*g0, s*dg0, g1, dg1, low, upp, a0, a1, c, d);
                 xold2 = xold1;
                 xold1 = x;
   
@@ -379,7 +382,8 @@ classdef Solver
             dg0 = obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
 
             g1 = x'*obj.A/obj.Amax - 1;
-            dg1 = (obj.Z'*obj.A/obj.Amax)';
+            % dg1 = (obj.Z'*obj.A/obj.Amax)';
+            dg1 = (obj.A/obj.Amax)';
         end
 
         %% Misc. Function

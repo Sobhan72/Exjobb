@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 0.05;
+params.le = 0.25;
 params.lx = 1;
 params.ly = 1;
 params.Vf = 0.25;
@@ -29,9 +29,9 @@ params.sigy03 = 360e6;
 
 params.N = 5;
 params.R1tol = 1e-4;
-params.disp = [2 -4e-3;
-               4 -4e-3;
-               6 -4e-3]; % displacement [nodes total-size]
+params.disp = [2 -4e-4;
+               4 -4e-4;
+               6 -4e-4]; % displacement [nodes total-size]
 
 % Optimization Parameters
 params.re = 2; % Elements in radius
@@ -44,7 +44,7 @@ params.xTol = 1e-4;
 sol = Solver(params);
 
 %% Opt test
-x = ones(sol.nel, 1);
+x = 0.8*ones(sol.nel, 1);
 sol = optimizer(sol, x);
 
 %% Mesh
