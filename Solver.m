@@ -8,12 +8,13 @@ classdef Solver
         De; Ds; Dt; X; iX; Gam
         dDsdep; dR2dep; epst
         H; sigy0; Kinf; xi
-        sigy; r2tol; DP
+        sigy; rtol; DP
         P; C; DeP
         R1; R1tol; N
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
-        Z; del; p; q; ncon; xTol
+        Z; del; p; q; ncon
+        xTol; iterMax
         gam; phi
     end
 
@@ -24,12 +25,14 @@ classdef Solver
             obj.ndof = 2*((p.lx/p.le + 1)*(p.ly/p.le + 1));
             obj.nel = round(p.lx*p.ly/p.le^2);
             obj.endof = 8;
+
             obj.Z = filterMatrix(obj, p.le, p.re);
             obj.p = p.p;
             obj.q = p.q;
             obj.del = p.del;
             obj.ncon = p.ncon;
             obj.xTol = p.xTol;
+            obj.iterMax = p.iterMax;
             
             obj.A = p.le^2*ones(obj.nel, 1);
             obj.t = p.t;
@@ -70,7 +73,7 @@ classdef Solver
 
             obj.DeP = obj.De*obj.P;
 
-            obj.r2tol = p.r2tol;
+            obj.rtol = p.rtol;
             obj.DP = p.DP;
             obj.R1tol = p.R1tol;
             obj.N = p.N;   
@@ -101,9 +104,9 @@ classdef Solver
                 Nr = 0;
                 while norm(obj.R1(obj.fdof)) > obj.R1tol || Nr == 0
                     Nr = Nr + 1;
-                    if Nr == 10
+                    if Nr == 9
                         warning("NR converging slowly")
-                    elseif Nr == 40
+                    elseif Nr == 20
                         error("NR not converging")
                     end
                     obj = FEM(obj, bc);
@@ -202,7 +205,7 @@ classdef Solver
             sigt = sigtr'*obj.P*sigtr;
             r = sigy - obj.sigy0*sqrt(sigt);
             iter = 0;
-            while norm(r) > obj.r2tol || iter == 0
+            while norm(r) > obj.rtol || iter == 0
                 iter = iter + 1;
                 V = diag(1./diag(eye(4) + obj.sigy0^2*(Dep/(sigy + obj.H*Dep))*obj.Gam));
                 U = obj.X*V*obj.iX;
@@ -235,11 +238,11 @@ classdef Solver
             sige = (obj.sigy0 + obj.H*ep + obj.Kinf*(1-exp(-obj.xi*ep)));
             r = phi*(sige - obj.sigy0*sqrt(epst));
             iter = 0;
-            while norm(r) > obj.r2tol || iter == 0
+            while norm(r) > obj.rtol || iter == 0
                 iter = iter + 1;
-                if iter == 10
+                if iter == 9
                     warning("Material converging slowly")
-                elseif iter == 40
+                elseif iter == 20
                     error("Material not converging")
                 end
                 Ds = gam*obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/sige*ep*obj.Gam))*obj.X';
@@ -299,16 +302,13 @@ classdef Solver
             dx = 1;
             iter = 0;
             while dx > obj.xTol
-                obj.gam = obj.del + (1-obj.del)*x.^obj.p;
-                obj.phi = obj.del + (1-obj.del)*x.^obj.q;
-                gam4 = repelem(obj.gam, 4*obj.ngp);
-                obj.Ds = gam4.*obj.Ds;
-                if iter == 0
-                    obj.Dsi = obj.Ds;
-                    obj.Dt = obj.Ds;
+                iter = iter + 1;
+                if iter == obj.iterMax + 1
+                    fprintf("\n\nMax iteration count reached")
+                    break
                 end
 
-                iter = iter + 1;
+                obj = initOpt(obj, x);
                 obj = newt(obj);
                 [g0, dg0, g1, dg1] = funcEval(obj, x);
                 if iter == 1
@@ -382,8 +382,22 @@ classdef Solver
             dg0 = obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
 
             g1 = x'*obj.A/obj.Amax - 1;
-            % dg1 = (obj.Z'*obj.A/obj.Amax)';
-            dg1 = (obj.A/obj.Amax)';
+            dg1 = (obj.Z'*obj.A/obj.Amax)';
+            % dg1 = (obj.A/obj.Amax)';
+        end
+
+        function obj = initOpt(obj, x)
+            obj.eps = zeros(obj.tgp, 4);
+            obj.sig = zeros(obj.tgp, 4);
+            obj.ep = zeros(obj.tgp, 1);
+
+            obj.a = zeros(obj.ndof, 1);
+            
+            obj.gam = obj.del + (1-obj.del)*x.^obj.p;
+            obj.phi = obj.del + (1-obj.del)*x.^obj.q;
+            gam4 = repelem(obj.gam, 4*obj.ngp);
+            obj.Ds = gam4.*repmat(obj.De, obj.tgp, 1);
+            obj.Dt = obj.Ds;
         end
 
         %% Misc. Function
@@ -420,7 +434,6 @@ classdef Solver
             colormap(easyjet)
             end
         end
-
         
         function bc = addBC(~, bc, ly, le, ndof)
             nR = ly/le + 1;

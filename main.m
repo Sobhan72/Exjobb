@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 0.25;
+params.le = 0.05;
 params.lx = 1;
 params.ly = 1;
 params.Vf = 0.25;
@@ -10,12 +10,9 @@ params.t = 1;
 params.ngp = 4;
 
 params.H = 10e9;
-
 params.Kinf = 0; %0.3*params.sigy0; %extra terms linHard (sat. stress)
 params.xi = 1e-3; %extra terms linHard (sat. exp)
-
-params.r2tol = 1e-5;
-params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
+params.rtol = 1e-5;
 
 E = 210e9;
 v = 0.3;
@@ -26,6 +23,8 @@ params.v21 = v; params.v32 = v; params.v31 = v;
 params.sigy01 = 360e6;
 params.sigy02 = 360e6;
 params.sigy03 = 360e6;
+
+params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
 params.N = 5;
 params.R1tol = 1e-4;
@@ -40,11 +39,12 @@ params.q = 2;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
 params.xTol = 1e-4;
+params.iterMax = 750;
 
 sol = Solver(params);
 
 %% Opt test
-x = 0.8*ones(sol.nel, 1);
+x = ones(sol.nel, 1);
 sol = optimizer(sol, x);
 
 %% Mesh
