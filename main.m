@@ -1,10 +1,10 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 0.04;
+params.le = 0.025;
 params.lx = 1;
 params.ly = 1;
-params.Vf = 0.35;
+params.Vf = 0.3;
 
 params.t = 1;
 params.ngp = 4;
@@ -20,17 +20,17 @@ params.E1 = E; params.E2 = E; params.E3 = E;
 params.v12 = v; params.v13 = v; params.v23 = v;
 params.v21 = v; params.v32 = v; params.v31 = v;
 
-params.sigy01 = 360e12;
-params.sigy02 = 360e12;
-params.sigy03 = 360e12;
+params.sigy01 = 360e6;
+params.sigy02 = 360e6;
+params.sigy03 = 360e6;
 
 params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
-params.N = 5;
+params.N = 3;
 params.R1tol = 1e-4;
-params.disp = [2 -9e-4;
-               4 -9e-4;
-               6 -9e-4]; % displacement [nodes total-size]
+params.disp = [2 -9e-3;
+               4 -9e-3;
+               6 -9e-3]; % displacement [nodes total-size]
 
 % Optimization Parameters
 params.re = 2; % Elements in radius
@@ -53,8 +53,8 @@ x(10) = 0.5;
 patch(sol.ex', sol.ey', x);
 
 %% Newton-Raphson
-sol.gam = ones(sol.nel, 1);
-sol.phi = ones(sol.nel, 1);
+x = load('x.mat');
+sol = initOpt(sol, x.x);
 sol = newt(sol);
 plotFigs(sol, ones(sol.nel, 1), 1)
 
@@ -62,7 +62,7 @@ figure;
 eldraw2(sol.ex, sol.ey, [1 2 1]);
 hold on
 eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
-dof = sol.ndof-3;
+dof = 8;
 fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
 
 %% Model validation
@@ -164,33 +164,42 @@ title("Effective stress-strain")
 grid on;
 
 %% Finite diff
-sol1 = Solver(params);
-sol2 = Solver(params);
+
 h = 1e-6;
 
 % c = [0.3 0.5 0.2 0.7 0.9]';
 % x = repmat(c, sol.nel/5, 1);
-x = 0.7*ones(sol.nel, 1);
+x = ones(sol.nel, 1);
+sol = initOpt(sol, x);
+sol = newt(sol);
+[~, dg0, ~, ~] = funcEval(sol, x);
 
-
-for el = 1:sol.nel
+wrong = [];
+for el = 386
+    sol1 = Solver(params);
+    sol2 = Solver(params);
     x1 = x;
     x2 = x;
     x1(el) = x1(el) - h;
     x2(el) = x2(el) + h;
-    sol = initOpt(sol, x);
+
     sol1 = initOpt(sol1, x1);
     sol2 = initOpt(sol2, x2);
-    
-    sol = newt(sol);
+
     sol1 = newt(sol1);
     sol2 = newt(sol2);
 
-    [~, dg0, ~, ~] = funcEval(sol, x);
     [g1, ~, ~, ~] = funcEval(sol1, x1);
     [g2, ~, ~, ~] = funcEval(sol2, x2);
 
     dgf = (g2-g1)/2/h;
     fprintf("El: %i \n", el)
     fprintf("  Diff: %.5g \ndg0: %.5g \ndgf: %.5g\n", [dgf-dg0(el), dg0(el), dgf])
+    if (dgf-dg0(el))/dg0(el) > 1e-4
+        wrong = [wrong; el];
+    end
 end
+
+% y = ones(sol.nel, 1);
+% y(wrong) = 0;
+% patch(sol.ex', sol.ey', y);

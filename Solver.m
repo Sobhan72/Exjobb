@@ -33,6 +33,8 @@ classdef Solver
             obj.ncon = p.ncon;
             obj.xTol = p.xTol;
             obj.iterMax = p.iterMax;
+            % obj.gam = ones(obj.ndof, 1);
+            % obj.phi = ones(obj.ndof, 1);
             
             obj.A = p.le^2*ones(obj.nel, 1);
             obj.t = p.t;
@@ -314,7 +316,7 @@ classdef Solver
                 if iter == 1
                     s = abs(100/g0);
                 end
-                [xnew,y,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon, obj.nel, iter, x, zeros(obj.nel, 1), ones(obj.nel, 1), ...
+                [xnew,~,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon, obj.nel, iter, x, zeros(obj.nel, 1), ones(obj.nel, 1), ...
                                                             xold1, xold2, s*g0, s*dg0, g1, dg1, low, upp, a0, a1, c, d);
                 xold2 = xold1;
                 xold1 = x;
@@ -325,7 +327,7 @@ classdef Solver
 
                 plotFigs(obj, x, 0);
                 fprintf("Opt iter: %i\n", iter)
-                fprintf("   g0: %.2g, g1: %.2g, y: %.2g\n", [g0, g1, y])
+                fprintf("   g0: %.2g, g1: %.2g\n", [g0, g1])
             end
         end
 
@@ -399,6 +401,7 @@ classdef Solver
             obj.phi = obj.del + (1-obj.del)*x.^obj.q;
             gam4 = repelem(obj.gam, 4*obj.ngp);
             obj.Ds = gam4.*repmat(obj.De, obj.tgp, 1);
+            obj.Dsi = obj.Ds;
             obj.Dt = obj.Ds;
         end
 
