@@ -312,9 +312,9 @@ classdef Solver
                 obj = newt(obj);
                 [g0, dg0, g1, dg1] = funcEval(obj, x);
                 if iter == 1
-                    s = 100/g0;
+                    s = abs(100/g0);
                 end
-                [xnew,~,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon, obj.nel, iter, x, zeros(obj.nel, 1), ones(obj.nel, 1), ...
+                [xnew,y,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon, obj.nel, iter, x, zeros(obj.nel, 1), ones(obj.nel, 1), ...
                                                             xold1, xold2, s*g0, s*dg0, g1, dg1, low, upp, a0, a1, c, d);
                 xold2 = xold1;
                 xold1 = x;
@@ -325,7 +325,7 @@ classdef Solver
 
                 plotFigs(obj, x, 0);
                 fprintf("Opt iter: %i\n", iter)
-                fprintf("   g0: %.2g, g1: %.2g \n", [g0, g1])
+                fprintf("   g0: %.2g, g1: %.2g, y: %.2g\n", [g0, g1, y])
             end
         end
 
@@ -406,10 +406,10 @@ classdef Solver
         function plotFigs(obj, x, flag)
             clf;
             colormap(flipud(gray(256)));
-            patch(obj.ex',obj.ey',x)
-            colorbar
-            axis equal
-            drawnow
+            patch(obj.ex', obj.ey', x);
+            colorbar;
+            axis equal;
+            drawnow;
 
             if flag == 1
                 vM = zeros(obj.nel, 1);

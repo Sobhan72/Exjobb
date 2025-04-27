@@ -1,10 +1,10 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 0.05;
+params.le = 0.04;
 params.lx = 1;
 params.ly = 1;
-params.Vf = 0.25;
+params.Vf = 0.35;
 
 params.t = 1;
 params.ngp = 4;
@@ -20,13 +20,13 @@ params.E1 = E; params.E2 = E; params.E3 = E;
 params.v12 = v; params.v13 = v; params.v23 = v;
 params.v21 = v; params.v32 = v; params.v31 = v;
 
-params.sigy01 = 360e6;
-params.sigy02 = 360e6;
-params.sigy03 = 360e6;
+params.sigy01 = 360e12;
+params.sigy02 = 360e12;
+params.sigy03 = 360e12;
 
 params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
-params.N = 6;
+params.N = 5;
 params.R1tol = 1e-4;
 params.disp = [2 -9e-4;
                4 -9e-4;
@@ -36,7 +36,7 @@ params.disp = [2 -9e-4;
 params.re = 2; % Elements in radius
 params.p = 3;
 params.q = 2;
-params.del = 1e-9;
+params.del = 1e-8;
 params.ncon = 1; % Nr of constraints
 params.xTol = 1e-3;
 params.iterMax = 750;
@@ -48,7 +48,9 @@ x = ones(sol.nel, 1);
 sol = optimizer(sol, x);
 
 %% Mesh
-patch(sol.ex', sol.ey', 1)
+x = ones(sol.nel, 1);
+x(10) = 0.5;
+patch(sol.ex', sol.ey', x);
 
 %% Newton-Raphson
 sol.gam = ones(sol.nel, 1);
@@ -168,17 +170,27 @@ h = 1e-6;
 
 % c = [0.3 0.5 0.2 0.7 0.9]';
 % x = repmat(c, sol.nel/5, 1);
-x = 0.5*ones(sol.nel, 1);
-x1 = x;
-x2 = x;
-el = 11;
+x = 0.7*ones(sol.nel, 1);
 
-x1(el) = x1(el) - h;
-x2(el) = x2(el) + h;
-[~, ~, dg, ~] = optimizer(sol, x);
-[~, g1, ~, ~] = optimizer(sol1, x1);
-[~, g2, ~, ~] = optimizer(sol2, x2);
 
-dgf = (g2-g1)/2/h;
-fprintf("\nDiff: %.5g \ndg: %.5g \ndgf: %.5g", [dgf-dg(el), dg(el), dgf])
+for el = 1:sol.nel
+    x1 = x;
+    x2 = x;
+    x1(el) = x1(el) - h;
+    x2(el) = x2(el) + h;
+    sol = initOpt(sol, x);
+    sol1 = initOpt(sol1, x1);
+    sol2 = initOpt(sol2, x2);
+    
+    sol = newt(sol);
+    sol1 = newt(sol1);
+    sol2 = newt(sol2);
 
+    [~, dg0, ~, ~] = funcEval(sol, x);
+    [g1, ~, ~, ~] = funcEval(sol1, x1);
+    [g2, ~, ~, ~] = funcEval(sol2, x2);
+
+    dgf = (g2-g1)/2/h;
+    fprintf("El: %i \n", el)
+    fprintf("  Diff: %.5g \ndg0: %.5g \ndgf: %.5g\n", [dgf-dg0(el), dg0(el), dgf])
+end
