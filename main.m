@@ -12,7 +12,7 @@ params.ngp = 4;
 params.H = 10e9;
 params.Kinf = 0; %0.3*params.sigy0; %extra terms linHard (sat. stress)
 params.xi = 1e-3; %extra terms linHard (sat. exp)
-params.rtol = 1e-5;
+params.rtol = 1e-1;
 
 E = 210e9;
 v = 0.3;
@@ -27,7 +27,7 @@ params.sigy03 = 360e6;
 params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
 params.N = 3;
-params.R1tol = 1e-4;
+params.R1tol = 1e-1;
 params.disp = [2 -9e-3;
                4 -9e-3;
                6 -9e-3]; % displacement [nodes total-size]
@@ -38,7 +38,7 @@ params.p = 3;
 params.q = 2;
 params.del = 1e-8;
 params.ncon = 1; % Nr of constraints
-params.xTol = 1e-3;
+params.xtol = 1e-4;
 params.iterMax = 750;
 
 sol = Solver(params);
@@ -48,15 +48,16 @@ x = ones(sol.nel, 1);
 sol = optimizer(sol, x);
 
 %% Mesh
-x = ones(sol.nel, 1);
-x(10) = 0.5;
-patch(sol.ex', sol.ey', x);
+x = load('x.mat');
+patch(sol.ex', sol.ey', x.x);
+colorbar;
+colormap jet;
 
 %% Newton-Raphson
 x = load('x.mat');
 sol = initOpt(sol, x.x);
 sol = newt(sol);
-plotFigs(sol, ones(sol.nel, 1), 1)
+plotFigs(sol, x.x, 1)
 
 figure;
 eldraw2(sol.ex, sol.ey, [1 2 1]);
@@ -175,7 +176,7 @@ sol = newt(sol);
 [~, dg0, ~, ~] = funcEval(sol, x);
 
 wrong = [];
-for el = 386
+for el = 1:sol.nel
     sol1 = Solver(params);
     sol2 = Solver(params);
     x1 = x;
@@ -200,6 +201,6 @@ for el = 386
     end
 end
 
-% y = ones(sol.nel, 1);
-% y(wrong) = 0;
-% patch(sol.ex', sol.ey', y);
+y = ones(sol.nel, 1);
+y(wrong) = 0;
+patch(sol.ex', sol.ey', y);

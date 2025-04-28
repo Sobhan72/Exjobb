@@ -14,8 +14,8 @@ classdef Solver
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
         Z; del; p; q; ncon
-        xTol; iterMax
-        gam; phi
+        xtol; iterMax
+        gam; phi; g0; g1
     end
 
     methods
@@ -31,10 +31,10 @@ classdef Solver
             obj.q = p.q;
             obj.del = p.del;
             obj.ncon = p.ncon;
-            obj.xTol = p.xTol;
+            obj.xtol = p.xtol;
             obj.iterMax = p.iterMax;
-            % obj.gam = ones(obj.ndof, 1);
-            % obj.phi = ones(obj.ndof, 1);
+            obj.g0 = zeros(obj.iterMax, 1);
+            obj.g1 = zeros(obj.iterMax, 1);
             
             obj.A = p.le^2*ones(obj.nel, 1);
             obj.t = p.t;
@@ -185,8 +185,8 @@ classdef Solver
             Bgp = zeros(3, 8);
             Bgp(1, 1:2:8) = Npx(1, :);
             Bgp(2, 2:2:8) = Npx(2, :);
-            Npx_f = flip(Npx);
-            Bgp(3, :) = Npx_f(:);
+            Npxf = flip(Npx);
+            Bgp(3, :) = Npxf(:);
         end
 
         function a = solvelin(obj,K,f,bc) % Solve FE-equations
@@ -303,7 +303,7 @@ classdef Solver
             xold1 = []; xold2 = []; low = []; upp = [];
             dx = 1;
             iter = 0;
-            while dx > obj.xTol
+            while dx > obj.xtol
                 iter = iter + 1;
                 if iter == obj.iterMax + 1
                     fprintf("\n\nMax iteration count reached")
@@ -312,23 +312,26 @@ classdef Solver
 
                 obj = initOpt(obj, x);
                 obj = newt(obj);
-                [g0, dg0, g1, dg1] = funcEval(obj, x);
+                [obj.g0(iter), dg0, obj.g1(iter), dg1] = funcEval(obj, x);
                 if iter == 1
-                    s = abs(100/g0);
+                    s = abs(100/obj.g0(1));
                 end
                 [xnew,~,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon, obj.nel, iter, x, zeros(obj.nel, 1), ones(obj.nel, 1), ...
-                                                            xold1, xold2, s*g0, s*dg0, g1, dg1, low, upp, a0, a1, c, d);
+                                                            xold1, xold2, s*obj.g0(iter), s*dg0, obj.g1(iter), dg1, low, upp, a0, a1, c, d);
                 xold2 = xold1;
                 xold1 = x;
   
-                dx = norm(xnew - x);
+                dx = norm((xnew - x)/obj.nel);
                 % x = obj.Z*xnew;
                 x = xnew;
 
-                plotFigs(obj, x, 0);
+                plotFigs(obj, x, 0, 1);
                 fprintf("Opt iter: %i\n", iter)
-                fprintf("   g0: %.2g, g1: %.2g\n", [g0, g1])
+                fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.g1(iter), dx])
             end
+            obj.g0 = obj.g0(1:iter);
+            obj.g1 = obj.g1(1:iter);
+            plotFigs(obj, x, iter, 0);
         end
 
         function [g0, dg0, g1, dg1] = funcEval(obj, x)
@@ -394,6 +397,9 @@ classdef Solver
             obj.eps = zeros(obj.tgp, 4);
             obj.sig = zeros(obj.tgp, 4);
             obj.ep = zeros(obj.tgp, 1);
+            obj.epsi = zeros(obj.tgp, 4);
+            obj.sigi = zeros(obj.tgp, 4);
+            obj.epi = zeros(obj.tgp, 1);
 
             obj.a = zeros(obj.ndof, 1);
             
@@ -406,37 +412,48 @@ classdef Solver
         end
 
         %% Misc. Function
-        function plotFigs(obj, x, flag)
-            clf;
-            colormap(flipud(gray(256)));
-            patch(obj.ex', obj.ey', x);
-            colorbar;
-            axis equal;
-            drawnow;
+        function plotFigs(obj, x, iter, flag)
+            if flag
+                clf;
+                colormap(flipud(gray(256)));
+                patch(obj.ex', obj.ey', x);
+                colorbar;
+                axis equal;
+                drawnow;
+            else
 
-            if flag == 1
                 vM = zeros(obj.nel, 1);
-            for ii = 1:obj.nel
-                ix = (ii-1)*4+1:ii*4;
-                vM(ii) = sqrt(obj.sigy0^2*trace(obj.sig(ix, :)*obj.P*obj.sig(ix, :)')/4);
-            end
-            figure;
-            title("von Mises stress")
-            patch(obj.ex', obj.ey', vM);
-            colormap jet;
-            colorbar;
+                for ii = 1:obj.nel
+                    ix = (ii-1)*4+1:ii*4;
+                    vM(ii) = sqrt(obj.sigy0^2*trace(obj.sig(ix, :)*obj.P*obj.sig(ix, :)')/4);
+                end
 
-            figure;
-            title("Plastic Zone")
-            pl = obj.ep>0;
-            pl = reshape(pl, 4, obj.nel)';
-            pl = any(pl, 2);
-            patch(obj.ex', obj.ey', int8(pl));
-            
-            easyjet = [linspace(0.1, 1, 256)', ...
-                       linspace(0.1, 0, 256)', ...
-                       linspace(0.8, 0.1, 256)'];
-            colormap(easyjet)
+                figure;
+                title("von Mises stress");
+                patch(obj.ex', obj.ey', vM);
+                colormap jet;
+                colorbar;
+    
+                figure;
+                title("Plastic Zone");
+                pl = obj.ep>0;
+                pl = reshape(pl, 4, obj.nel)';
+                pl = any(pl, 2);
+                patch(obj.ex', obj.ey', int8(pl));
+                
+                softjet = [linspace(0.1, 1, 256)', ...
+                           linspace(0.1, 0, 256)', ...
+                           linspace(0.8, 0.1, 256)'];
+                colormap(softjet);
+
+                figure;
+                plot(1:iter, obj.g0, LineWidth=2)
+                title("Convergance Plot g0");
+
+                figure;
+                plot(1:iter, obj.g1, LineWidth=2)
+                title("Convergance Plot g1")
+
             end
         end
         
