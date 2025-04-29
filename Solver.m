@@ -326,8 +326,8 @@ classdef Solver
                 x = xnew;
 
                 plotFigs(obj, x, 0, 1);
-                fprintf("Opt iter: %i\n", iter)
-                fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.g1(iter), dx])
+                % fprintf("Opt iter: %i\n", iter)
+                % fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.g1(iter), dx])
             end
             obj.g0 = obj.g0(1:iter);
             obj.g1 = obj.g1(1:iter);
@@ -402,6 +402,8 @@ classdef Solver
             obj.epi = zeros(obj.tgp, 1);
 
             obj.a = zeros(obj.ndof, 1);
+            obj.R1 = sparse(obj.ndof, 1);
+
             
             obj.gam = obj.del + (1-obj.del)*x.^obj.p;
             obj.phi = obj.del + (1-obj.del)*x.^obj.q;
@@ -409,7 +411,12 @@ classdef Solver
             obj.Ds = gam4.*repmat(obj.De, obj.tgp, 1);
             obj.Dsi = obj.Ds;
             obj.Dt = obj.Ds;
+
+            obj.dDsdep = zeros(size(obj.Ds)); 
+            obj.dR2dep = zeros(obj.tgp, 1);
         end
+
+        
 
         %% Misc. Function
         function plotFigs(obj, x, iter, flag)

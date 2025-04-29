@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 0.025;
+params.le = 0.2;
 params.lx = 1;
 params.ly = 1;
 params.Vf = 0.3;
@@ -194,8 +194,8 @@ for el = 1:sol.nel
     [g2, ~, ~, ~] = funcEval(sol2, x2);
 
     dgf = (g2-g1)/2/h;
-    fprintf("El: %i \n", el)
-    fprintf("  Diff: %.5g \ndg0: %.5g \ndgf: %.5g\n", [dgf-dg0(el), dg0(el), dgf])
+    % fprintf("El: %i \n", el)
+    % fprintf("  Diff: %.5g \ndg0: %.5g \ndgf: %.5g\n", [dgf-dg0(el), dg0(el), dgf])
     if (dgf-dg0(el))/dg0(el) > 1e-4
         wrong = [wrong; el];
     end
