@@ -16,6 +16,7 @@ classdef Solver
         Z; del; p; q; ncon
         xtol; iterMax
         gam; phi; g0; g1
+        sig1N
     end
 
     methods
@@ -96,6 +97,8 @@ classdef Solver
             obj.sigi = zeros(obj.tgp, 4);
             obj.epi = zeros(obj.tgp, 1);
             obj.sigyi = obj.sigy0*ones(obj.tgp, 1);
+
+            obj.sig1N = zeros(obj.tgp,8);
         end
 
         %% FEM
@@ -116,7 +119,11 @@ classdef Solver
                     % fprintf("  Nr: %i, R1: %4.2g \n", [Nr, norm(obj.R1(obj.fdof))]);
                 end
                 obj.eps = obj.epsi; obj.sig = obj.sigi; obj.ep = obj.epi; obj.Ds = obj.Dsi; obj.sigy = obj.sigyi;
+                if n == 1
+                    obj.sig1N(:,1:obj.ngp) = obj.sig;
+                end
             end
+            obj.sig1N(:,obj.ngp+1:end) = obj.sig;
         end
 
         function obj = FEM(obj, bc) % Main FEM function
@@ -325,7 +332,7 @@ classdef Solver
                 % x = obj.Z*xnew;
                 x = xnew;
 
-                plotFigs(obj, x, 0, 1);
+                % plotFigs(obj, x, 0, 1);
                 % fprintf("Opt iter: %i\n", iter)
                 % fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.g1(iter), dx])
             end
@@ -434,6 +441,19 @@ classdef Solver
                     ix = (ii-1)*4+1:ii*4;
                     vM(ii) = sqrt(obj.sigy0^2*trace(obj.sig(ix, :)*obj.P*obj.sig(ix, :)')/4);
                 end
+                
+                cosT = zeros(obj.nel,1);
+                for ii = 1:obj.nel
+                    ix = (ii-1)*4+1:ii*4;
+                    cosT(ii) = trace(obj.sig1N(ix,1:obj.ngp)*obj.sig1N(ix,obj.ngp+1:end)')/(vecnorm(obj.sig1N(ix,1:obj.ngp),2,2)'*vecnorm(obj.sig1N(ix,obj.ngp+1:end),2,2));
+                end
+
+                
+                figure;
+                title("cos(\theta) field for compliance maximization");
+                patch(obj.ex', obj.ey', cosT);
+                colormap jet;
+                colorbar;
 
                 figure;
                 title("von Mises stress");
