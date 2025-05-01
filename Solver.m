@@ -17,6 +17,8 @@ classdef Solver
         xtol; iterMax
         gam; phi; g0; g1
         sig1N
+        sigTrack
+        pltoel
     end
 
     methods
@@ -99,6 +101,8 @@ classdef Solver
             obj.sigyi = obj.sigy0*ones(obj.tgp, 1);
 
             obj.sig1N = zeros(obj.tgp,8);
+            obj.sigTrack = zeros(4,obj.N);
+            obj.pltoel = zeros(obj.tgp, 2);
         end
 
         %% FEM
@@ -114,11 +118,14 @@ classdef Solver
                     elseif Nr == 20
                         error("NR not converging")
                     end
-                    obj = FEM(obj, bc);
+                    obj = FEM(obj, bc, n);
                     bc(:, 2) = bc(:, 2)*0;
                     % fprintf("  Nr: %i, R1: %4.2g \n", [Nr, norm(obj.R1(obj.fdof))]);
                 end
                 obj.eps = obj.epsi; obj.sig = obj.sigi; obj.ep = obj.epi; obj.Ds = obj.Dsi; obj.sigy = obj.sigyi;
+                obj.pltoel(:, 1) = zeros(obj.tgp, 1);
+                el = 72;
+                obj.sigTrack(:, n) = sqrt(obj.sigy0^2*diag(obj.sig(obj.ngp*(el-1) + 1:obj.ngp*el, :)*obj.P*obj.sig(obj.ngp*(el-1) + 1:obj.ngp*el, :)'));
                 if n == 1
                     obj.sig1N(:,1:obj.ngp) = obj.sig;
                 end
@@ -126,7 +133,7 @@ classdef Solver
             obj.sig1N(:,obj.ngp+1:end) = obj.sig;
         end
 
-        function obj = FEM(obj, bc) % Main FEM function
+        function obj = FEM(obj, bc, n) % Main FEM function
             obj.K = assemK(obj, obj.Dt);
 
             da = obj.solvelin(obj.K, -obj.R1, bc);
@@ -145,18 +152,22 @@ classdef Solver
                     sigtr = obj.gam(el)*obj.De*deps + obj.sig(ix, :)';
 
                     if sqrt(obj.sigy0^2*sigtr'*obj.P*sigtr) > obj.phi(el)*obj.sigy(ix)
+                            obj.pltoel(ix, 1) = n; %Ny
                         if obj.DP
-                            [obj.Dt(ixM, :), obj.sigi(ix, :), obj.Dsi(ixM, :), obj.epi(ix), obj.dDsdep(ixM, :), obj.dR2dep(ix), obj.epst(ix)]...
+                            [obj.sigi(ix, :), obj.Dt(ixM, :), obj.Dsi(ixM, :), obj.epi(ix), obj.dDsdep(ixM, :), obj.dR2dep(ix), obj.epst(ix)]...
                              = DPMat(obj, obj.epsi(ix, :)', obj.Ds(ixM, :), obj.ep(ix), obj.gam(el), obj.phi(el));
                         else
                             error("Not implemented SIMP for EPMat")
-                            [obj.Dt(ixM, :), obj.sigi(ix, :), obj.sigyi(ix), Dep] = EPMat(obj, sigtr, obj.sigy(ix));
+                            [obj.sigi(ix, :), obj.Dt(ixM, :), obj.sigyi(ix), Dep] = EPMat(obj, sigtr, obj.sigy(ix));
                             obj.epi(ix) = obj.epi(ix) + Dep;
                         end
                     else
                         obj.sigi(ix, :) = sigtr;
-                        obj.Dt(ixM, :) = obj.gam(el)*obj.De;
+                        obj.Dt(ixM, :) = obj.gam(el)*obj.De;  
+                        obj.Dsi(ixM, :) = obj.gam(el)*obj.De;
+                        obj.epi(ix) = 0; obj.dDsdep(ixM, :) = 0; obj.dR2dep(ix) = 0;
                         obj.epst(ix) = (obj.gam(el)/obj.phi(el))^2*obj.epsi(ix, :)*obj.De*obj.P*obj.De*obj.epsi(ix, :)';
+                            obj.pltoel(ix, 2) = obj.pltoel(ix, 1); %Ny
                     end
                     fein = fein + B'*obj.sigi(ix, [1 2 4])'*J*obj.t;
                 end
@@ -209,7 +220,7 @@ classdef Solver
         end
 
         %% Material Functions
-        function [Dt, sig, sigy, Dep] = EPMat(obj, sigtr, sigy)
+        function [sig, Dt, sigy, Dep] = EPMat(obj, sigtr, sigy)
             Dep = 0;
             sigt = sigtr'*obj.P*sigtr;
             r = sigy - obj.sigy0*sqrt(sigt);
@@ -242,7 +253,7 @@ classdef Solver
             Dt = U*obj.De + dUdDep*sigtr*dDepdDeps';
         end
 
-        function [Dt, sig, Ds, ep, dDsdep, drdep, epst] = DPMat(obj, eps, Ds, ep, gam, phi)
+        function [sig, Dt, Ds, ep, dDsdep, drdep, epst] = DPMat(obj, eps, Ds, ep, gam, phi)
             epst = 1/phi^2*eps'*Ds*obj.P*Ds*eps;
             sige = (obj.sigy0 + obj.H*ep + obj.Kinf*(1-exp(-obj.xi*ep)));
             r = phi*(sige - obj.sigy0*sqrt(epst));
@@ -332,9 +343,9 @@ classdef Solver
                 % x = obj.Z*xnew;
                 x = xnew;
 
-                % plotFigs(obj, x, 0, 1);
-                % fprintf("Opt iter: %i\n", iter)
-                % fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.g1(iter), dx])
+                plotFigs(obj, x, 0, 1);
+                fprintf("Opt iter: %i\n", iter)
+                fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.g1(iter), dx])
             end
             obj.g0 = obj.g0(1:iter);
             obj.g1 = obj.g1(1:iter);
@@ -392,8 +403,8 @@ classdef Solver
             mut = -dgt0dep'*idR2dep - lamt*dR1dep(obj.fdof, :)*idR2dep;
 
             g0 = -obj.a(obj.pdof)'*obj.R1(obj.pdof);
-            % dg0 = obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
-            dg0 = (dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
+            dg0 = obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
+            % dg0 = (dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
 
             g1 = x'*obj.A/obj.Amax - 1;
             % dg1 = (obj.Z'*obj.A/obj.Amax)';
@@ -435,7 +446,6 @@ classdef Solver
                 axis equal;
                 drawnow;
             else
-
                 vM = zeros(obj.nel, 1);
                 for ii = 1:obj.nel
                     ix = (ii-1)*4+1:ii*4;

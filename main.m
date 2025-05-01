@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % Input parameters
-params.le = 0.05;
+params.le = 0.1;
 params.lx = 1;
 params.ly = 1;
 params.Vf = 0.3;
@@ -54,10 +54,10 @@ colorbar;
 colormap jet;
 
 %% Newton-Raphson
-x = load('x.mat');
-sol = initOpt(sol, x.x);
+% x = load('x.mat');
+sol = initOpt(sol, ones(sol.nel,1));
 sol = newt(sol);
-plotFigs(sol, x.x, 1)
+plotFigs(sol, ones(sol.nel,1), 1, 0)
 
 figure;
 eldraw2(sol.ex, sol.ey, [1 2 1]);
@@ -165,15 +165,14 @@ title("Effective stress-strain")
 grid on;
 
 %% Finite diff
-
 h = 1e-6;
 
 % c = [0.3 0.5 0.2 0.7 0.9]';
 % x = repmat(c, sol.nel/5, 1);
 x = ones(sol.nel, 1);
-sol = initOpt(sol, x);
+sol = initOpt(sol, sol.Z*x);
 sol = newt(sol);
-[~, dg0, ~, ~] = funcEval(sol, x);
+[~, dg0, ~, ~] = funcEval(sol, sol.Z*x);
 
 wrong = [];
 for el = 1:sol.nel
@@ -184,18 +183,18 @@ for el = 1:sol.nel
     x1(el) = x1(el) - h;
     x2(el) = x2(el) + h;
 
-    sol1 = initOpt(sol1, x1);
-    sol2 = initOpt(sol2, x2);
+    sol1 = initOpt(sol1, sol.Z*x1);
+    sol2 = initOpt(sol2, sol.Z*x2);
 
     sol1 = newt(sol1);
     sol2 = newt(sol2);
 
-    [g1, ~, ~, ~] = funcEval(sol1, x1);
-    [g2, ~, ~, ~] = funcEval(sol2, x2);
+    [g1, ~, ~, ~] = funcEval(sol1, sol.Z*x1);
+    [g2, ~, ~, ~] = funcEval(sol2, sol.Z*x2);
 
     dgf = (g2-g1)/2/h;
-    % fprintf("El: %i \n", el)
-    % fprintf("  Diff: %.5g \ndg0: %.5g \ndgf: %.5g\n", [dgf-dg0(el), dg0(el), dgf])
+    fprintf("El: %i \n", el)
+    fprintf("  Diff: %.5g \ndg0: %.5g \ndgf: %.5g\n", [dgf-dg0(el), dg0(el), dgf])
     if (dgf-dg0(el))/dg0(el) > 1e-4
         wrong = [wrong; el];
     end
@@ -204,3 +203,8 @@ end
 y = ones(sol.nel, 1);
 y(wrong) = 0;
 patch(sol.ex', sol.ey', y);
+
+% z = ones(sol.nel, 1);
+% z(ceil(find(sol.pltoel(:,2)-3==0)/4)) = 0;
+% patch(sol.ex', sol.ey', z);
+
