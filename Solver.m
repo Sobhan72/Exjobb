@@ -13,7 +13,8 @@ classdef Solver
         R1; R1tol; N
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
-        Z; del; p; q; ncon
+        Z; filtOn
+        del; p; q; ncon
         xtol; iterMax
         gam; phi; g0; g1
         sig1N
@@ -27,6 +28,7 @@ classdef Solver
             obj.nel = round(p.lx*p.ly/p.le^2);
             obj.endof = 8;
 
+            obj.filtOn = p.filtOn;
             obj.Z = filterMatrix(obj, p.le, p.re);
             obj.p = p.p;
             obj.q = p.q;
@@ -114,7 +116,7 @@ classdef Solver
                     elseif Nr == 20
                         error("NR not converging")
                     end
-                    obj = FEM(obj, bc, n);
+                    obj = FEM(obj, bc);
                     bc(:, 2) = bc(:, 2)*0;
                     % fprintf("  Nr: %i, R1: %4.2g \n", [Nr, norm(obj.R1(obj.fdof))]);
                 end
@@ -126,7 +128,7 @@ classdef Solver
             obj.sig1N(:,obj.ngp+1:end) = obj.sig;
         end
 
-        function obj = FEM(obj, bc, n) % Main FEM function
+        function obj = FEM(obj, bc) % Main FEM function
             obj.K = assemK(obj, obj.Dt);
 
             da = obj.solvelin(obj.K, -obj.R1, bc);
@@ -167,7 +169,7 @@ classdef Solver
             obj.R1 = sparse(tripf(:, 1), 1, tripf(:, 2), obj.ndof, 1);
         end
 
-        function K = assemK(obj, D)
+        function K = assemK(obj, D) % Assemble stiffness matrix
             tripK = zeros(obj.nel*obj.endof^2, 3);
             for el = 1:obj.nel
                 ke = zeros(obj.endof);
@@ -211,39 +213,6 @@ classdef Solver
         end
 
         %% Material Functions
-        function [sig, Dt, sigy, Dep] = EPMat(obj, sigtr, sigy)
-            Dep = 0;
-            sigt = sigtr'*obj.P*sigtr;
-            r = sigy - obj.sigy0*sqrt(sigt);
-            iter = 0;
-            while norm(r) > obj.rtol || iter == 0
-                iter = iter + 1;
-                V = diag(1./diag(eye(4) + obj.sigy0^2*(Dep/(sigy + obj.H*Dep))*obj.Gam));
-                U = obj.X*V*obj.iX;
-                %dUdDep = -obj.X*V*obj.Gam*V*obj.iX*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2);
-                dUdDep = -U*obj.DeP*U*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2);
-                dsigtdU = 2*obj.P*U*(sigtr*sigtr');
-                sigt = sigtr'*U*obj.P*U'*sigtr;
-                drdDep = obj.H - obj.sigy0/(2*sqrt(sigt))*trace(dUdDep*dsigtdU);
-                DDep = -r/drdDep;
-                Dep = Dep + DDep;
-                V = diag(1./diag(eye(4) + obj.sigy0^2*(Dep/(sigy + obj.H*Dep))*obj.Gam));
-                U = obj.X*V*obj.iX;
-                sigt = sigtr'*U*obj.P*U'*sigtr;
-                r = sigy + obj.H*Dep - obj.sigy0*sqrt(sigt);           
-                % fprintf("    iter: %i, r: %4.2g \n", [iter, norm(r)])
-            end
-            sig = U*sigtr;
-            sigy = sigy + obj.H*Dep;
-            % dUdDep = -obj.X*V*obj.Gam*V*obj.iX*(obj.sigy0^2*sigy/(sigy+obj.H*Dep)^2);
-            dUdDep = -U*obj.DeP*U*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2);
-            dsigtdU = 2*obj.P*U*(sigtr*sigtr');
-            drdDep = obj.H - obj.sigy0/(2*sqrt(sigt))*trace(dUdDep*dsigtdU);
-            drdDeps = -obj.sigy0/sqrt(sigt)*obj.De*U'*obj.P*U*sigtr;
-            dDepdDeps = -drdDeps/drdDep;
-            Dt = U*obj.De + dUdDep*sigtr*dDepdDeps';
-        end
-
         function [sig, Dt, Ds, ep, dDsdep, drdep, epst] = DPMat(obj, eps, Ds, ep, gam, phi)
             epst = 1/phi^2*eps'*Ds*obj.P*Ds*eps;
             sige = (obj.sigy0 + obj.H*ep + obj.Kinf*(1-exp(-obj.xi*ep)));
@@ -278,6 +247,39 @@ classdef Solver
             Dt = Ds + dDsdep*eps*depdeps';
         end
 
+        function [sig, Dt, sigy, Dep] = EPMat(obj, sigtr, sigy)
+            Dep = 0;
+            sigt = sigtr'*obj.P*sigtr;
+            r = sigy - obj.sigy0*sqrt(sigt);
+            iter = 0;
+            while norm(r) > obj.rtol || iter == 0
+                iter = iter + 1;
+                V = diag(1./diag(eye(4) + obj.sigy0^2*(Dep/(sigy + obj.H*Dep))*obj.Gam));
+                U = obj.X*V*obj.iX;
+                %dUdDep = -obj.X*V*obj.Gam*V*obj.iX*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2);
+                dUdDep = -U*obj.DeP*U*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2);
+                dsigtdU = 2*obj.P*U*(sigtr*sigtr');
+                sigt = sigtr'*U*obj.P*U'*sigtr;
+                drdDep = obj.H - obj.sigy0/(2*sqrt(sigt))*trace(dUdDep*dsigtdU);
+                DDep = -r/drdDep;
+                Dep = Dep + DDep;
+                V = diag(1./diag(eye(4) + obj.sigy0^2*(Dep/(sigy + obj.H*Dep))*obj.Gam));
+                U = obj.X*V*obj.iX;
+                sigt = sigtr'*U*obj.P*U'*sigtr;
+                r = sigy + obj.H*Dep - obj.sigy0*sqrt(sigt);           
+                % fprintf("    iter: %i, r: %4.2g \n", [iter, norm(r)])
+            end
+            sig = U*sigtr;
+            sigy = sigy + obj.H*Dep;
+            % dUdDep = -obj.X*V*obj.Gam*V*obj.iX*(obj.sigy0^2*sigy/(sigy+obj.H*Dep)^2);
+            dUdDep = -U*obj.DeP*U*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2);
+            dsigtdU = 2*obj.P*U*(sigtr*sigtr');
+            drdDep = obj.H - obj.sigy0/(2*sqrt(sigt))*trace(dUdDep*dsigtdU);
+            drdDeps = -obj.sigy0/sqrt(sigt)*obj.De*U'*obj.P*U*sigtr;
+            dDepdDeps = -drdDeps/drdDep;
+            Dt = U*obj.De + dUdDep*sigtr*dDepdDeps';
+        end
+
         function [X, iX, Gam] = diagDs(obj)
             [Q, L] = eig(obj.De);
             sL = sqrt(L);
@@ -288,26 +290,7 @@ classdef Solver
         end
 
         %% Optimization
-        function Z = filterMatrix(obj, le, re)
-            ec = [obj.ex(:, 1) + le/2, obj.ey(:, 1) + le/2];
-            I = zeros(obj.nel*(2*re)^2, 3);
-            [x, y] = meshgrid(-re:re, -re:re);
-            weights = max(0, 1 - sqrt(x.^2 + y.^2)/re);
-            sw = sum(weights(:));
-            r0 = le*re;
-            i = 0;
-            for ii = 1:obj.nel
-                r = vecnorm(ec - ec(ii, :), 2, 2);
-                ix = find(r < r0);
-                ixn = length(ix);
-                w = 1-r(ix)/r0;
-                I(i+1:i+ixn, :) = [ii*ones(ixn, 1), ix, w/sw];
-                i = i + ixn;
-            end
-            Z = sparse(I(1:i, 1), I(1:i, 2), I(1:i, 3), obj.nel, obj.nel);
-        end
-
-        function obj = optimizer(obj, x)
+        function [obj, x] = optimizer(obj, x)
             a0 = 1; a1 = zeros(obj.ncon,1); c = 1000*ones(obj.ncon,1); d = ones(obj.ncon,1);
             xold1 = []; xold2 = []; low = []; upp = [];
             dx = 1;
@@ -315,7 +298,8 @@ classdef Solver
             while dx > obj.xtol
                 iter = iter + 1;
                 if iter == obj.iterMax + 1
-                    fprintf("\n\nMax iteration count reached")
+                    iter = obj.iterMax;
+                    fprintf("\n\nMax iteration count reached\n")
                     break
                 end
                 obj = initOpt(obj, x);
@@ -324,13 +308,13 @@ classdef Solver
                 if iter == 1
                     s = abs(100/obj.g0(1));
                 end
-                [xnew,~,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon, obj.nel, iter, x, zeros(obj.nel, 1), ones(obj.nel, 1), ...
+                [xmma,~,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon, obj.nel, iter, x, zeros(obj.nel, 1), ones(obj.nel, 1), ...
                                                             xold1, xold2, s*obj.g0(iter), s*dg0, obj.g1(iter), dg1, low, upp, a0, a1, c, d);
                 xold2 = xold1;
                 xold1 = x;
   
-                dx = norm((xnew - x)/obj.nel);
-                x = obj.Z*xnew;
+                dx = norm((xmma - x)/obj.nel);
+                x = xmma;
 
                 plotFigs(obj, x, 0, 1);
                 fprintf("Opt iter: %i\n", iter)
@@ -351,6 +335,7 @@ classdef Solver
             ap = zeros(obj.ndof, 1);
             ap(obj.pdof) = obj.a(obj.pdof);
 
+            x = obj.Z*x;
             for el = 1:obj.nel
                 dgam = obj.p*(1-obj.del)*x(el)^(obj.p-1);
                 dphi = obj.q*(1-obj.del)*x(el)^(obj.q-1);
@@ -409,7 +394,7 @@ classdef Solver
             obj.a = zeros(obj.ndof, 1);
             obj.R1 = sparse(obj.ndof, 1);
 
-            
+            x = obj.Z*x;
             obj.gam = obj.del + (1-obj.del)*x.^obj.p;
             obj.phi = obj.del + (1-obj.del)*x.^obj.q;
             gam4 = repelem(obj.gam, 4*obj.ngp);
@@ -421,7 +406,28 @@ classdef Solver
             obj.dR2dep = zeros(obj.tgp, 1);
         end
 
-        
+        function Z = filterMatrix(obj, le, re)
+            if obj.filtOn
+                ec = [obj.ex(:, 1) + le/2, obj.ey(:, 1) + le/2];
+                I = zeros(obj.nel*(2*re)^2, 3);
+                [x, y] = meshgrid(-re:re, -re:re);
+                weights = max(0, 1 - sqrt(x.^2 + y.^2)/re);
+                sw = sum(weights(:));
+                r0 = le*re;
+                i = 0;
+                for ii = 1:obj.nel
+                    r = vecnorm(ec - ec(ii, :), 2, 2);
+                    ix = find(r < r0);
+                    ixn = length(ix);
+                    w = 1-r(ix)/r0;
+                    I(i+1:i+ixn, :) = [ii*ones(ixn, 1), ix, w/sw];
+                    i = i + ixn;
+                end
+                Z = sparse(I(1:i, 1), I(1:i, 2), I(1:i, 3), obj.nel, obj.nel);
+            else
+                Z = speye(obj.nel);
+            end
+        end
 
         %% Misc. Function
         function plotFigs(obj, x, iter, flag)
@@ -446,16 +452,31 @@ classdef Solver
                 end
 
                 
-                figure;
-                title("cos(\theta) field for compliance maximization");
-                patch(obj.ex', obj.ey', cosT);
-                colormap jet;
-                colorbar;
+                % figure;
+                % title("cos(\theta) field for compliance maximization");
+                % patch(obj.ex', obj.ey', cosT);
+                % colormap jet;
+                % colorbar;
+                % 
+                % figure;
+                % title("von Mises stress");
+                % patch(obj.ex', obj.ey', vM);
+                % colormap jet;
+                % colorbar;
 
                 figure;
-                title("von Mises stress");
+                tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+                nexttile;
+                patch(obj.ex', obj.ey', cosT);
+                title("cos($\theta$) field for compliance maximization", 'Interpreter', 'latex');
+                colormap(gca, 'jet'); 
+                colorbar;
+                
+                % Second plot: von Mises stress
+                nexttile;
                 patch(obj.ex', obj.ey', vM);
-                colormap jet;
+                title("von Mises stress", 'Interpreter', 'latex');
+                colormap(gca, 'jet');
                 colorbar;
     
                 figure;
@@ -471,13 +492,13 @@ classdef Solver
                 colormap(softjet);
 
                 figure;
-                plot(1:iter, obj.g0, LineWidth=2)
-                title("Convergance Plot g0");
-
-                figure;
-                plot(1:iter, obj.g1, LineWidth=2)
-                title("Convergance Plot g1")
-
+                g0_norm = obj.g0(10:end)/abs(obj.g0(end)) + 1;
+                plot(10:iter, [g0_norm, obj.g1(10:end)], 'LineWidth', 2)                
+                title("Convergence Plot (g0 normalized)");
+                xlabel("Iteration")
+                ylabel("Value")
+                legend("$\hat{g}_0$", "$g_1$", 'Interpreter', 'latex')
+                grid on
             end
         end
         
