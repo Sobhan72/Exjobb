@@ -167,9 +167,9 @@ grid on;
 %% Finite diff
 h = 1e-6;
 
-% c = [0.3 0.5 0.2 0.7 0.9]';
-% x = repmat(c, sol.nel/5, 1);
-x = ones(sol.nel, 1);
+c = [0.3 0.5 0.2 0.7 0.9]';
+x = repmat(c, sol.nel/5, 1);
+% x = 0.8*ones(sol.nel, 1);
 sol = initOpt(sol, sol.Z*x);
 sol = newt(sol);
 [~, dg0, ~, ~] = funcEval(sol, sol.Z*x);
@@ -203,8 +203,4 @@ end
 y = ones(sol.nel, 1);
 y(wrong) = 0;
 patch(sol.ex', sol.ey', y);
-
-% z = ones(sol.nel, 1);
-% z(ceil(find(sol.pltoel(:,2)-3==0)/4)) = 0;
-% patch(sol.ex', sol.ey', z);
 

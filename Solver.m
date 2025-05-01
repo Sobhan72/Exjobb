@@ -17,8 +17,6 @@ classdef Solver
         xtol; iterMax
         gam; phi; g0; g1
         sig1N
-        sigTrack
-        pltoel
     end
 
     methods
@@ -101,8 +99,6 @@ classdef Solver
             obj.sigyi = obj.sigy0*ones(obj.tgp, 1);
 
             obj.sig1N = zeros(obj.tgp,8);
-            obj.sigTrack = zeros(4,obj.N);
-            obj.pltoel = zeros(obj.tgp, 2);
         end
 
         %% FEM
@@ -123,9 +119,6 @@ classdef Solver
                     % fprintf("  Nr: %i, R1: %4.2g \n", [Nr, norm(obj.R1(obj.fdof))]);
                 end
                 obj.eps = obj.epsi; obj.sig = obj.sigi; obj.ep = obj.epi; obj.Ds = obj.Dsi; obj.sigy = obj.sigyi;
-                obj.pltoel(:, 1) = zeros(obj.tgp, 1);
-                el = 72;
-                obj.sigTrack(:, n) = sqrt(obj.sigy0^2*diag(obj.sig(obj.ngp*(el-1) + 1:obj.ngp*el, :)*obj.P*obj.sig(obj.ngp*(el-1) + 1:obj.ngp*el, :)'));
                 if n == 1
                     obj.sig1N(:,1:obj.ngp) = obj.sig;
                 end
@@ -152,7 +145,6 @@ classdef Solver
                     sigtr = obj.gam(el)*obj.De*deps + obj.sig(ix, :)';
 
                     if sqrt(obj.sigy0^2*sigtr'*obj.P*sigtr) > obj.phi(el)*obj.sigy(ix)
-                            obj.pltoel(ix, 1) = n; %Ny
                         if obj.DP
                             [obj.sigi(ix, :), obj.Dt(ixM, :), obj.Dsi(ixM, :), obj.epi(ix), obj.dDsdep(ixM, :), obj.dR2dep(ix), obj.epst(ix)]...
                              = DPMat(obj, obj.epsi(ix, :)', obj.Ds(ixM, :), obj.ep(ix), obj.gam(el), obj.phi(el));
@@ -167,7 +159,6 @@ classdef Solver
                         obj.Dsi(ixM, :) = obj.gam(el)*obj.De;
                         obj.epi(ix) = 0; obj.dDsdep(ixM, :) = 0; obj.dR2dep(ix) = 0;
                         obj.epst(ix) = (obj.gam(el)/obj.phi(el))^2*obj.epsi(ix, :)*obj.De*obj.P*obj.De*obj.epsi(ix, :)';
-                            obj.pltoel(ix, 2) = obj.pltoel(ix, 1); %Ny
                     end
                     fein = fein + B'*obj.sigi(ix, [1 2 4])'*J*obj.t;
                 end
@@ -327,7 +318,6 @@ classdef Solver
                     fprintf("\n\nMax iteration count reached")
                     break
                 end
-
                 obj = initOpt(obj, x);
                 obj = newt(obj);
                 [obj.g0(iter), dg0, obj.g1(iter), dg1] = funcEval(obj, x);
@@ -340,8 +330,7 @@ classdef Solver
                 xold1 = x;
   
                 dx = norm((xnew - x)/obj.nel);
-                % x = obj.Z*xnew;
-                x = xnew;
+                x = obj.Z*xnew;
 
                 plotFigs(obj, x, 0, 1);
                 fprintf("Opt iter: %i\n", iter)
@@ -404,11 +393,9 @@ classdef Solver
 
             g0 = -obj.a(obj.pdof)'*obj.R1(obj.pdof);
             dg0 = obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
-            % dg0 = (dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
 
             g1 = x'*obj.A/obj.Amax - 1;
-            % dg1 = (obj.Z'*obj.A/obj.Amax)';
-            dg1 = (obj.A/obj.Amax)';
+            dg1 = (obj.Z'*obj.A/obj.Amax)';
         end
 
         function obj = initOpt(obj, x)
