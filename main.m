@@ -23,8 +23,8 @@ params.v12 = v; params.v13 = v; params.v23 = v;
 params.v21 = v; params.v32 = v; params.v31 = v;
 
 params.sigy01 = 360e6;
-params.sigy02 = 360e6;
-params.sigy03 = 360e6;
+params.sigy02 = 2*360e6;
+params.sigy03 = 2*360e6;
 
 params.H = 10e9;
 params.Kinf = 0; %0.3*params.sigy0; %extra terms linHard (sat. stress)
@@ -42,6 +42,8 @@ params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
 params.xtol = 1e-4;
 params.iterMax = 50;
+params.eta = 0.5;
+params.beta = 1e-6;
 
 sol = Solver(params);
 

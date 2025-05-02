@@ -13,7 +13,7 @@ classdef Solver
         R1; R1tol; N
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
-        Z; filtOn
+        Z; filtOn; eta; beta
         del; p; q; ncon
         xtol; iterMax
         gam; phi; g0; g1
@@ -101,6 +101,8 @@ classdef Solver
             obj.sigyi = obj.sigy0*ones(obj.tgp, 1);
 
             obj.sig1N = zeros(obj.tgp,8);
+            obj.eta = p.eta;
+            obj.beta = p.beta;
         end
 
         %% FEM
@@ -301,6 +303,8 @@ classdef Solver
                     iter = obj.iterMax;
                     fprintf("\n\nMax iteration count reached\n")
                     break
+                elseif mod(iter, 20) == 0
+                     obj.beta = obj.beta +1;
                 end
                 obj = initOpt(obj, x);
                 obj = newt(obj);
@@ -317,8 +321,8 @@ classdef Solver
                 x = xmma;
 
                 plotFigs(obj, x, 0, 1);
-                fprintf("Opt iter: %i\n", iter)
-                fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.g1(iter), dx])
+                % fprintf("Opt iter: %i\n", iter)
+                % fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.g1(iter), dx])
             end
             obj.g0 = obj.g0(1:iter);
             obj.g1 = obj.g1(1:iter);
@@ -336,6 +340,7 @@ classdef Solver
             ap(obj.pdof) = obj.a(obj.pdof);
 
             x = obj.Z*x;
+            [x, dxH] = He(obj,x);
             for el = 1:obj.nel
                 dgam = obj.p*(1-obj.del)*x(el)^(obj.p-1);
                 dphi = obj.q*(1-obj.del)*x(el)^(obj.q-1);
@@ -377,10 +382,10 @@ classdef Solver
             mut = -dgt0dep'*idR2dep - lamt*dR1dep(obj.fdof, :)*idR2dep;
 
             g0 = -obj.a(obj.pdof)'*obj.R1(obj.pdof);
-            dg0 = obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
+            dg0 = obj.Z'*dxH.*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
 
             g1 = x'*obj.A/obj.Amax - 1;
-            dg1 = (obj.Z'*obj.A/obj.Amax)';
+            dg1 = (obj.Z'*dxH.*obj.A/obj.Amax)';
         end
 
         function obj = initOpt(obj, x)
@@ -395,6 +400,7 @@ classdef Solver
             obj.R1 = sparse(obj.ndof, 1);
 
             x = obj.Z*x;
+            x = He(obj,x);
             obj.gam = obj.del + (1-obj.del)*x.^obj.p;
             obj.phi = obj.del + (1-obj.del)*x.^obj.q;
             gam4 = repelem(obj.gam, 4*obj.ngp);
@@ -429,6 +435,11 @@ classdef Solver
             end
         end
 
+        function [xH, dxH] = He(obj, x)
+            xH = (tanh(obj.beta*obj.eta) + tanh(obj.beta*(x-obj.eta)))/(tanh(obj.beta*obj.eta) + tanh(obj.beta*(1-obj.eta)));
+            dxH = obj.beta*(1-tanh(obj.beta*(x-obj.eta)).^2)/(tanh(obj.beta*obj.eta) + tanh(obj.beta*(1-obj.eta)));
+        end
+
         %% Misc. Function
         function plotFigs(obj, x, iter, flag)
             if flag
@@ -450,6 +461,7 @@ classdef Solver
                     ix = (ii-1)*4+1:ii*4;
                     cosT(ii) = trace(obj.sig1N(ix,1:obj.ngp)*obj.sig1N(ix,obj.ngp+1:end)')/(vecnorm(obj.sig1N(ix,1:obj.ngp),2,2)'*vecnorm(obj.sig1N(ix,obj.ngp+1:end),2,2));
                 end
+                cosT(vM<1) = 0;
 
                 
                 % figure;
