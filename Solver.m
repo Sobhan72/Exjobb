@@ -382,7 +382,7 @@ classdef Solver
             mut = -dgt0dep'*idR2dep - lamt*dR1dep(obj.fdof, :)*idR2dep;
 
             g0 = -obj.a(obj.pdof)'*obj.R1(obj.pdof);
-            dg0 = obj.Z'*dxH.*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
+            dg0 = ((dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)*(dxH.*obj.Z))';
 
             g1 = x'*obj.A/obj.Amax - 1;
             dg1 = (obj.Z'*dxH.*obj.A/obj.Amax)';
