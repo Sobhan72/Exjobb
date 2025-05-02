@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % FEM parameters
-params.le = 0.05;
+params.le = 0.1;
 params.lx = 2;
 params.ly = 1;
 params.Vf = 0.3;
@@ -43,7 +43,7 @@ params.ncon = 1; % Nr of constraints
 params.xtol = 1e-4;
 params.iterMax = 50;
 params.eta = 0.5;
-params.beta = 1;
+params.beta = 1e-6+0.5;
 
 sol = Solver(params);
 
@@ -108,3 +108,4 @@ end
 y = ones(sol.nel, 1);
 y(wrong) = 0;
 patch(sol.ex', sol.ey', y);
+
