@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % FEM parameters
-params.le = 0.1;
+params.le = 0.01;
 params.lx = 2;
 params.ly = 1;
 params.Vf = 0.3;
@@ -41,9 +41,9 @@ params.q = 2;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
 params.xtol = 1e-4;
-params.iterMax = 50;
+params.iterMax = 100;
 params.eta = 0.5;
-params.beta = 1e-6+0.5;
+params.beta = 1e-6;
 
 sol = Solver(params);
 
@@ -57,10 +57,10 @@ colorbar;
 colormap jet;
 
 %% Newton-Raphson
-x = load("x.mat");
-sol = initOpt(sol, x.x);
+% x = load("x.mat");
+sol = initOpt(sol, ones(sol.nel, 1));
 sol = newt(sol);
-plotFigs(sol, x.x, 1, 0)
+plotFigs(sol, ones(sol.nel, 1), 0, 0)
 
 figure;
 eldraw2(sol.ex, sol.ey, [1 2 1]);
@@ -108,4 +108,3 @@ end
 y = ones(sol.nel, 1);
 y(wrong) = 0;
 patch(sol.ex', sol.ey', y);
-

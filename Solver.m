@@ -331,13 +331,12 @@ classdef Solver
 
         function [g0, dg0, g1, dg1] = funcEval(obj, x)
             dgt0dx = zeros(1, obj.nel);
-            dR1dx = zeros(obj.ndof, obj.nel);
-            dR2dxe = zeros(obj.ngp, 1);
-            dR2dx = zeros(obj.tgp, obj.nel);
+            dR1dx = zeros(obj.endof*obj.nel, 1);  % dR1dx = sparse(obj.ndof, obj.nel);
+            % dR2dxe = zeros(obj.ngp, 1);
+            dR2dx = zeros(obj.tgp, 1);  % dR2dx = sparse(obj.tgp, obj.nel);
             dgt0dep = zeros(obj.tgp, 1);
-            dR1dep = zeros(obj.ndof, obj.tgp);
-            ap = zeros(obj.ndof, 1);
-            ap(obj.pdof) = obj.a(obj.pdof);
+            dR1dep = zeros(obj.endof*obj.tgp, 1);  % dR1dep = sparse(obj.ndof, obj.tgp); 
+            ap = sparse(obj.pdof, 1, obj.a(obj.pdof), obj.ndof, 1);
 
             x = obj.Z*x;
             [x, dxH] = He(obj,x);
@@ -360,29 +359,36 @@ classdef Solver
                     depstdx = obj.eps(ix, :)*(dDsdx*obj.P*obj.Ds(ixM, :)...
                               - obj.Ds(ixM, :)*obj.P*2*dphi/obj.phi(el)*obj.Ds(ixM, :)...
                               + obj.Ds(ixM, :)*obj.P*dDsdx)*obj.eps(ix, :)'/obj.phi(el)^2;
-                    dR2dxe(gp) = dphi*(obj.sigy0 + obj.H*obj.ep(ix))...
+                    % dR2dxe(gp) = dphi*(obj.sigy0 + obj.H*obj.ep(ix))...
+                    %              - dphi*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx;
+                    dR2dx(ix) = dphi*(obj.sigy0 + obj.H*obj.ep(ix))...
                                  - dphi*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx;
 
                     Kh = B'*obj.dDsdep(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
                     dR1depe = Kh*obj.a(eix);
                     dgt0dep(ix) = -ap(eix)'*dR1depe;
-                    dR1dep(eix, ix) = dR1depe;
+                    dR1dep(8*(ix-1)+1:8*ix) = dR1depe; % dR1dep(eix, ix) = dR1depe;
                 end
                 dR1dxe = Kte*obj.a(eix);
                 dgt0dx(el) = -ap(eix)'*dR1dxe;
-                dR1dx(eix, el) = dR1dxe;
-                dR2dx(ix-3:ix, el) = dR2dxe;
+                dR1dx(8*(el-1)+1:8*el) = dR1dxe; % dR1dx(eix, el) = dR1dxe;
+                % dR2dx(ix-3:ix, el) = dR2dxe;
             end
+            
+            dR1dx = sparse(reshape(obj.edof', [], 1), repelem((1:obj.nel)', obj.endof), dR1dx, obj.ndof, obj.nel);
+            dR2dx = sparse((1:obj.tgp)', repelem((1:obj.nel)', obj.ngp), dR2dx, obj.tgp, obj.nel);
+            dR1dep = sparse(reshape(repelem(obj.edof', 1, obj.ngp), [], 1), repelem((1:obj.tgp)', obj.endof), dR1dep, obj.ndof, obj.tgp);
 
             dgt0du = -obj.a(obj.pdof)'*obj.K(obj.pdof, obj.fdof);
 
+            pgp = find(obj.ep);
             lamt = -dgt0du/obj.K(obj.fdof, obj.fdof);
-            idR2dep = diag(1./obj.dR2dep);
-            idR2dep(isinf(idR2dep)) = 0;
-            mut = -dgt0dep'*idR2dep - lamt*dR1dep(obj.fdof, :)*idR2dep;
+            idR2dep = diag(1./obj.dR2dep(pgp));
+            % idR2dep(isinf(idR2dep)) = 0;
+            mut = -dgt0dep(pgp)'*idR2dep - lamt*dR1dep(obj.fdof, pgp)*idR2dep;
 
             g0 = -obj.a(obj.pdof)'*obj.R1(obj.pdof);
-            dg0 = dxH'.*obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
+            dg0 = dxH'.*obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx(pgp, :))';
 
             g1 = x'*obj.A/obj.Amax - 1;
             dg1 = (dxH'.*obj.Z'*obj.A/obj.Amax)';
@@ -475,7 +481,6 @@ classdef Solver
                 colormap(gca, 'jet'); 
                 colorbar;
                 
-                % Second plot: von Mises stress
                 nexttile;
                 patch(obj.ex', obj.ey', vM);
                 title("von Mises stress", 'Interpreter', 'latex');
