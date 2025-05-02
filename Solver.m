@@ -321,8 +321,8 @@ classdef Solver
                 x = xmma;
 
                 plotFigs(obj, x, 0, 1);
-                % fprintf("Opt iter: %i\n", iter)
-                % fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.g1(iter), dx])
+                fprintf("Opt iter: %i\n", iter)
+                fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.g1(iter), dx])
             end
             obj.g0 = obj.g0(1:iter);
             obj.g1 = obj.g1(1:iter);
@@ -382,10 +382,10 @@ classdef Solver
             mut = -dgt0dep'*idR2dep - lamt*dR1dep(obj.fdof, :)*idR2dep;
 
             g0 = -obj.a(obj.pdof)'*obj.R1(obj.pdof);
-            dg0 = obj.Z'*dxH.*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
+            dg0 = dxH'.*obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx)';
 
             g1 = x'*obj.A/obj.Amax - 1;
-            dg1 = (obj.Z'*dxH.*obj.A/obj.Amax)';
+            dg1 = (dxH'.*obj.Z'*obj.A/obj.Amax)';
         end
 
         function obj = initOpt(obj, x)
@@ -435,9 +435,13 @@ classdef Solver
             end
         end
 
-        function [xH, dxH] = He(obj, x)
-            xH = (tanh(obj.beta*obj.eta) + tanh(obj.beta*(x-obj.eta)))/(tanh(obj.beta*obj.eta) + tanh(obj.beta*(1-obj.eta)));
-            dxH = obj.beta*(1-tanh(obj.beta*(x-obj.eta)).^2)/(tanh(obj.beta*obj.eta) + tanh(obj.beta*(1-obj.eta)));
+        function [x, dxH] = He(obj, x)
+            if obj.filtOn
+                dxH = obj.beta*(1-tanh(obj.beta*(x-obj.eta)).^2)/(tanh(obj.beta*obj.eta) + tanh(obj.beta*(1-obj.eta)));
+                x = (tanh(obj.beta*obj.eta) + tanh(obj.beta*(x-obj.eta)))/(tanh(obj.beta*obj.eta) + tanh(obj.beta*(1-obj.eta)));
+            else
+                dxH = ones(obj.nel, 1);
+            end
         end
 
         %% Misc. Function
@@ -462,19 +466,6 @@ classdef Solver
                     cosT(ii) = trace(obj.sig1N(ix,1:obj.ngp)*obj.sig1N(ix,obj.ngp+1:end)')/(vecnorm(obj.sig1N(ix,1:obj.ngp),2,2)'*vecnorm(obj.sig1N(ix,obj.ngp+1:end),2,2));
                 end
                 cosT(vM<1) = 0;
-
-                
-                % figure;
-                % title("cos(\theta) field for compliance maximization");
-                % patch(obj.ex', obj.ey', cosT);
-                % colormap jet;
-                % colorbar;
-                % 
-                % figure;
-                % title("von Mises stress");
-                % patch(obj.ex', obj.ey', vM);
-                % colormap jet;
-                % colorbar;
 
                 figure;
                 tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
@@ -503,14 +494,18 @@ classdef Solver
                            linspace(0.8, 0.1, 256)'];
                 colormap(softjet);
 
-                figure;
-                g0_norm = obj.g0(10:end)/abs(obj.g0(end)) + 1;
-                plot(10:iter, [g0_norm, obj.g1(10:end)], 'LineWidth', 2)                
-                title("Convergence Plot (g0 normalized)");
-                xlabel("Iteration")
-                ylabel("Value")
-                legend("$\hat{g}_0$", "$g_1$", 'Interpreter', 'latex')
-                grid on
+                if iter == 0
+                    return
+                else
+                    figure;
+                    g0_norm = obj.g0(10:end)/abs(obj.g0(end)) + 1;
+                    plot(10:iter, [g0_norm, obj.g1(10:end)], 'LineWidth', 2)                
+                    title("Convergence Plot (g0 normalized)");
+                    xlabel("Iteration")
+                    ylabel("Value")
+                    legend("$\hat{g}_0$", "$g_1$", 'Interpreter', 'latex')
+                    grid on
+                end
             end
         end
         

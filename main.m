@@ -43,7 +43,7 @@ params.ncon = 1; % Nr of constraints
 params.xtol = 1e-4;
 params.iterMax = 50;
 params.eta = 0.5;
-params.beta = 1e-6;
+params.beta = 1;
 
 sol = Solver(params);
 
@@ -75,9 +75,9 @@ h = 1e-6;
 c = [0.3 0.5 0.2 0.7 0.9]';
 x = repmat(c, sol.nel/5, 1);
 % x = 0.8*ones(sol.nel, 1);
-sol = initOpt(sol, sol.Z*x);
+sol = initOpt(sol, x);
 sol = newt(sol);
-[~, dg0, ~, ~] = funcEval(sol, sol.Z*x);
+[~, dg0, ~, ~] = funcEval(sol, x);
 
 wrong = [];
 for el = 1:sol.nel
@@ -88,14 +88,14 @@ for el = 1:sol.nel
     x1(el) = x1(el) - h;
     x2(el) = x2(el) + h;
 
-    sol1 = initOpt(sol1, sol.Z*x1);
-    sol2 = initOpt(sol2, sol.Z*x2);
+    sol1 = initOpt(sol1, x1);
+    sol2 = initOpt(sol2, x2);
 
     sol1 = newt(sol1);
     sol2 = newt(sol2);
 
-    [g1, ~, ~, ~] = funcEval(sol1, sol.Z*x1);
-    [g2, ~, ~, ~] = funcEval(sol2, sol.Z*x2);
+    [g1, ~, ~, ~] = funcEval(sol1, x1);
+    [g2, ~, ~, ~] = funcEval(sol2, x2);
 
     dgf = (g2-g1)/2/h;
     fprintf("El: %i \n", el)
@@ -108,4 +108,3 @@ end
 y = ones(sol.nel, 1);
 y(wrong) = 0;
 patch(sol.ex', sol.ey', y);
-
