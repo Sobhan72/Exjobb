@@ -461,17 +461,17 @@ classdef Solver
                 drawnow;
             else
                 vM = zeros(obj.nel, 1);
-                for ii = 1:obj.nel
-                    ix = (ii-1)*4+1:ii*4;
-                    vM(ii) = sqrt(obj.sigy0^2*trace(obj.sig(ix, :)*obj.P*obj.sig(ix, :)')/4);
+                for el = 1:obj.nel
+                    ix = obj.ngp*(el-1)+1:el*obj.ngp;
+                    vM(el) = sqrt(obj.sigy0^2*trace(obj.sig(ix, :)*obj.P*obj.sig(ix, :)')/obj.ngp);
                 end
                 
                 cosT = zeros(obj.nel,1);
-                for ii = 1:obj.nel
-                    ix = (ii-1)*4+1:ii*4;
-                    cosT(ii) = trace(obj.sig1N(ix,1:obj.ngp)*obj.sig1N(ix,obj.ngp+1:end)')/(vecnorm(obj.sig1N(ix,1:obj.ngp),2,2)'*vecnorm(obj.sig1N(ix,obj.ngp+1:end),2,2));
+                for el = 1:obj.nel
+                    ix = obj.ngp*(el-1)+1:el*obj.ngp;
+                    cosT(el) = trace(obj.sig1N(ix,1:obj.ngp)*obj.sig1N(ix,obj.ngp+1:end)')/(vecnorm(obj.sig1N(ix,1:obj.ngp),2,2)'*vecnorm(obj.sig1N(ix,obj.ngp+1:end),2,2));
                 end
-                cosT(vM<1) = 0;
+                cosT(x<0.01) = 0;
 
                 figure;
                 tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
@@ -492,12 +492,22 @@ classdef Solver
                 pl = obj.ep>0;
                 pl = reshape(pl, 4, obj.nel)';
                 pl = any(pl, 2);
-                patch(obj.ex', obj.ey', int8(pl));
+                % pl(x<0.01) = 0;
+                patch(obj.ex(pl, :)', obj.ey(pl, :)', 'red', ...
+                      'EdgeColor', 'none', ...
+                      'DisplayName', 'Plasticity');
+                patch(obj.ex(~pl, :)', obj.ey(~pl, :)', 'blue', ...
+                      'EdgeColor', 'none', ...
+                      'DisplayName', 'Elasticity');
+                patch(obj.ex(x<0.01, :)', obj.ey(x<0.01, :)', 'white', ...
+                      'EdgeColor', 'none', ...
+                      'HandleVisibility', 'off');
+                legend
                 
-                softjet = [linspace(0.1, 1, 256)', ...
-                           linspace(0.1, 0, 256)', ...
-                           linspace(0.8, 0.1, 256)'];
-                colormap(softjet);
+                % softjet = [linspace(0.1, 1, 256)', ...
+                %            linspace(0.1, 0, 256)', ...
+                %            linspace(0.8, 0.1, 256)'];
+                % colormap(softjet);
 
                 if iter == 0
                     return
