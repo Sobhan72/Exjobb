@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % FEM parameters
-params.le = 0.02;
+params.le = 0.05;
 params.lx = 2;
 params.ly = 1;
 params.Vf = 0.3;
@@ -41,7 +41,7 @@ params.q = 2;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
 params.xtol = 1e-4;
-params.iterMax = 40;
+params.iterMax = 15;
 params.eta = 0.5;
 params.beta = 1e-6;
 

@@ -5,6 +5,7 @@ classdef Solver
         A; t; ngp; tgp; Amax
         ndof; nel; endof; pdof; fdof 
         bcS; disp
+        Bgp; detJ; rows; cols
         De; Ds; Dt; X; iX; Gam
         dDsdep; dR2dep; epst
         H; sigy0; Kinf; xi
@@ -44,6 +45,19 @@ classdef Solver
             obj.ngp = p.ngp;
             obj.tgp = obj.nel*obj.ngp;
             obj.Amax = sum(p.Vf*obj.A);
+            obj.Bgp = zeros(3*obj.ngp, obj.endof);
+            obj.detJ = zeros(obj.ngp, 1);
+
+            for gp = 1:obj.ngp
+                [obj.Bgp(3*(gp-1)+1:3*gp, :), obj.detJ(gp)] = NablaB(obj, gp, 1);
+            end
+            obj.rows = zeros(obj.endof^2, obj.nel);
+            obj.cols = zeros(obj.endof^2, obj.nel);
+            for el = 1:obj.nel
+                [rows, cols] = ndgrid(obj.edof(el, :));
+                obj.rows(:, el) = rows(:);
+                obj.cols(:, el) = cols(:);
+            end
 
             Fco = 1/2*(1/p.sigy01^2+1/p.sigy02^2-1/p.sigy03^2);
             Gco = 1/2*(1/p.sigy01^2-1/p.sigy02^2+1/p.sigy03^2);
@@ -143,7 +157,7 @@ classdef Solver
                 for gp = 1:obj.ngp
                     ix = obj.ngp*(el-1) + gp;
                     ixM = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
-                    [B, J] = NablaB(obj, gp, el);
+                    B = obj.Bgp(3*(gp-1)+1:3*gp, :); J = obj.detJ(gp); % [B, J] = NablaB(obj, gp, el);
                     obj.epsi(ix, [1 2 4]) = B*obj.ed(el, :)';
                     deps = (obj.epsi(ix, :) - obj.eps(ix, :))';
                     sigtr = obj.gam(el)*obj.De*deps + obj.sig(ix, :)';
@@ -176,12 +190,12 @@ classdef Solver
             for el = 1:obj.nel
                 ke = zeros(obj.endof);
                 for gp = 1:obj.ngp
-                    [B, J] = NablaB(obj, gp, el);
+                    B = obj.Bgp(3*(gp-1)+1:3*gp, :); J = obj.detJ(gp); % [B, J] = NablaB(obj, gp, el);
                     ixM = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
                     ke = ke + B'*D(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
                 end
-                [rows, cols] = ndgrid(obj.edof(el, :));
-                tripK((el-1)*obj.endof^2+1:el*obj.endof^2, :) = [rows(:), cols(:), ke(:)];
+                % [rows, cols] = ndgrid(obj.edof(el, :));
+                tripK((el-1)*obj.endof^2+1:el*obj.endof^2, :) = [obj.rows(:, el), obj.cols(:, el), ke(:)];
             end
             K = sparse(tripK(:, 1), tripK(:, 2), tripK(:, 3), obj.ndof, obj.ndof);
         end
@@ -347,7 +361,7 @@ classdef Solver
                 Kte = zeros(obj.endof);
                 eix = obj.edof(el, :);
                 for gp = 1:obj.ngp
-                    [B, J] = NablaB(obj, gp, el);
+                    B = obj.Bgp(3*(gp-1)+1:3*gp, :); J = obj.detJ(gp); % [B, J] = NablaB(obj, gp, el);
                     ix = obj.ngp*(el-1) + gp;
                     ixM =  4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
                     k0 = obj.ep(ix)*obj.sigy0^2/(obj.sigy0+obj.H*obj.ep(ix));
