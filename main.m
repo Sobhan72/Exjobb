@@ -2,18 +2,16 @@ clc, clear, close all
 
 % FEM parameters
 params.le = 0.05;
-params.lx = 2;
+params.lx = 1;
 params.ly = 1;
-params.Vf = 0.3;
+params.Vf = 0.5;
 
 params.t = 1;
 params.ngp = 4;
 
 params.R1tol = 1e-1;
-params.N = 3;
-params.disp = [2 -9e-3;
-               4 -9e-3;
-               6 -9e-3]; % displacement [nodes total-size]
+params.N = 2;
+params.disp = -9e-3; % displacement [nodes total-size]
 
 % Material parameters
 E = 210e9;
@@ -36,12 +34,13 @@ params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 % Optimization Parameters
 params.re = 2; % Elements in radius
 params.filtOn = true;
+params.loadcase = 2; %Load Case 2 = disp gradient along x = 0
 params.p = 3;
 params.q = 2;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
 params.xtol = 1e-4;
-params.iterMax = 15;
+params.iterMax = 150;
 params.eta = 0.5;
 params.beta = 1e-6;
 

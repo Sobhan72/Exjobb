@@ -18,7 +18,7 @@ classdef Solver
         del; p; q; ncon
         xtol; iterMax
         gam; phi; g0; g1
-        sig1N
+        sig1N; 
     end
 
     methods
@@ -28,6 +28,23 @@ classdef Solver
             obj.ndof = 2*((p.lx/p.le + 1)*(p.ly/p.le + 1));
             obj.nel = round(p.lx*p.ly/p.le^2);
             obj.endof = 8;
+            obj.N = p.N;
+
+
+            if p.loadcase == 2
+                obj.disp(:,1) = bc(:,1);
+                % obj.disp(:,2) = linspace(0, p.disp, length(bc));
+                obj.disp(:,2) = p.disp;
+                obj.bcS = obj.addBC([], p.ly, p.le, obj.ndof);
+            else
+                obj.disp = [2 p.disp;
+                            4 p.disp;
+                            6 p.disp];
+                obj.bcS = obj.addBC(bc, p.ly, p.le, obj.ndof);
+            end
+            obj.disp(:, 2) = obj.disp(:, 2)/obj.N;
+            
+            
 
             obj.filtOn = p.filtOn;
             obj.Z = filterMatrix(obj, p.le, p.re);
@@ -95,12 +112,10 @@ classdef Solver
             obj.rtol = p.rtol;
             obj.DP = p.DP;
             obj.R1tol = p.R1tol;
-            obj.N = p.N;   
             obj.R1 = sparse(obj.ndof, 1);
-            obj.disp = p.disp;
-            obj.disp(:, 2) = obj.disp(:, 2)/obj.N;
+         
             obj.a = zeros(obj.ndof, 1);
-            obj.bcS = obj.addBC(bc, p.ly, p.le, obj.ndof);
+
             obj.pdof = [obj.bcS(:, 1); obj.disp(:, 1)];
             obj.fdof = setdiff((1:obj.ndof)', obj.pdof);
 
