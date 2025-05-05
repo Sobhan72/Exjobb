@@ -25,9 +25,9 @@ params.v21 = v; params.v32 = v; params.v31 = v;
 params.sigy01 = 360e6;
 params.sigy02 = 360e6;
 params.sigy03 = 360e6;
-
+ 
 params.H = 10e9;
-params.Kinf = 0; %0.3*params.sigy0; %extra terms linHard (sat. stress)
+params.Kinf = 0.3*params.sigy01; %extra terms linHard (sat. stress)
 params.xi = 1e-3; %extra terms linHard (sat. exp)
 
 params.rtol = 1e-1;
@@ -72,9 +72,9 @@ fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
 %% Finite diff
 h = 1e-6;
 
-c = [0.3 0.5 0.2 0.7 0.9]';
-x = repmat(c, sol.nel/5, 1);
-% x = 0.8*ones(sol.nel, 1);
+% c = [0.3 0.5 0.2 0.7 0.9]';
+% x = repmat(c, sol.nel/5, 1);
+x = 0.8*ones(sol.nel, 1);
 sol = initOpt(sol, x);
 sol = newt(sol);
 [~, dg0, ~, ~] = funcEval(sol, x);
