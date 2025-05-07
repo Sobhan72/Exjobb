@@ -1,17 +1,17 @@
 clc, clear, close all
 
 % FEM parameters
-params.le = 0.05;
-params.lx = 1;
-params.ly = 1;
-params.Vf = 0.5;
+params.le = 0.005;
+params.lx = 0.1;
+params.ly = 0.05;
+params.Vf = 0.3;
 
 params.t = 1;
 params.ngp = 4;
 
 params.R1tol = 1e-1;
-params.N = 2;
-params.disp = -9e-3; % displacement [nodes total-size]
+params.N = 4;
+params.disp = -7e-4; % displacement [nodes total-size]
 
 % Material parameters
 E = 210e9;
@@ -25,30 +25,32 @@ params.sigy02 = 360e6;
 params.sigy03 = 360e6;
  
 params.H = 10e9;
-params.Kinf = 0.3*params.sigy01; %extra terms linHard (sat. stress)
+params.Kinf = 0; %0.3*params.sigy01; %extra terms linHard (sat. stress)
 params.xi = 1e-3; %extra terms linHard (sat. exp)
 
 params.rtol = 1e-1;
 params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
 % Optimization Parameters
-params.re = 2; % Elements in radius
+params.re = 3; % Elements in radius
 params.filtOn = true;
-params.loadcase = 2; %Load Case 2 = disp gradient along x = 0
-params.p = 3;
-params.q = 2;
+params.loadcase = 1;
+params.p = 1.5;
+params.q = 1;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
-params.xtol = 1e-4;
-params.iterMax = 150;
+params.xtol = 1e-5;
+params.iterMax = 5;
 params.eta = 0.5;
-params.beta = 1e-6;
+params.beta = 1;
 
+params.saveName = "OptDesign";
 sol = Solver(params);
 
 %% Optimization
 x = ones(sol.nel, 1);
 [sol, x] = optimizer(sol, x);
+saveData(sol, x, params);
 
 %% Mesh
 patch(sol.ex', sol.ey', ones(sol.nel, 1));
@@ -56,10 +58,12 @@ colorbar;
 colormap jet;
 
 %% Newton-Raphson
-% x = load("x.mat");
-sol = initOpt(sol, ones(sol.nel, 1));
+% xmat = load("x.mat");
+% x = xmat.x;
+x = ones(sol.nel, 1);
+sol = initOpt(sol, x);
 sol = newt(sol);
-plotFigs(sol, ones(sol.nel, 1), 0, 0)
+plotFigs(sol, x, 0, 0)
 
 figure;
 eldraw2(sol.ex, sol.ey, [1 2 1]);
@@ -71,9 +75,9 @@ fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
 %% Finite diff
 h = 1e-6;
 
-% c = [0.3 0.5 0.2 0.7 0.9]';
-% x = repmat(c, sol.nel/5, 1);
-x = 0.8*ones(sol.nel, 1);
+c = [0.3 0.5 0.2 0.7 0.9]';
+x = repmat(c, sol.nel/5, 1);
+% x = 0.8*ones(sol.nel, 1);
 sol = initOpt(sol, x);
 sol = newt(sol);
 [~, dg0, ~, ~] = funcEval(sol, x);
@@ -97,6 +101,8 @@ for el = 1:sol.nel
     [g2, ~, ~, ~] = funcEval(sol2, x2);
 
     dgf = (g2-g1)/2/h;
+
+
     fprintf("El: %i \n", el)
     fprintf("  Diff: %.5g \ndg0: %.5g \ndgf: %.5g\n", [dgf-dg0(el), dg0(el), dgf])
     if (dgf-dg0(el))/dg0(el) > 1e-4

@@ -4,7 +4,7 @@ classdef Solver
         ed; a; K
         A; t; ngp; tgp; Amax
         ndof; nel; endof; pdof; fdof 
-        bcS; disp
+        bcS; disp; fixDens
         Bgp; detJ; rows; cols
         De; Ds; Dt; X; iX; Gam
         dDsdep; dR2dep; epst
@@ -18,7 +18,8 @@ classdef Solver
         del; p; q; ncon
         xtol; iterMax
         gam; phi; g0; g1
-        sig1N; 
+        sig1N
+        saveName
     end
 
     methods
@@ -30,22 +31,22 @@ classdef Solver
             obj.endof = 8;
             obj.N = p.N;
 
-
-            if p.loadcase == 2
-                obj.disp(:,1) = bc(:,1);
-                % obj.disp(:,2) = linspace(0, p.disp, length(bc));
-                obj.disp(:,2) = p.disp;
+            if p.loadcase == 1 % Vertical load on beam
+                obj.disp(:, 1) = 2:2:10;
+                obj.disp(:, 2) = p.disp*ones(5,1);
+                obj.bcS = obj.addBC(bc, p.ly, p.le, obj.ndof);
+            elseif p.loadcase == 2 % Bending beam
+                obj.disp(:, 1) = bc(:,1);
+                obj.disp(:, 2) = linspace(-p.disp, p.disp, length(bc));
                 obj.bcS = obj.addBC([], p.ly, p.le, obj.ndof);
             else
-                obj.disp = [2 p.disp;
-                            4 p.disp;
-                            6 p.disp];
-                obj.bcS = obj.addBC(bc, p.ly, p.le, obj.ndof);
+                error("Load case doesn't exist");
             end
             obj.disp(:, 2) = obj.disp(:, 2)/obj.N;
             
+            % obj.fixDens = find(any(ismember(obj.edof,obj.disp(:,1)),2));
             
-
+            obj.saveName = p.saveName;
             obj.filtOn = p.filtOn;
             obj.Z = filterMatrix(obj, p.le, p.re);
             obj.p = p.p;
@@ -324,6 +325,7 @@ classdef Solver
         function [obj, x] = optimizer(obj, x)
             a0 = 1; a1 = zeros(obj.ncon,1); c = 1000*ones(obj.ncon,1); d = ones(obj.ncon,1);
             xold1 = []; xold2 = []; low = []; upp = [];
+            x(obj.fixDens) = 1;
             dx = 1;
             iter = 0;
             while dx > obj.xtol
@@ -332,8 +334,14 @@ classdef Solver
                     iter = obj.iterMax;
                     fprintf("\n\nMax iteration count reached\n")
                     break
-                elseif mod(iter, 20) == 0
-                     obj.beta = obj.beta +1;
+                elseif mod(iter, 10) == 0
+                    if obj.beta < 10
+                        obj.beta = obj.beta*1.1;
+                    end
+                    if obj.p < 3
+                        obj.p = obj.p + 0.1;
+                        obj.q = obj.q + 0.1;
+                    end
                 end
                 obj = initOpt(obj, x);
                 obj = newt(obj);
@@ -403,7 +411,6 @@ classdef Solver
                 dR1dx(8*(el-1)+1:8*el) = dR1dxe; % dR1dx(eix, el) = dR1dxe;
                 % dR2dx(ix-3:ix, el) = dR2dxe;
             end
-            
             dR1dx = sparse(reshape(obj.edof', [], 1), repelem((1:obj.nel)', obj.endof), dR1dx, obj.ndof, obj.nel);
             dR2dx = sparse((1:obj.tgp)', repelem((1:obj.nel)', obj.ngp), dR2dx, obj.tgp, obj.nel);
             dR1dep = sparse(reshape(repelem(obj.edof', 1, obj.ngp), [], 1), repelem((1:obj.tgp)', obj.endof), dR1dep, obj.ndof, obj.tgp);
@@ -418,9 +425,11 @@ classdef Solver
 
             g0 = -obj.a(obj.pdof)'*obj.R1(obj.pdof);
             dg0 = dxH'.*obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx(pgp, :))';
+            dg0(obj.fixDens) = 0;
 
             g1 = x'*obj.A/obj.Amax - 1;
             dg1 = (dxH'.*obj.Z'*obj.A/obj.Amax)';
+            dg1(obj.fixDens) = 0;
         end
 
         function obj = initOpt(obj, x)
@@ -505,13 +514,16 @@ classdef Solver
                 figure;
                 tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
                 nexttile;
-                patch(obj.ex', obj.ey', cosT);
+                patch(obj.ex', obj.ey', cosT, ...
+                      'EdgeColor', 'none');
                 title("cos($\theta$) field for compliance maximization", 'Interpreter', 'latex');
                 colormap(gca, 'jet'); 
+                clim([0 1]);
                 colorbar;
                 
                 nexttile;
-                patch(obj.ex', obj.ey', vM);
+                patch(obj.ex', obj.ey', vM, ...
+                      'EdgeColor', 'none');
                 title("von Mises stress", 'Interpreter', 'latex');
                 colormap(gca, 'jet');
                 colorbar;
@@ -542,14 +554,37 @@ classdef Solver
                     return
                 else
                     figure;
-                    g0_norm = obj.g0(10:end)/abs(obj.g0(end)) + 1;
-                    plot(10:iter, [g0_norm, obj.g1(10:end)], 'LineWidth', 2)                
+                    yyaxis left
+                    plot((10:iter)', -obj.g0(10:end), 'r--', 'LineWidth', 2)
+                    ylabel('g0 objective') 
+                    ax = gca;
+                    ax.YColor = 'k';
+
+                    yyaxis right
+                    plot((10:iter)', obj.g1(10:end), 'k', 'LineWidth', 2)
+                    ylabel('g1 constraint')
+                    ax = gca;
+                    ax.YColor = 'k';
+
+                    xlabel('Iteration')
+                    legend('Stiffness', 'Volume')                
                     title("Convergence Plot (g0 normalized)");
-                    xlabel("Iteration")
-                    ylabel("Value")
-                    legend("$\hat{g}_0$", "$g_1$", 'Interpreter', 'latex')
                     grid on
                 end
+            end
+        end
+
+        function saveData(obj, x, params)
+            if obj.saveName == ""
+                return
+            else
+                dataPath = fullfile(pwd, "data", sprintf("%s.mat", obj.saveName));
+                iter = 0;
+                while isfile(dataPath)
+                    iter = iter + 1;
+                    dataPath = fullfile(pwd, "data", sprintf("%s_copy%i.mat", obj.saveName, iter));
+                end
+                    save(dataPath, "x", "params")
             end
         end
         
