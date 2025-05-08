@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % FEM parameters
-params.le = 0.005;
+params.le = 0.0025;
 params.lx = 0.1;
 params.ly = 0.05;
 params.Vf = 0.3;
@@ -37,18 +37,21 @@ params.filtOn = true;
 params.loadcase = 1;
 params.p = 1.5;
 params.q = 1;
+params.eta = 0.5;
+params.beta = 1;
+params.ramp = false;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
-params.iterMax = 5;
-params.eta = 0.5;
-params.beta = 1;
+params.iterMax = 150;
 
-params.saveName = "OptDesign";
+
+params.saveName = "";
 sol = Solver(params);
 
 %% Optimization
 x = ones(sol.nel, 1);
+% load("s.mat")
 [sol, x] = optimizer(sol, x);
 saveData(sol, x, params);
 

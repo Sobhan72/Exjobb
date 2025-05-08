@@ -15,7 +15,7 @@ classdef Solver
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
         Z; filtOn; eta; beta
-        del; p; q; ncon
+        del; p; q; ncon; ramp
         xtol; iterMax
         gam; phi; g0; g1
         sig1N
@@ -51,6 +51,10 @@ classdef Solver
             obj.Z = filterMatrix(obj, p.le, p.re);
             obj.p = p.p;
             obj.q = p.q;
+            obj.eta = p.eta;    
+            obj.beta = p.beta;
+            obj.ramp = p.ramp;
+            
             obj.del = p.del;
             obj.ncon = p.ncon;
             obj.xtol = p.xtol;
@@ -131,8 +135,173 @@ classdef Solver
             obj.sigyi = obj.sigy0*ones(obj.tgp, 1);
 
             obj.sig1N = zeros(obj.tgp,8);
-            obj.eta = p.eta;
-            obj.beta = p.beta;
+        end
+
+        %% Optimization
+        function [obj, x] = optimizer(obj, x)
+            a0 = 1; a1 = zeros(obj.ncon,1); c = 1000*ones(obj.ncon,1); d = ones(obj.ncon,1);
+            xold1 = []; xold2 = []; low = []; upp = [];
+            x(obj.fixDens) = 1;
+            dx = 1;
+            iter = 0;
+            while dx > obj.xtol
+                iter = iter + 1;
+                if iter == obj.iterMax + 1
+                    iter = obj.iterMax;
+                    fprintf("\n\nMax iteration count reached\n")
+                    break
+                elseif obj.ramp && mod(iter, 10) == 0
+                    if obj.beta < 10
+                        obj.beta = obj.beta*1.1;
+                    end
+                    if obj.p < 3
+                        obj.p = obj.p + 0.1;
+                        obj.q = obj.q + 0.1;
+                    end
+                end
+                obj = initOpt(obj, x);
+                obj = newt(obj);
+                [obj.g0(iter), dg0, obj.g1(iter), dg1] = funcEval(obj, x);
+                if iter == 1
+                    s = abs(100/obj.g0(1));
+                end
+                [xmma,~,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon, obj.nel, iter, x, zeros(obj.nel, 1), ones(obj.nel, 1), ...
+                                                            xold1, xold2, s*obj.g0(iter), s*dg0, obj.g1(iter), dg1, low, upp, a0, a1, c, d);
+                xold2 = xold1;
+                xold1 = x;
+  
+                dx = norm((xmma - x)/obj.nel);
+                x = xmma;
+
+                plotFigs(obj, x, 0, 1);
+                fprintf("Opt iter: %i\n", iter)
+                fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.g1(iter), dx])
+            end
+            obj.g0 = obj.g0(1:iter);
+            obj.g1 = obj.g1(1:iter);
+            plotFigs(obj, x, iter, 0);
+        end
+
+        function [g0, dg0, g1, dg1] = funcEval(obj, x)
+            dgt0dx = zeros(1, obj.nel);
+            dR1dx = zeros(obj.endof*obj.nel, 1);  % dR1dx = sparse(obj.ndof, obj.nel);
+            % dR2dxe = zeros(obj.ngp, 1);
+            dR2dx = zeros(obj.tgp, 1);  % dR2dx = sparse(obj.tgp, obj.nel);
+            dgt0dep = zeros(obj.tgp, 1);
+            dR1dep = zeros(obj.endof*obj.tgp, 1);  % dR1dep = sparse(obj.ndof, obj.tgp); 
+            ap = sparse(obj.pdof, 1, obj.a(obj.pdof), obj.ndof, 1);
+
+            x = obj.Z*x;
+            [x, dxH] = He(obj,x);
+            for el = 1:obj.nel
+                dgam = obj.p*(1-obj.del)*x(el)^(obj.p-1);
+                dphi = obj.q*(1-obj.del)*x(el)^(obj.q-1);
+                th = (dgam*obj.phi(el)-dphi*obj.gam(el))/obj.phi(el)^2;
+                Kte = zeros(obj.endof);
+                eix = obj.edof(el, :);
+                for gp = 1:obj.ngp
+                    B = obj.Bgp(3*(gp-1)+1:3*gp, :); J = obj.detJ(gp); % [B, J] = NablaB(obj, gp, el);
+                    ix = obj.ngp*(el-1) + gp;
+                    ixM =  4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
+                    k0 = obj.ep(ix)*obj.sigy0^2/(obj.sigy0 + obj.H*obj.ep(ix) + obj.Kinf*(1-exp(-obj.xi*obj.ep(ix))));
+                    % V = inv(obj.De + obj.gam(el)/obj.phi(el)*k0*obj.De*obj.P*obj.De);
+                    % dDsdx = dgam*obj.De*V*obj.De - obj.gam(el)*obj.De*V*(th*k0*obj.De*obj.P*obj.De)*V*obj.De;
+                    dDsdx = (dgam*obj.Ds(ixM, :) - th*k0*obj.Ds(ixM, :)*obj.P*obj.Ds(ixM, :))/obj.gam(el);
+                    Kte = Kte + B'*dDsdx(([1 2 4]),[1 2 4])*B*J*obj.t;
+
+                    depstdx = obj.eps(ix, :)*(dDsdx*obj.P*obj.Ds(ixM, :)...
+                              - obj.Ds(ixM, :)*obj.P*2*dphi/obj.phi(el)*obj.Ds(ixM, :)...
+                              + obj.Ds(ixM, :)*obj.P*dDsdx)*obj.eps(ix, :)'/obj.phi(el)^2;
+                    % dR2dxe(gp) = dphi*(obj.sigy0 + obj.H*obj.ep(ix))...
+                    %              - dphi*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx;
+                    dR2dx(ix) = dphi*(obj.sigy0 + obj.H*obj.ep(ix) + obj.Kinf*(1-exp(-obj.xi*obj.ep(ix))))...
+                                 - dphi*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx;
+
+                    Kh = B'*obj.dDsdep(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
+                    dR1depe = Kh*obj.a(eix);
+                    dgt0dep(ix) = -ap(eix)'*dR1depe;
+                    dR1dep(8*(ix-1)+1:8*ix) = dR1depe; % dR1dep(eix, ix) = dR1depe;
+                end
+                dR1dxe = Kte*obj.a(eix);
+                dgt0dx(el) = -ap(eix)'*dR1dxe;
+                dR1dx(8*(el-1)+1:8*el) = dR1dxe; % dR1dx(eix, el) = dR1dxe;
+                % dR2dx(ix-3:ix, el) = dR2dxe;
+            end
+            dR1dx = sparse(reshape(obj.edof', [], 1), repelem((1:obj.nel)', obj.endof), dR1dx, obj.ndof, obj.nel);
+            dR2dx = sparse((1:obj.tgp)', repelem((1:obj.nel)', obj.ngp), dR2dx, obj.tgp, obj.nel);
+            dR1dep = sparse(reshape(repelem(obj.edof', 1, obj.ngp), [], 1), repelem((1:obj.tgp)', obj.endof), dR1dep, obj.ndof, obj.tgp);
+
+            dgt0du = -obj.a(obj.pdof)'*obj.K(obj.pdof, obj.fdof);
+
+            pgp = find(obj.ep);
+            lamt = -dgt0du/obj.K(obj.fdof, obj.fdof);
+            idR2dep = diag(1./obj.dR2dep(pgp));
+            % idR2dep(isinf(idR2dep)) = 0;
+            mut = -dgt0dep(pgp)'*idR2dep - lamt*dR1dep(obj.fdof, pgp)*idR2dep;
+
+            g0 = -obj.a(obj.pdof)'*obj.R1(obj.pdof);
+            dg0 = dxH'.*obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx(pgp, :))';
+            dg0(obj.fixDens) = 0;
+
+            g1 = x'*obj.A/obj.Amax - 1;
+            dg1 = (dxH'.*obj.Z'*obj.A/obj.Amax)';
+            dg1(obj.fixDens) = 0;
+        end
+
+        function obj = initOpt(obj, x)
+            obj.eps = zeros(obj.tgp, 4);
+            obj.sig = zeros(obj.tgp, 4);
+            obj.ep = zeros(obj.tgp, 1);
+            obj.epsi = zeros(obj.tgp, 4);
+            obj.sigi = zeros(obj.tgp, 4);
+            obj.epi = zeros(obj.tgp, 1);
+
+            obj.a = zeros(obj.ndof, 1);
+            obj.R1 = sparse(obj.ndof, 1);
+
+            x = obj.Z*x;
+            x = He(obj,x);
+            obj.gam = obj.del + (1-obj.del)*x.^obj.p;
+            obj.phi = obj.del + (1-obj.del)*x.^obj.q;
+            gam4 = repelem(obj.gam, 4*obj.ngp);
+            obj.Ds = gam4.*repmat(obj.De, obj.tgp, 1);
+            obj.Dsi = obj.Ds;
+            obj.Dt = obj.Ds;
+
+            obj.dDsdep = zeros(size(obj.Ds)); 
+            obj.dR2dep = zeros(obj.tgp, 1);
+        end
+
+        function Z = filterMatrix(obj, le, re)
+            if obj.filtOn
+                ec = [obj.ex(:, 1) + le/2, obj.ey(:, 1) + le/2];
+                I = zeros(obj.nel*(2*re)^2, 3);
+                [x, y] = meshgrid(-re:re, -re:re);
+                weights = max(0, 1 - sqrt(x.^2 + y.^2)/re);
+                sw = sum(weights(:));
+                r0 = le*re;
+                i = 0;
+                for ii = 1:obj.nel
+                    r = vecnorm(ec - ec(ii, :), 2, 2);
+                    ix = find(r < r0);
+                    ixn = length(ix);
+                    w = 1-r(ix)/r0;
+                    I(i+1:i+ixn, :) = [ii*ones(ixn, 1), ix, w/sw];
+                    i = i + ixn;
+                end
+                Z = sparse(I(1:i, 1), I(1:i, 2), I(1:i, 3), obj.nel, obj.nel);
+            else
+                Z = speye(obj.nel);
+            end
+        end
+
+        function [x, dxH] = He(obj, x)
+            if obj.filtOn
+                dxH = obj.beta*(1-tanh(obj.beta*(x-obj.eta)).^2)/(tanh(obj.beta*obj.eta) + tanh(obj.beta*(1-obj.eta)));
+                x = (tanh(obj.beta*obj.eta) + tanh(obj.beta*(x-obj.eta)))/(tanh(obj.beta*obj.eta) + tanh(obj.beta*(1-obj.eta)));
+            else
+                dxH = ones(obj.nel, 1);
+            end
         end
 
         %% FEM
@@ -319,173 +488,6 @@ classdef Solver
             [R, Gam] = svd(B);
             X = Q*sL*R;
             iX = inv(X);
-        end
-
-        %% Optimization
-        function [obj, x] = optimizer(obj, x)
-            a0 = 1; a1 = zeros(obj.ncon,1); c = 1000*ones(obj.ncon,1); d = ones(obj.ncon,1);
-            xold1 = []; xold2 = []; low = []; upp = [];
-            x(obj.fixDens) = 1;
-            dx = 1;
-            iter = 0;
-            while dx > obj.xtol
-                iter = iter + 1;
-                if iter == obj.iterMax + 1
-                    iter = obj.iterMax;
-                    fprintf("\n\nMax iteration count reached\n")
-                    break
-                elseif mod(iter, 10) == 0
-                    if obj.beta < 10
-                        obj.beta = obj.beta*1.1;
-                    end
-                    if obj.p < 3
-                        obj.p = obj.p + 0.1;
-                        obj.q = obj.q + 0.1;
-                    end
-                end
-                obj = initOpt(obj, x);
-                obj = newt(obj);
-                [obj.g0(iter), dg0, obj.g1(iter), dg1] = funcEval(obj, x);
-                if iter == 1
-                    s = abs(100/obj.g0(1));
-                end
-                [xmma,~,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon, obj.nel, iter, x, zeros(obj.nel, 1), ones(obj.nel, 1), ...
-                                                            xold1, xold2, s*obj.g0(iter), s*dg0, obj.g1(iter), dg1, low, upp, a0, a1, c, d);
-                xold2 = xold1;
-                xold1 = x;
-  
-                dx = norm((xmma - x)/obj.nel);
-                x = xmma;
-
-                plotFigs(obj, x, 0, 1);
-                fprintf("Opt iter: %i\n", iter)
-                fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.g1(iter), dx])
-            end
-            obj.g0 = obj.g0(1:iter);
-            obj.g1 = obj.g1(1:iter);
-            plotFigs(obj, x, iter, 0);
-        end
-
-        function [g0, dg0, g1, dg1] = funcEval(obj, x)
-            dgt0dx = zeros(1, obj.nel);
-            dR1dx = zeros(obj.endof*obj.nel, 1);  % dR1dx = sparse(obj.ndof, obj.nel);
-            % dR2dxe = zeros(obj.ngp, 1);
-            dR2dx = zeros(obj.tgp, 1);  % dR2dx = sparse(obj.tgp, obj.nel);
-            dgt0dep = zeros(obj.tgp, 1);
-            dR1dep = zeros(obj.endof*obj.tgp, 1);  % dR1dep = sparse(obj.ndof, obj.tgp); 
-            ap = sparse(obj.pdof, 1, obj.a(obj.pdof), obj.ndof, 1);
-
-            x = obj.Z*x;
-            [x, dxH] = He(obj,x);
-            for el = 1:obj.nel
-                dgam = obj.p*(1-obj.del)*x(el)^(obj.p-1);
-                dphi = obj.q*(1-obj.del)*x(el)^(obj.q-1);
-                th = (dgam*obj.phi(el)-dphi*obj.gam(el))/obj.phi(el)^2;
-                Kte = zeros(obj.endof);
-                eix = obj.edof(el, :);
-                for gp = 1:obj.ngp
-                    B = obj.Bgp(3*(gp-1)+1:3*gp, :); J = obj.detJ(gp); % [B, J] = NablaB(obj, gp, el);
-                    ix = obj.ngp*(el-1) + gp;
-                    ixM =  4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
-                    k0 = obj.ep(ix)*obj.sigy0^2/(obj.sigy0 + obj.H*obj.ep(ix) + obj.Kinf*(1-exp(-obj.xi*obj.ep(ix))));
-                    % V = inv(obj.De + obj.gam(el)/obj.phi(el)*k0*obj.De*obj.P*obj.De);
-                    % dDsdx = dgam*obj.De*V*obj.De - obj.gam(el)*obj.De*V*(th*k0*obj.De*obj.P*obj.De)*V*obj.De;
-                    dDsdx = (dgam*obj.Ds(ixM, :) - th*k0*obj.Ds(ixM, :)*obj.P*obj.Ds(ixM, :))/obj.gam(el);
-                    Kte = Kte + B'*dDsdx(([1 2 4]),[1 2 4])*B*J*obj.t;
-
-                    depstdx = obj.eps(ix, :)*(dDsdx*obj.P*obj.Ds(ixM, :)...
-                              - obj.Ds(ixM, :)*obj.P*2*dphi/obj.phi(el)*obj.Ds(ixM, :)...
-                              + obj.Ds(ixM, :)*obj.P*dDsdx)*obj.eps(ix, :)'/obj.phi(el)^2;
-                    % dR2dxe(gp) = dphi*(obj.sigy0 + obj.H*obj.ep(ix))...
-                    %              - dphi*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx;
-                    dR2dx(ix) = dphi*(obj.sigy0 + obj.H*obj.ep(ix) + obj.Kinf*(1-exp(-obj.xi*obj.ep(ix))))...
-                                 - dphi*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx;
-
-                    Kh = B'*obj.dDsdep(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
-                    dR1depe = Kh*obj.a(eix);
-                    dgt0dep(ix) = -ap(eix)'*dR1depe;
-                    dR1dep(8*(ix-1)+1:8*ix) = dR1depe; % dR1dep(eix, ix) = dR1depe;
-                end
-                dR1dxe = Kte*obj.a(eix);
-                dgt0dx(el) = -ap(eix)'*dR1dxe;
-                dR1dx(8*(el-1)+1:8*el) = dR1dxe; % dR1dx(eix, el) = dR1dxe;
-                % dR2dx(ix-3:ix, el) = dR2dxe;
-            end
-            dR1dx = sparse(reshape(obj.edof', [], 1), repelem((1:obj.nel)', obj.endof), dR1dx, obj.ndof, obj.nel);
-            dR2dx = sparse((1:obj.tgp)', repelem((1:obj.nel)', obj.ngp), dR2dx, obj.tgp, obj.nel);
-            dR1dep = sparse(reshape(repelem(obj.edof', 1, obj.ngp), [], 1), repelem((1:obj.tgp)', obj.endof), dR1dep, obj.ndof, obj.tgp);
-
-            dgt0du = -obj.a(obj.pdof)'*obj.K(obj.pdof, obj.fdof);
-
-            pgp = find(obj.ep);
-            lamt = -dgt0du/obj.K(obj.fdof, obj.fdof);
-            idR2dep = diag(1./obj.dR2dep(pgp));
-            % idR2dep(isinf(idR2dep)) = 0;
-            mut = -dgt0dep(pgp)'*idR2dep - lamt*dR1dep(obj.fdof, pgp)*idR2dep;
-
-            g0 = -obj.a(obj.pdof)'*obj.R1(obj.pdof);
-            dg0 = dxH'.*obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx(pgp, :))';
-            dg0(obj.fixDens) = 0;
-
-            g1 = x'*obj.A/obj.Amax - 1;
-            dg1 = (dxH'.*obj.Z'*obj.A/obj.Amax)';
-            dg1(obj.fixDens) = 0;
-        end
-
-        function obj = initOpt(obj, x)
-            obj.eps = zeros(obj.tgp, 4);
-            obj.sig = zeros(obj.tgp, 4);
-            obj.ep = zeros(obj.tgp, 1);
-            obj.epsi = zeros(obj.tgp, 4);
-            obj.sigi = zeros(obj.tgp, 4);
-            obj.epi = zeros(obj.tgp, 1);
-
-            obj.a = zeros(obj.ndof, 1);
-            obj.R1 = sparse(obj.ndof, 1);
-
-            x = obj.Z*x;
-            x = He(obj,x);
-            obj.gam = obj.del + (1-obj.del)*x.^obj.p;
-            obj.phi = obj.del + (1-obj.del)*x.^obj.q;
-            gam4 = repelem(obj.gam, 4*obj.ngp);
-            obj.Ds = gam4.*repmat(obj.De, obj.tgp, 1);
-            obj.Dsi = obj.Ds;
-            obj.Dt = obj.Ds;
-
-            obj.dDsdep = zeros(size(obj.Ds)); 
-            obj.dR2dep = zeros(obj.tgp, 1);
-        end
-
-        function Z = filterMatrix(obj, le, re)
-            if obj.filtOn
-                ec = [obj.ex(:, 1) + le/2, obj.ey(:, 1) + le/2];
-                I = zeros(obj.nel*(2*re)^2, 3);
-                [x, y] = meshgrid(-re:re, -re:re);
-                weights = max(0, 1 - sqrt(x.^2 + y.^2)/re);
-                sw = sum(weights(:));
-                r0 = le*re;
-                i = 0;
-                for ii = 1:obj.nel
-                    r = vecnorm(ec - ec(ii, :), 2, 2);
-                    ix = find(r < r0);
-                    ixn = length(ix);
-                    w = 1-r(ix)/r0;
-                    I(i+1:i+ixn, :) = [ii*ones(ixn, 1), ix, w/sw];
-                    i = i + ixn;
-                end
-                Z = sparse(I(1:i, 1), I(1:i, 2), I(1:i, 3), obj.nel, obj.nel);
-            else
-                Z = speye(obj.nel);
-            end
-        end
-
-        function [x, dxH] = He(obj, x)
-            if obj.filtOn
-                dxH = obj.beta*(1-tanh(obj.beta*(x-obj.eta)).^2)/(tanh(obj.beta*obj.eta) + tanh(obj.beta*(1-obj.eta)));
-                x = (tanh(obj.beta*obj.eta) + tanh(obj.beta*(x-obj.eta)))/(tanh(obj.beta*obj.eta) + tanh(obj.beta*(1-obj.eta)));
-            else
-                dxH = ones(obj.nel, 1);
-            end
         end
 
         %% Misc. Function
