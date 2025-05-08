@@ -173,13 +173,13 @@ classdef Solver
                 dx = norm((xmma - x)/obj.nel);
                 x = xmma;
 
-                plotFigs(obj, x, 0, 1);
+                plotFigs(obj, x, 1);
                 fprintf("Opt iter: %i\n", iter)
                 fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.g1(iter), dx])
             end
             obj.g0 = obj.g0(1:iter);
             obj.g1 = obj.g1(1:iter);
-            plotFigs(obj, x, iter, 0);
+            plotFigs(obj, x, 0);
         end
 
         function [g0, dg0, g1, dg1] = funcEval(obj, x)
@@ -491,7 +491,7 @@ classdef Solver
         end
 
         %% Misc. Function
-        function plotFigs(obj, x, iter, flag)
+        function plotFigs(obj, x, flag)
             if flag
                 clf;
                 colormap(flipud(gray(256)));
@@ -551,8 +551,8 @@ classdef Solver
                 %            linspace(0.1, 0, 256)', ...
                 %            linspace(0.8, 0.1, 256)'];
                 % colormap(softjet);
-
-                if iter == 0
+                iter = length(obj.g0);
+                if iter < 10
                     return
                 else
                     figure;
@@ -580,17 +580,27 @@ classdef Solver
             if obj.saveName == ""
                 return
             else
+
                 dataPath = fullfile(pwd, "data", sprintf("%s.mat", obj.saveName));
                 iter = 0;
                 while isfile(dataPath)
                     iter = iter + 1;
                     dataPath = fullfile(pwd, "data", sprintf("%s_copy%i.mat", obj.saveName, iter));
                 end
-                    save(dataPath, "x", "params")
+                val = obj.assignVar(obj, struct());             
+                save(dataPath, "x", "params", "val");
             end
         end
-        
-        function bc = addBC(~, bc, ly, le, ndof)
+    end
+    methods (Static)
+        function out = assignVar(in, out)
+        fields = {'ex', 'ey', 'ngp', 'nel', 'sig', 'P', 'sigy0', 'sig1N', 'ep', 'g0', 'g1'};
+        for i = 1:numel(fields)
+            out.(fields{i}) = in.(fields{i});
+        end
+        end
+
+        function bc = addBC(bc, ly, le, ndof)
             nR = ly/le + 1;
             fix = [ndof/nR*(1:nR)'; ndof/nR*(1:nR)'-1];
             bc = [bc; [fix zeros(2*nR,1)]];

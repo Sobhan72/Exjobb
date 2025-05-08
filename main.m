@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % FEM parameters
-params.le = 0.0025;
+params.le = 0.001;
 params.lx = 0.1;
 params.ly = 0.05;
 params.Vf = 0.3;
@@ -39,21 +39,28 @@ params.p = 1.5;
 params.q = 1;
 params.eta = 0.5;
 params.beta = 1;
-params.ramp = false;
+params.ramp = true;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
-params.iterMax = 150;
+params.iterMax = 500;
 
 
-params.saveName = "";
+params.saveName = "OptDesign1";
 sol = Solver(params);
 
 %% Optimization
 x = ones(sol.nel, 1);
-% load("s.mat")
 [sol, x] = optimizer(sol, x);
 saveData(sol, x, params);
+
+%% Draw Design
+clear, close all
+load("data\OptDesign1")
+sol = Solver(params);
+sol = sol.assignVar(val, sol);
+plotFigs(sol, x, 1);
+plotFigs(sol, x, 0);
 
 %% Mesh
 patch(sol.ex', sol.ey', ones(sol.nel, 1));
@@ -66,7 +73,7 @@ colormap jet;
 x = ones(sol.nel, 1);
 sol = initOpt(sol, x);
 sol = newt(sol);
-plotFigs(sol, x, 0, 0)
+plotFigs(sol, x, 0)
 
 figure;
 eldraw2(sol.ex, sol.ey, [1 2 1]);
