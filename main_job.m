@@ -1,5 +1,7 @@
 clc, clear, close all
 
+load("input.mat");
+
 % FEM parameters
 params.le = 0.01;
 params.lx = 0.1;
