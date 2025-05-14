@@ -318,7 +318,6 @@ classdef Solver
             restart = false;
             n = 0;
             while abs(tdisp-idisp) > 1e-8
-                n = n + 1;
                 % fprintf("Load step: %i \n", n);
                 bc = [obj.bcS; cdisp];
                 Nr = 0;
@@ -328,7 +327,7 @@ classdef Solver
                         cdisp(:, 2) = cdisp(:, 2)/2;
                         obj = initFEM(obj);
                         ext = ext + 1;
-                        warning("Added loadstep %i", ext);
+                        warning("Restart loadstep %i", ext);
                         restart = true;
                         break;
                     end
@@ -340,6 +339,7 @@ classdef Solver
                     restart = false;
                     continue;
                 end
+                n = n + 1;
                 idisp = idisp + abs(cdisp(1, 2));
                 obj.eps = obj.epsi; obj.sig = obj.sigi; obj.ep = obj.epi; obj.Ds = obj.Dsi; obj.sigy = obj.sigyi;
                 obj.ao = obj.a; obj.R1o = obj.R1; obj.Dto = obj.Dt;

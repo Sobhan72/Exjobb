@@ -10,8 +10,8 @@ params.t = 1;
 params.ngp = 4;
 
 params.R1tol = 1e-1;
-params.N = 30;
-params.disp = -1e-2; % displacement [nodes total-size]
+params.N = 3;
+params.disp = -1e-3; % displacement [nodes total-size]
 
 % Material parameters
 E = 210e9;
@@ -55,7 +55,7 @@ saveData(sol, x, params);
 
 %% Draw Design
 clc, clear, close all
-load("data\OptDesign1.mat")
+load("data\OptDesign2.mat")
 sol = Solver(params);
 % sol = sol.assignVar(val, sol);
 sol.beta = 10;
