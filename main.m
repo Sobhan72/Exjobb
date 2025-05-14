@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % FEM parameters
-params.le = 0.001;
+params.le = 0.005;
 params.lx = 0.1;
 params.ly = 0.05;
 params.Vf = 0.3;
@@ -10,8 +10,8 @@ params.t = 1;
 params.ngp = 4;
 
 params.R1tol = 1e-1;
-params.N = 4;
-params.disp = -7e-4; % displacement [nodes total-size]
+params.N = 3;
+params.disp = -1e-3; % displacement [nodes total-size]
 
 % Material parameters
 E = 210e9;
@@ -43,24 +43,25 @@ params.ramp = true;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
-params.iterMax = 500;
+params.iterMax = 5;
 
-
-params.saveName = "OptDesign1";
+params.saveName = "OptDesign3";
 sol = Solver(params);
 
 %% Optimization
 x = ones(sol.nel, 1);
 [sol, x] = optimizer(sol, x);
-saveData(sol, x, params);
+saveData(sol, x, params, "data");
 
 %% Draw Design
-clear, close all
-load("data\OptDesign1")
+clc, clear, close all
+load("data\OptDesign2.mat")
 sol = Solver(params);
-sol = sol.assignVar(val, sol);
+% sol = sol.assignVar(val, sol);
+sol.beta = 10;
+x = sol.He(sol.Z*x);
 plotFigs(sol, x, 1);
-plotFigs(sol, x, 0);
+% plotFigs(sol, x, 0);
 
 %% Mesh
 patch(sol.ex', sol.ey', ones(sol.nel, 1));
@@ -68,8 +69,9 @@ colorbar;
 colormap jet;
 
 %% Newton-Raphson
-% xmat = load("x.mat");
-% x = xmat.x;
+% clc, clear, close all
+% load("data\OptDesign1.mat");
+% sol = Solver(params);
 x = ones(sol.nel, 1);
 sol = initOpt(sol, x);
 sol = newt(sol);
@@ -79,7 +81,7 @@ figure;
 eldraw2(sol.ex, sol.ey, [1 2 1]);
 hold on
 eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
-dof = 8;
+dof = 13;
 fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
 
 %% Finite diff
