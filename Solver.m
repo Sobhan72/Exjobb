@@ -576,19 +576,16 @@ classdef Solver
             end
         end
 
-        function saveData(obj, x, params, path)
-            if nargin < 4
-                path = "";
-            end
+        function saveData(obj, x, params)
             if obj.saveName == ""
                 return
             else
 
-                dataPath = fullfile(path, sprintf("%s.mat", obj.saveName));
+                dataPath = fullfile(pwd, "data", sprintf("%s.mat", obj.saveName));
                 iter = 0;
                 while isfile(dataPath)
                     iter = iter + 1;
-                    dataPath = fullfile(path, sprintf("%s_copy%i.mat", obj.saveName, iter));
+                    dataPath = fullfile(pwd, "data", sprintf("%s_copy%i.mat", obj.saveName, iter));
                 end
                 val = obj.assignVar(obj, struct());             
                 save(dataPath, "x", "params", "val");
