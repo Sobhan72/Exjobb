@@ -43,7 +43,7 @@ params.ramp = true;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
-params.iterMax = 500;
+params.iterMax = 5;
 
 params.saveName = "OptDesign3";
 sol = Solver(params);
@@ -51,7 +51,7 @@ sol = Solver(params);
 %% Optimization
 x = ones(sol.nel, 1);
 [sol, x] = optimizer(sol, x);
-saveData(sol, x, params);
+saveData(sol, x, params, "data");
 
 %% Draw Design
 clc, clear, close all
