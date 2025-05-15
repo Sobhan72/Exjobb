@@ -17,32 +17,40 @@ cat $0
 # set the number of jobs - change for your requirements
 export NB_of_jobs=2
 
-# create master directory
-export MASTER_DIR=JOB_${SLURM_JOB_ID}
-mkdir $MASTER_DIR
+# Get the absolute path of the current working directory
+export WORK_DIR=$PWD
+
+# Create master directory and tmp folder as absolute paths
+export MASTER_DIR=$WORK_DIR/JOB_${SLURM_JOB_ID}
+mkdir -p $MASTER_DIR
 
 export TMP_OUT=$MASTER_DIR/tmp
-mkdir $TMP_OUT 
+mkdir -p $TMP_OUT
 
 module load matlab/2024b
 
+# Run MATLAB to generate input files
 matlab -singleCompThread -nodesktop -nodisplay -nosplash -r "genInput; quit"
 
+# Copy necessary files
 cp -p input*.mat job.m $MASTER_DIR
 cp -p worker_script.sh $TMP_OUT
+
+# Clean up generated input files in the working directory
 rm -f input*.mat
+
+# Change to master directory
 cd $MASTER_DIR
 
 # Loop over the job number
-
 for ((i=0; i<$NB_of_jobs; i++))
 do
     srun -Q --exclusive -n 1 -N 1 $TMP_OUT/worker_script.sh $i &> $TMP_OUT/worker_${SLURM_JOB_ID}_${i}.out &
     sleep 1
 done
 
-rm job.m
+# Remove job.m after starting the jobs
+rm -f job.m
 
-# keep the wait statement, it is important!
-
+# Keep the wait statement; it is important
 wait
