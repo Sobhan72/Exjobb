@@ -28,7 +28,8 @@ module load matlab/2024b
 
 matlab -singleCompThread -nodesktop -nodisplay -nosplash -r "genInput; quit"
 
-cp -p input*.mat job.m worker_script.sh $MASTER_DIR
+cp -p input*.mat job.m $MASTER_DIR
+cp -p worker_script.sh $TMP_OUT
 rm -f input*.mat
 cd $MASTER_DIR
 
@@ -36,7 +37,7 @@ cd $MASTER_DIR
 
 for ((i=0; i<$NB_of_jobs; i++))
 do
-    srun -Q --exclusive -n 1 -N 1 worker_script.sh $i &> tmp/worker_${SLURM_JOB_ID}_${i}.out &
+    srun -Q --exclusive -n 1 -N 1 $TMP_OUT/worker_script.sh $i &> $TMP_OUT/worker_${SLURM_JOB_ID}_${i}.out &
     sleep 1
 done
 
