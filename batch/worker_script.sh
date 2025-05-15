@@ -16,6 +16,7 @@ mkdir $JOB_DIR
 
 cp -p job.m $WRK_DIR
 cp -p input$WRK_NB.mat $WRK_DIR/input.mat
+rm -f input$WRK_NB.mat
 
 # change to the execution directory
 cd $WRK_DIR
