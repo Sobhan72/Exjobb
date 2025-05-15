@@ -39,13 +39,14 @@ params.p = 1.5;
 params.q = 1;
 params.eta = 0.5;
 params.beta = 1;
-params.ramp = true;
+params.rampB = 0; % 0: off, 1: B*1.1, 2: B + 1
+params.rampPQ = true;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
 params.iterMax = 5;
 
-params.saveName = "OptDesign3";
+params.saveName = "";
 sol = Solver(params);
 
 %% Optimization

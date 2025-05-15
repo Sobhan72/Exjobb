@@ -14,8 +14,10 @@ classdef Solver
         R1; R1tol; N
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
+        ao; R1o; Dto
         Z; filtOn; eta; beta
-        del; p; q; ncon; ramp
+        del; p; q; ncon
+        rampB; rampPQ
         xtol; iterMax
         gam; phi; g0; g1
         sig1N
@@ -53,7 +55,8 @@ classdef Solver
             obj.q = p.q;
             obj.eta = p.eta;    
             obj.beta = p.beta;
-            obj.ramp = p.ramp;
+            obj.rampB = p.rampB;
+            obj.rampPQ = p.rampPQ;
             
             obj.del = p.del;
             obj.ncon = p.ncon;
@@ -107,6 +110,7 @@ classdef Solver
             obj.Ds = repmat(obj.De, obj.tgp, 1);
             obj.Dsi = obj.Ds;
             obj.Dt = obj.Ds;
+            obj.Dto = obj.Dt;
 
             obj.dDsdep = zeros(size(obj.Ds)); 
             obj.dR2dep = zeros(obj.tgp, 1); 
@@ -118,8 +122,10 @@ classdef Solver
             obj.DP = p.DP;
             obj.R1tol = p.R1tol;
             obj.R1 = sparse(obj.ndof, 1);
+            obj.R1o = obj.R1;
          
             obj.a = zeros(obj.ndof, 1);
+            obj.ao = obj.a;
 
             obj.pdof = [obj.bcS(:, 1); obj.disp(:, 1)];
             obj.fdof = setdiff((1:obj.ndof)', obj.pdof);
@@ -150,11 +156,13 @@ classdef Solver
                     iter = obj.iterMax;
                     fprintf("\n\nMax iteration count reached\n")
                     break
-                elseif obj.ramp && mod(iter, 10) == 0
-                    if obj.beta < 10
+                elseif mod(iter, 10) == 0
+                    if obj.rampB == 1 && obj.beta < 10
                         obj.beta = obj.beta*1.1;
+                    elseif obj.rampPQ == 2 && obj.beta < 10
+                        obj.beta = obj.beta + 1;
                     end
-                    if obj.p < 3
+                    if obj.rampPQ && obj.p < 3
                         obj.p = obj.p + 0.1;
                         obj.q = obj.q + 0.1;
                     end
@@ -257,7 +265,9 @@ classdef Solver
             obj.epi = zeros(obj.tgp, 1);
 
             obj.a = zeros(obj.ndof, 1);
+            obj.ao = obj.a;
             obj.R1 = sparse(obj.ndof, 1);
+            obj.R1o = obj.R1;
 
             x = obj.Z*x;
             x = He(obj,x);
@@ -267,6 +277,7 @@ classdef Solver
             obj.Ds = gam4.*repmat(obj.De, obj.tgp, 1);
             obj.Dsi = obj.Ds;
             obj.Dt = obj.Ds;
+            obj.Dto = obj.Dt;
 
             obj.dDsdep = zeros(size(obj.Ds)); 
             obj.dR2dep = zeros(obj.tgp, 1);
@@ -306,22 +317,36 @@ classdef Solver
 
         %% FEM
         function obj = newt(obj) % Newton-Raphson method
-            for n = 1:obj.N
+            tdisp = abs(obj.disp(1, 2)*obj.N); cdisp = obj.disp; idisp = 0;
+            ext = 0;
+            restart = false;
+            n = 0;
+            while abs(tdisp-idisp) > 1e-8
                 % fprintf("Load step: %i \n", n);
-                bc = [obj.bcS; obj.disp];
+                bc = [obj.bcS; cdisp];
                 Nr = 0;
                 while norm(obj.R1(obj.fdof)) > obj.R1tol || Nr == 0
                     Nr = Nr + 1;
                     if Nr == 9
-                        warning("NR converging slowly")
-                    elseif Nr == 20
-                        error("NR not converging")
+                        cdisp(:, 2) = cdisp(:, 2)/2;
+                        obj = initFEM(obj);
+                        ext = ext + 1;
+                        warning("Restart loadstep %i", ext);
+                        restart = true;
+                        break;
                     end
                     obj = FEM(obj, bc);
                     bc(:, 2) = bc(:, 2)*0;
                     % fprintf("  Nr: %i, R1: %4.2g \n", [Nr, norm(obj.R1(obj.fdof))]);
                 end
+                if restart
+                    restart = false;
+                    continue;
+                end
+                n = n + 1;
+                idisp = idisp + abs(cdisp(1, 2));
                 obj.eps = obj.epsi; obj.sig = obj.sigi; obj.ep = obj.epi; obj.Ds = obj.Dsi; obj.sigy = obj.sigyi;
+                obj.ao = obj.a; obj.R1o = obj.R1; obj.Dto = obj.Dt;
                 if n == 1
                     obj.sig1N(:,1:obj.ngp) = obj.sig;
                 end
@@ -413,6 +438,12 @@ classdef Solver
             end
         end
 
+         function obj = initFEM(obj)
+            obj.a = obj.ao;
+            obj.R1 = obj.R1o;
+            obj.Dt = obj.Dto;
+        end
+
         %% Material Functions
         function [sig, Dt, Ds, ep, dDsdep, drdep, epst] = DPMat(obj, eps, Ds, ep, gam, phi)
             epst = 1/phi^2*eps'*Ds*obj.P*Ds*eps;
@@ -422,7 +453,7 @@ classdef Solver
             while norm(r) > obj.rtol || iter == 0
                 iter = iter + 1;
                 if iter == 9
-                    warning("Material converging slowly")
+                    % warning("Material converging slowly")
                 elseif iter == 20
                     error("Material not converging")
                 end
@@ -535,7 +566,6 @@ classdef Solver
                 pl = obj.ep>0;
                 pl = reshape(pl, 4, obj.nel)';
                 pl = any(pl, 2);
-                % pl(x<0.01) = 0;
                 patch(obj.ex(pl, :)', obj.ey(pl, :)', 'red', ...
                       'EdgeColor', 'none', ...
                       'DisplayName', 'Plasticity');
@@ -557,8 +587,9 @@ classdef Solver
                 else
                     figure;
                     yyaxis left
-                    plot((10:iter)', -obj.g0(10:end), 'r--', 'LineWidth', 2)
-                    ylabel('g0 objective') 
+                    plot((10:iter)', -obj.g0(10:end), 'r:', 'LineWidth', 2)
+                    ylabel('g0 objective')
+                    ylim([0 round(max(-obj.g0(10:end))+100, -2)])
                     ax = gca;
                     ax.YColor = 'k';
 
@@ -566,26 +597,29 @@ classdef Solver
                     plot((10:iter)', obj.g1(10:end), 'k', 'LineWidth', 2)
                     ylabel('g1 constraint')
                     ax = gca;
+                    ylim([-0.5 0.5])
                     ax.YColor = 'k';
 
                     xlabel('Iteration')
                     legend('Stiffness', 'Volume')                
-                    title("Convergence Plot (g0 normalized)");
+                    title("Convergence Plot");
                     grid on
                 end
             end
         end
 
-        function saveData(obj, x, params)
+        function saveData(obj, x, params, path)
             if obj.saveName == ""
                 return
             else
-
-                dataPath = fullfile(pwd, "data", sprintf("%s.mat", obj.saveName));
+                if nargin < 4
+                    path = "";
+                end
+                dataPath = fullfile(path, sprintf("%s.mat", obj.saveName));
                 iter = 0;
                 while isfile(dataPath)
                     iter = iter + 1;
-                    dataPath = fullfile(pwd, "data", sprintf("%s_copy%i.mat", obj.saveName, iter));
+                    dataPath = fullfile(path, sprintf("%s_copy%i.mat", obj.saveName, iter));
                 end
                 val = obj.assignVar(obj, struct());             
                 save(dataPath, "x", "params", "val");
