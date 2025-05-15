@@ -1,9 +1,7 @@
 clc, clear, close all
-
-load("input.mat");
-
+load('input.mat')
 % FEM parameters
-params.le = 0.01;
+params.le = 0.005;
 params.lx = 0.1;
 params.ly = 0.05;
 params.Vf = 0.3;
@@ -12,8 +10,8 @@ params.t = 1;
 params.ngp = 4;
 
 params.R1tol = 1e-1;
-params.N = 4;
-% params.disp = -7e-4; % displacement [nodes total-size]
+params.N = 3;
+% params.disp = -1e-3; % displacement [nodes total-size]
 
 % Material parameters
 E = 210e9;
@@ -41,14 +39,14 @@ params.p = 1.5;
 params.q = 1;
 params.eta = 0.5;
 params.beta = 1;
-params.ramp = true;
+params.rampB = 1; % 0: off, 1: B*1.1, 2: B + 1
+params.rampPQ = true;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
-params.iterMax = 10;
+params.iterMax = 5;
 
-
-params.saveName = "OptDesign1";
+params.saveName = "test";
 sol = Solver(params);
 
 x = ones(sol.nel, 1);
