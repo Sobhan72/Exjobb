@@ -1,5 +1,4 @@
 clc, clear, close all
-load('input.mat')
 % FEM parameters
 params.le = 0.005;
 params.lx = 0.1;
@@ -11,7 +10,7 @@ params.ngp = 4;
 
 params.R1tol = 1e-1;
 params.N = 3;
-% params.disp = -1e-3; % displacement [nodes total-size]
+params.disp = -1e-3; % displacement [nodes total-size]
 
 % Material parameters
 E = 210e9;
@@ -47,8 +46,15 @@ params.xtol = 1e-5;
 params.iterMax = 5;
 
 params.saveName = "test";
-sol = Solver(params);
+data = load('input.mat');
+for fn = fieldnames(data.params)
+    params.(fn{1}) = data.params.(fn{1});
+end
 
+sol = Solver(params);
 x = ones(sol.nel, 1);
+if ~isempty(data.x)
+    x = data.x*ones(sol.nel, 1);
+end
 [sol, x] = optimizer(sol, x);
 saveData(sol, x, params);

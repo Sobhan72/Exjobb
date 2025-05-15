@@ -159,7 +159,7 @@ classdef Solver
                 elseif mod(iter, 10) == 0
                     if obj.rampB == 1 && obj.beta < 10
                         obj.beta = obj.beta*1.1;
-                    elseif obj.rampPQ == 2 && obj.beta < 10
+                    elseif obj.rampB == 2 && obj.beta < 10
                         obj.beta = obj.beta + 1;
                     end
                     if obj.rampPQ && obj.p < 3

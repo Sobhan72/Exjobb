@@ -2,9 +2,8 @@
 # requesting the number of nodes needed
 #SBATCH -A lu2025-2-33
 #SBATCH -N 1
-#SBATCH --tasks-per-node=2
+#SBATCH --tasks-per-node=1
 #SBATCH --mem-per-cpu=6200
-#SBATCH --qos=test
 #
 # job time, change for what your job farm requires
 #SBATCH -t 00:10:00
@@ -16,11 +15,15 @@
 cat $0
 
 # set the number of jobs - change for your requirements
-export NB_of_jobs=2
+export NB_of_jobs=1
 
 # create master directory
 export MASTER_DIR=JOB_${SLURM_JOB_ID}
 mkdir $MASTER_DIR
+
+module load matlab/2024b
+
+matlab -singleCompThread -nodesktop -nodisplay -nosplash -r "genInput; quit"
 
 cp -p input*.mat job.m *.sh $MASTER_DIR
 cd $MASTER_DIR
