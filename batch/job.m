@@ -4,7 +4,7 @@ addpath(genpath('/home/zachariand/Exjobb'));
 
 %% Run Job
 % FEM parameters
-params.le = 0.005;
+params.le = 0.001;
 params.lx = 0.1;
 params.ly = 0.05;
 params.Vf = 0.3;
@@ -47,12 +47,13 @@ params.rampPQ = true;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
-params.iterMax = 5;
+params.iterMax = 2; %500;
 
-params.saveName = "test";
+params.saveName = "";
 data = load('input.mat');
-for fn = fieldnames(data.params)
-    params.(fn{1}) = data.params.(fn{1});
+fn = fieldnames(data.params);
+for k = 1:length(fn) 
+    params.(fn{k}) = data.params.(fn{k});
 end
 
 sol = Solver(params);

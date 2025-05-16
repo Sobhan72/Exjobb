@@ -55,10 +55,10 @@ x = ones(sol.nel, 1);
 saveData(sol, x, params, "data");
 
 %% Draw Design
-clc, clear, close all
-load("data\OptDesign2.mat")
+% clc, clear, close all
+% load("data\OptDesign2.mat")
 sol = Solver(params);
-% sol = sol.assignVar(val, sol);
+sol = sol.assignVar(val, sol);
 sol.beta = 10;
 x = sol.He(sol.Z*x);
 plotFigs(sol, x, 1);
