@@ -47,7 +47,7 @@ params.rampPQ = true;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
-params.iterMax = 2; %500;
+params.iterMax = 500;
 
 params.saveName = "";
 data = load('input.mat');
