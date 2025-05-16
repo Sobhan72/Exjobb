@@ -37,7 +37,7 @@ for caseNum = 1:4
             params.re = re_values(i);
             params.disp = disp_values(j);
 
-            params.saveName = sprintf("OptDesign_batch1_B=%d_PQ=%d_re=%d_disp=%g", ...
+            params.saveName = sprintf("OptDesign_batch2_B=%d_PQ=%d_re=%d_disp=%g", ...
                                       params.rampB, params.rampPQ, params.re, params.disp);
 
             x = [];
