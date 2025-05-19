@@ -1,7 +1,7 @@
 clc, clear, close all
 %% Add path to data
 addpath(genpath('/home/zachariand/Exjobb'));
-
+addpath(genpath('/home/zachariand/Exjobb/functions'));
 %% Run Job
 % FEM parameters
 params.le = 0.001;
@@ -38,8 +38,8 @@ params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 params.re = 3; % Elements in radius
 params.filtOn = true;
 params.loadcase = 1;
-params.p = 1.5;
-params.q = 1;
+params.p = 1.5; %3;
+params.q = 1; %2,5;
 params.eta = 0.5;
 params.beta = 1;
 params.rampB = 1; % 0: off, 1: B*1.1, 2: B + 1
@@ -47,7 +47,7 @@ params.rampPQ = true;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
-params.iterMax = 2; %500;
+params.iterMax = 500;
 
 params.saveName = "";
 data = load('input.mat');

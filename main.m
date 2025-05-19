@@ -11,7 +11,7 @@ params.ngp = 4;
 
 params.R1tol = 1e-1;
 params.N = 3;
-params.disp = -1e-3; % displacement [nodes total-size]
+params.disp = -1.5e-3; % displacement [nodes total-size]
 
 % Material parameters
 E = 210e9;
@@ -35,11 +35,11 @@ params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 params.re = 3; % Elements in radius
 params.filtOn = true;
 params.loadcase = 1;
-params.p = 1.5;
-params.q = 1;
+params.p = 1.5; %3
+params.q = 1; %2
 params.eta = 0.5;
 params.beta = 1;
-params.rampB = 0; % 0: off, 1: B*1.1, 2: B + 1
+params.rampB = 1; % 0: off, 1: B*1.1, 2: B + 1
 params.rampPQ = true;
 params.del = 1e-9;
 params.ncon = 1; % Nr of constraints
