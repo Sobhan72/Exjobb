@@ -3,11 +3,11 @@
 
 fileIdx = 0;
 
-for xi = 1:10                    % xi indexes the x values
-    x = 0.1 * xi;                % actual x value
+for xi = 1:10                    % indexera x
+    x = 0.1 * xi;                
     for pq = 0:1                 % params.PQ can be 0 or 1
         params = struct();       % start fresh for each file
-        params.PQ = pq;          % set parameter
+        params.PQ = pq;          
         if pq == 1
             params.p = 1.5;
             params.q = 1;

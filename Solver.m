@@ -101,8 +101,11 @@ classdef Solver
             obj.xi = p.xi;
 
             G12 = p.E1/(2*(1+p.v12));
-            obj.C = [1/p.E1, -p.v21/p.E2, -p.v31/p.E3, 0;
-                    -p.v12/p.E1, 1/p.E2, -p.v32/p.E3, 0;
+            v21 = p.v12 * (p.E2 / p.E1);  % From reciprocity
+            v31 = p.v13 * (p.E3 / p.E1);
+            v32 = p.v23 * (p.E3 / p.E2);
+            obj.C = [1/p.E1, -v21/p.E2, -v31/p.E3, 0;
+                    -p.v12/p.E1, 1/p.E2, -v32/p.E3, 0;
                     -p.v13/p.E1, -p.v23/p.E2, 1/p.E3, 0;
                      0, 0, 0, 1/G12];
             obj.De = inv(obj.C);

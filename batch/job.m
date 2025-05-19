@@ -4,7 +4,7 @@ addpath(genpath('/home/zachariand/Exjobb'));
 addpath(genpath('/home/zachariand/Exjobb/functions'));
 %% Run Job
 % FEM parameters
-params.le = 0.001;
+params.le = 0.005;
 params.lx = 0.1;
 params.ly = 0.05;
 params.Vf = 0.3;
@@ -19,13 +19,13 @@ params.disp = -1e-3; % displacement [nodes total-size]
 % Material parameters
 E = 210e9;
 v = 0.3;
-params.E1 = E; params.E2 = E; params.E3 = E;
-params.v12 = v; params.v13 = v; params.v23 = v;
-params.v21 = v; params.v32 = v; params.v31 = v;
+params.E1 = E; params.E2 = 0.7*E; params.E3 = 0.5*E;
+params.v12 = v; params.v13 = 0.5*v; params.v23 = 0.5*v;
+% params.v21 = v; params.v32 = v; params.v31 = v;
 
 params.sigy01 = 360e6;
-params.sigy02 = 360e6;
-params.sigy03 = 360e6;
+params.sigy02 = 300e6;
+params.sigy03 = 250e6;
  
 params.H = 10e9;
 params.Kinf = 0; %0.3*params.sigy01; %extra terms linHard (sat. stress)
