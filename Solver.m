@@ -1,6 +1,6 @@
 classdef Solver
     properties
-        edof; ex; ey
+        edof; ex; ey; axi
         ed; a; K
         A; t; ngp; tgp; Amax
         ndof; nel; endof; pdof; fdof 
@@ -32,6 +32,7 @@ classdef Solver
             obj.nel = round(p.lx*p.ly/p.le^2);
             obj.endof = 8;
             obj.N = p.N;
+            obj.axi = [0 p.lx 0 p.ly];
 
             if p.loadcase == 1 % Vertical load on beam
                 obj.disp(:, 1) = 2:2:10;
@@ -348,6 +349,7 @@ classdef Solver
                 end
                 n = n + 1;
                 idisp = idisp + abs(cdisp(1, 2));
+                % fprintf("disp: %4.2g \n", idisp);
                 obj.eps = obj.epsi; obj.sig = obj.sigi; obj.ep = obj.epi; obj.Ds = obj.Dsi; obj.sigy = obj.sigyi;
                 obj.ao = obj.a; obj.R1o = obj.R1; obj.Dto = obj.Dt;
                 if n == 1
@@ -407,7 +409,6 @@ classdef Solver
                     ixM = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
                     ke = ke + B'*D(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
                 end
-                % [rows, cols] = ndgrid(obj.edof(el, :));
                 tripK((el-1)*obj.endof^2+1:el*obj.endof^2, :) = [obj.rows(:, el), obj.cols(:, el), ke(:)];
             end
             K = sparse(tripK(:, 1), tripK(:, 2), tripK(:, 3), obj.ndof, obj.ndof);
@@ -531,7 +532,8 @@ classdef Solver
                 colormap(flipud(gray(256)));
                 patch(obj.ex', obj.ey', x);
                 colorbar;
-                axis equal;
+                axis equal
+                axis(obj.axi)
                 drawnow;
             else
                 vM = zeros(obj.nel, 1);
