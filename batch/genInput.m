@@ -1,30 +1,80 @@
-%% Batch3
-% File: generateInputs.m
+%% Batch 
+E = 210e9;
+v = 0.3;
+sigy_base = [360e6, 300e6, 250e6];
+E_base = [E, 0.7*E, 0.5*E];
+v_base = [v, 0.5*v, 0.5*v];
 
-fileIdx = 0;
+x_values = [0.7, 0.8, 0.9, 1.0];
+n_cases = 3;
 
-for xi = 1:10                    % indexera x
-    x = 0.1 * xi;                
-    for pq = 0:1                 % params.PQ can be 0 or 1
-        params = struct();       % start fresh for each file
-        params.PQ = pq;          
-        if pq == 1
-            params.p = 1.5;
-            params.q = 1;
+count = 0;
+
+for i = 1:length(x_values)
+    x = x_values(i);    
+
+    for case_num = 1:n_cases
+        % Rotate parameters according to case
+        idx = mod((0:2) + case_num - 1, 3) + 1;
+
+        params.E1 = E_base(idx(1));
+        params.E2 = E_base(idx(2));
+        params.E3 = E_base(idx(3));
+
+        if case_num == 1
+            params.v12 = v_base(1);
+            params.v13 = v_base(2);
+            params.v23 = v_base(3);
+        elseif case_num == 2
+            params.v12 = v_base(3);
+            params.v13 = v_base(1) * (E_base(2) / E_base(1)); %v21
+            params.v23 = v_base(2)*(E_base(3) / E_base(1)); %v31
         else
-            params.p = 3;
-            params.q = 2;
+            params.v12 = v_base(2)*(E_base(3) / E_base(1)); %v31
+            params.v13 = v_base(3)*(E_base(3) / E_base(2)); %v32
+            params.v23 = v_base(1);
         end
 
-        params.saveName = sprintf("OptDesign_batch3_x=%02d_PQ=%d", round(x*10), pq);
+        params.sigy01 = sigy_base(idx(1));
+        params.sigy02 = sigy_base(idx(2));
+        params.sigy03 = sigy_base(idx(3));
 
-        filename = sprintf('input%d.mat', fileIdx);
-
+        % Save name and filename
+        params.saveName = sprintf("OptDesign_batch4_x=%02d_case%d", round(x*10), case_num);
+        filename = sprintf("input%d.mat", count);
         save(filename, 'x', 'params');
-
-        fileIdx = fileIdx + 1; 
+        
+        count = count + 1;
     end
 end
+
+% %% Batch3
+% File: generateInputs.m
+
+% fileIdx = 0;
+% 
+% for xi = 1:10                    % indexera x
+%     x = 0.1 * xi;                
+%     for pq = 0:1                 % params.PQ can be 0 or 1
+%         params = struct();       % start fresh for each file
+%         params.PQ = pq;          
+%         if pq == 1
+%             params.p = 1.5;
+%             params.q = 1;
+%         else
+%             params.p = 3;
+%             params.q = 2;
+%         end
+% 
+%         params.saveName = sprintf("OptDesign_batch3_x=%02d_PQ=%d", round(x*10), pq);
+% 
+%         filename = sprintf('input%d.mat', fileIdx);
+% 
+%         save(filename, 'x', 'params');
+% 
+%         fileIdx = fileIdx + 1; 
+%     end
+% end
 
 
 

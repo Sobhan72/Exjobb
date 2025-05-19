@@ -4,7 +4,7 @@ addpath(genpath('/home/zachariand/Exjobb'));
 addpath(genpath('/home/zachariand/Exjobb/functions'));
 %% Run Job
 % FEM parameters
-params.le = 0.005;
+params.le = 0.001;
 params.lx = 0.1;
 params.ly = 0.05;
 params.Vf = 0.3;
