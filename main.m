@@ -61,8 +61,8 @@ sol = Solver(params);
 sol = sol.assignVar(val, sol);
 sol.beta = 10;
 x = sol.He(sol.Z*x);
-plotFigs(sol, x, 1);
-% plotFigs(sol, x, 0);
+% plotFigs(sol, x, 1);
+plotFigs(sol, x, 0);
 
 %% Mesh
 patch(sol.ex', sol.ey', ones(sol.nel, 1));

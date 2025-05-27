@@ -40,7 +40,7 @@ for i = 1:length(x_values)
         params.sigy03 = sigy_base(idx(3));
 
         % Save name and filename
-        params.saveName = sprintf("OptDesign_batch4_x=%02d_case%d", round(x*10), case_num);
+        params.saveName = sprintf("OptDesign_batch5_x=%02d_case%d", round(x*10), case_num);
         filename = sprintf("input%d.mat", count);
         save(filename, 'x', 'params');
         
