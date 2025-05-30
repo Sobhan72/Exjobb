@@ -380,8 +380,7 @@ classdef Solver
                             [obj.sigi(ix, :), obj.Dt(ixM, :), obj.Dsi(ixM, :), obj.epi(ix), obj.dDsdep(ixM, :), obj.dR2dep(ix), obj.epst(ix)]...
                              = DPMat(obj, obj.epsi(ix, :)', obj.Ds(ixM, :), obj.ep(ix), obj.gam(el), obj.phi(el));
                         else
-                            error("Not implemented SIMP for EPMat")
-                            [obj.sigi(ix, :), obj.Dt(ixM, :), obj.sigyi(ix), Dep] = EPMat(obj, sigtr, obj.sigy(ix));
+                            [obj.sigi(ix, :), obj.Dt(ixM, :), obj.sigyi(ix), Dep] = EPMat(obj, sigtr, obj.sigy(ix), obj.gam(el), obj.phi(el));
                             obj.epi(ix) = obj.epi(ix) + Dep;
                         end
                     else
@@ -483,25 +482,22 @@ classdef Solver
             Dt = Ds + dDsdep*eps*depdeps';
         end
 
-        function [sig, Dt, sigy, Dep] = EPMat(obj, sigtr, sigy)
+        function [sig, Dt, sigy, Dep] = EPMat(obj, sigtr, sigy, gam, phi)
             Dep = 0;
-            sigt = sigtr'*obj.P*sigtr;
+            sigt = 1/phi^2*(sigtr'*obj.P*sigtr);
             r = sigy - obj.sigy0*sqrt(sigt);
             iter = 0;
             while norm(r) > obj.rtol || iter == 0
                 iter = iter + 1;
-                V = diag(1./diag(eye(4) + obj.sigy0^2*(Dep/(sigy + obj.H*Dep))*obj.Gam));
-                U = obj.X*V*obj.iX;
-                %dUdDep = -obj.X*V*obj.Gam*V*obj.iX*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2);
-                dUdDep = -U*obj.DeP*U*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2);
-                dsigtdU = 2*obj.P*U*(sigtr*sigtr');
-                sigt = sigtr'*U*obj.P*U'*sigtr;
+                U = obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/(sigy + obj.H*Dep)*Dep*obj.Gam))*obj.iX;
+                dUdDep = gam/phi*(-U*obj.DeP*U*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2));
+                dsigtdU = 1/phi^2*(2*obj.P*U*(sigtr*sigtr'));
+                sigt = 1/phi^2*(sigtr'*U*obj.P*U'*sigtr);
                 drdDep = obj.H - obj.sigy0/(2*sqrt(sigt))*trace(dUdDep*dsigtdU);
                 DDep = -r/drdDep;
                 Dep = Dep + DDep;
-                V = diag(1./diag(eye(4) + obj.sigy0^2*(Dep/(sigy + obj.H*Dep))*obj.Gam));
-                U = obj.X*V*obj.iX;
-                sigt = sigtr'*U*obj.P*U'*sigtr;
+                U = obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/(sigy + obj.H*Dep)*Dep*obj.Gam))*obj.iX;
+                sigt = 1/phi^2*(sigtr'*U*obj.P*U'*sigtr);
                 r = sigy + obj.H*Dep - obj.sigy0*sqrt(sigt);           
                 if obj.prints(3)
                     fprintf("    iter: %i, r: %4.2g \n", [iter, norm(r)])
@@ -509,13 +505,12 @@ classdef Solver
             end
             sig = U*sigtr;
             sigy = sigy + obj.H*Dep;
-            % dUdDep = -obj.X*V*obj.Gam*V*obj.iX*(obj.sigy0^2*sigy/(sigy+obj.H*Dep)^2);
-            dUdDep = -U*obj.DeP*U*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2);
-            dsigtdU = 2*obj.P*U*(sigtr*sigtr');
-            drdDep = obj.H - obj.sigy0/(2*sqrt(sigt))*trace(dUdDep*dsigtdU);
-            drdDeps = -obj.sigy0/sqrt(sigt)*obj.De*U'*obj.P*U*sigtr;
+            dUdDep = gam/phi*(-U*obj.DeP*U*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2));
+            dsigtdU = 1/phi^2*(2*obj.P*U*(sigtr*sigtr'));
+            drdDep = phi*(obj.H - obj.sigy0/(2*sqrt(sigt))*trace(dUdDep*dsigtdU));
+            drdDeps = gam/phi*(-obj.sigy0/sqrt(sigt)*obj.De*U'*obj.P*U*sigtr);
             dDepdDeps = -drdDeps/drdDep;
-            Dt = U*obj.De + dUdDep*sigtr*dDepdDeps';
+            Dt = gam*U*obj.De + dUdDep*sigtr*dDepdDeps';
         end
 
         function [X, iX, Gam] = diagDs(obj)
