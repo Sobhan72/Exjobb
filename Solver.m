@@ -527,10 +527,11 @@ classdef Solver
             if flag
                 clf;
                 colormap(flipud(gray(256)));
-                patch(obj.ex', obj.ey', x);
-                colorbar;
+                patch(obj.ex', obj.ey', x, ...
+                    'EdgeColor', 'none');
                 axis equal
                 axis(obj.axi)
+                set(gca,'XTick',[], 'YTick', [])
                 drawnow;
             else
                 vM = zeros(obj.nel, 1);

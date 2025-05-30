@@ -6,7 +6,7 @@ params.lx = 0.1;
 params.ly = 0.05;
 params.Vf = 0.3;
 
-params.t = 1;
+params.t = 0.1;
 params.ngp = 4;
 
 params.R1tol = 1e-1;
@@ -34,10 +34,10 @@ params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 params.re = 3; % Elements in radius
 params.filtOn = true;
 params.loadcase = 1;
-params.p = 2.3;
-params.q = 1.8;
+params.p = 1.5;
+params.q = 1;
 params.eta = 0.5;
-params.beta = 2.14358881;
+params.beta = 1;
 params.rampB = 1; % 0: off, 1: B*1.1, 2: B + 1
 params.rampPQ = true;
 params.del = 1e-9;
@@ -46,23 +46,23 @@ params.xtol = 1e-5;
 params.iterMax = 500;
 
 params.print = [0,0,0]; %[Load step, R1, R2] 
-params.saveName = "";
+params.saveName = "OptDesign_case=1_x=0.9_disp=1.5e-3";
 sol = Solver(params);
 
 %% Optimization
-x = 0.8*ones(sol.nel, 1);
+x = 0.9*ones(sol.nel, 1);
 [sol, x] = optimizer(sol, x);
 saveData(sol, x, params, "data");
 
 %% Draw Design
-% clc, clear, close all
-% load("data\OptDesign2.mat")
+clc, clear, close all
+load("data\OptDesign_case=1_x=0.8_disp=1.5e-3.mat")
 sol = Solver(params);
 sol = sol.assignVar(val, sol);
 sol.beta = 10;
 x = sol.He(sol.Z*x);
-% plotFigs(sol, x, 1);
-plotFigs(sol, x, 0);
+plotFigs(sol, x, 1);
+% plotFigs(sol, x, 0);
 
 %% Mesh
 patch(sol.ex', sol.ey', ones(sol.nel, 1));
