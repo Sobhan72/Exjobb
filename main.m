@@ -10,7 +10,7 @@ params.t = 1;
 params.ngp = 4;
 
 params.R1tol = 1e-1;
-params.N = 3;
+params.N = 10;
 params.disp = -1.5e-3; % displacement [nodes total-size]
 
 % Material parameters
@@ -25,16 +25,16 @@ params.sigy03 = 250e6;
  
 params.H = 10e9;
 params.Kinf = 0; %0.3*params.sigy01; %extra terms linHard (sat. stress)
-params.xi = 1e-3; %extra terms linHard (sat. exp)
+params.xi = 1e3; %extra terms linHard (sat. exp)
 
-params.rtol = 1e-1;
+params.rtol = 1e1;
 params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
 % Optimization Parameters
 params.re = 3; % Elements in radius
 params.filtOn = true;
 params.loadcase = 1;
-params.p = 2.3; 
+params.p = 2.3;
 params.q = 1.8;
 params.eta = 0.5;
 params.beta = 2.14358881;

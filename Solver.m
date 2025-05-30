@@ -238,10 +238,10 @@ classdef Solver
             dR2dx = sparse((1:obj.tgp)', repelem((1:obj.nel)', obj.ngp), dR2dx, obj.tgp, obj.nel);
             dR1dep = sparse(reshape(repelem(obj.edof', 1, obj.ngp), [], 1), repelem((1:obj.tgp)', obj.endof), dR1dep, obj.ndof, obj.tgp);
 
-            dgt0du = -obj.a(obj.pdof)'*obj.K(obj.pdof, obj.fdof);
+            dgt0da = -obj.a(obj.pdof)'*obj.K(obj.pdof, obj.fdof);
 
             pgp = find(obj.ep);
-            lamt = -dgt0du/obj.K(obj.fdof, obj.fdof);
+            lamt = -dgt0da/obj.K(obj.fdof, obj.fdof);
             idR2dep = diag(1./obj.dR2dep(pgp));
             mut = -dgt0dep(pgp)'*idR2dep - lamt*dR1dep(obj.fdof, pgp)*idR2dep;
 
@@ -450,7 +450,7 @@ classdef Solver
         function [sig, Dt, Ds, ep, dDsdep, drdep, epst] = DPMat(obj, eps, Ds, ep, gam, phi)
             epst = 1/phi^2*eps'*Ds*obj.P*Ds*eps;
             sige = (obj.sigy0 + obj.H*ep + obj.Kinf*(1-exp(-obj.xi*ep)));
-            r = phi*(sige - obj.sigy0*sqrt(epst));
+            r = (sige - obj.sigy0*sqrt(epst));
             iter = 0;
             while norm(r) > obj.rtol || iter == 0
                 iter = iter + 1;
@@ -463,16 +463,13 @@ classdef Solver
                 detdDs = 1/phi^2*(2*obj.P*Ds*(eps*eps'));
                 dDsdep = 1/phi*(-Ds*obj.P*Ds*(obj.sigy0^2*(sige-(obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep))*ep)/sige^2));
                 epst = 1/phi^2*(eps'*Ds*obj.P*Ds*eps);
-                drdep = phi*(obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep) - obj.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
+                drdep = (obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep) - obj.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
                 Dep = -r/drdep;
                 ep = ep + Dep;
-                % while ep<0
-                %     ep = 0;
-                % end
                 sige = (obj.sigy0 + obj.H*ep + obj.Kinf*(1-exp(-obj.xi*ep)));
                 Ds = gam*obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/sige*ep*obj.Gam))*obj.X';
                 epst = 1/phi^2*(eps'*Ds*obj.P*Ds*eps);
-                r = phi*(sige - obj.sigy0*sqrt(epst));
+                r = (sige - obj.sigy0*sqrt(epst));
                 if obj.prints(3)
                     fprintf("    iter: %i, r: %4.2g \n", [iter, norm(r)])
                 end
