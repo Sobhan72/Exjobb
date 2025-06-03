@@ -16,7 +16,7 @@ classdef Solver
         epsi; sigi; epi; Dsi; sigyi
         ao; R1o; Dto
         Z; filtOn; eta; beta
-        del; p; q; ncon
+        del; dels; p; q; ncon
         rampB; rampPQ
         xtol; iterMax
         gam; phi; g0; g1
@@ -61,6 +61,7 @@ classdef Solver
             obj.rampPQ = p.rampPQ;
             
             obj.del = p.del;
+            obj.dels = p.dels;
             obj.ncon = p.ncon;
             obj.xtol = p.xtol;
             obj.iterMax = p.iterMax;
@@ -207,7 +208,7 @@ classdef Solver
             [x, dxH] = He(obj,x);
             for el = 1:obj.nel
                 dgam = obj.p*(1-obj.del)*x(el)^(obj.p-1);
-                dphi = obj.q*(1-obj.del)*x(el)^(obj.q-1);
+                dphi = obj.q*(1-obj.dels)*x(el)^(obj.q-1);
                 th = (dgam*obj.phi(el)-dphi*obj.gam(el))/obj.phi(el)^2;
                 Kte = zeros(obj.endof);
                 eix = obj.edof(el, :);
@@ -270,7 +271,7 @@ classdef Solver
             x = obj.Z*x;
             x = He(obj,x);
             obj.gam = obj.del + (1-obj.del)*x.^obj.p;
-            obj.phi = obj.del + (1-obj.del)*x.^obj.q;
+            obj.phi = obj.dels + (1-obj.dels)*x.^obj.q;
             gam4 = repelem(obj.gam, 4*obj.ngp);
             obj.Ds = gam4.*repmat(obj.De, obj.tgp, 1);
             obj.Dsi = obj.Ds;
@@ -329,7 +330,7 @@ classdef Solver
                     Nr = Nr + 1;
                     if Nr == 9
                         cdisp(:, 2) = cdisp(:, 2)/2;
-                        obj = initFEM(obj);
+                        obj.a = obj.ao; obj.R1 = obj.R1o; obj.Dt = obj.Dto;
                         ext = ext + 1;
                         warning("Restart loadstep %i", ext);
                         restart = true;
@@ -438,13 +439,7 @@ classdef Solver
                 a(bc(:,1),:) = repmat(bc(:,2),1,nc);
             end
         end
-
-         function obj = initFEM(obj)
-            obj.a = obj.ao;
-            obj.R1 = obj.R1o;
-            obj.Dt = obj.Dto;
-        end
-
+         
         %% Material Functions
         function [sig, Dt, Ds, ep, dDsdep, drdep, epst] = DPMat(obj, eps, Ds, ep, gam, phi)
             epst = 1/phi^2*eps'*Ds*obj.P*Ds*eps;
@@ -489,6 +484,11 @@ classdef Solver
             iter = 0;
             while norm(r) > obj.rtol || iter == 0
                 iter = iter + 1;
+                 if iter == 9
+                    warning("Material converging slowly")
+                elseif iter == 20
+                    error("Material not converging")
+                end
                 U = obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/(sigy + obj.H*Dep)*Dep*obj.Gam))*obj.iX;
                 dUdDep = gam/phi*(-U*obj.DeP*U*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2));
                 dsigtdU = 1/phi^2*(2*obj.P*U*(sigtr*sigtr'));
@@ -501,7 +501,7 @@ classdef Solver
                 r = sigy + obj.H*Dep - obj.sigy0*sqrt(sigt);           
                 if obj.prints(3)
                     fprintf("    iter: %i, r: %4.2g \n", [iter, norm(r)])
-                end            
+                end
             end
             sig = U*sigtr;
             sigy = sigy + obj.H*Dep;
@@ -534,38 +534,35 @@ classdef Solver
                 set(gca,'XTick',[], 'YTick', [])
                 drawnow;
             else
-                vM = zeros(obj.nel, 1);
-                for el = 1:obj.nel
-                    ix = obj.ngp*(el-1)+1:el*obj.ngp;
-                    vM(el) = sqrt(obj.sigy0^2*trace(obj.sig(ix, :)*obj.P*obj.sig(ix, :)')/obj.ngp);
-                end
-                
                 cosT = zeros(obj.nel,1);
+                Hs = zeros(obj.nel, 1);
                 for el = 1:obj.nel
                     ix = obj.ngp*(el-1)+1:el*obj.ngp;
                     cosT(el) = trace(obj.sig1N(ix,1:obj.ngp)*obj.sig1N(ix,obj.ngp+1:end)')/(vecnorm(obj.sig1N(ix,1:obj.ngp),2,2)'*vecnorm(obj.sig1N(ix,obj.ngp+1:end),2,2));
+                    Hs(el) = sqrt(obj.sigy0^2*trace(obj.sig(ix, :)*obj.P*obj.sig(ix, :)')/obj.ngp);
                 end
-                cosT(x<0.01) = 0;
+                cosT(x<0.5) = 0;
+                Hc = Hs./(obj.phi*obj.sigy0);
 
                 figure;
                 tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
                 nexttile;
+                title("cos($\theta$) field for compliance maximization", 'Interpreter', 'latex');
                 patch(obj.ex', obj.ey', cosT, ...
                       'EdgeColor', 'none');
-                title("cos($\theta$) field for compliance maximization", 'Interpreter', 'latex');
                 colormap(gca, 'jet'); 
                 clim([0 1]);
                 colorbar;
                 
                 nexttile;
-                patch(obj.ex', obj.ey', vM, ...
+                title("Effective Hill Stress", 'Interpreter', 'latex');
+                patch(obj.ex', obj.ey', Hs, ...
                       'EdgeColor', 'none');
-                title("von Mises stress", 'Interpreter', 'latex');
                 colormap(gca, 'jet');
                 colorbar;
-    
+
                 figure;
-                title("Plastic Zone");
+                title("Plastic Zone", 'Interpreter', 'latex');
                 pl = obj.ep>0;
                 pl = reshape(pl, 4, obj.nel)';
                 pl = any(pl, 2);
@@ -575,15 +572,18 @@ classdef Solver
                 patch(obj.ex(~pl, :)', obj.ey(~pl, :)', 'blue', ...
                       'EdgeColor', 'none', ...
                       'DisplayName', 'Elasticity');
-                patch(obj.ex(x<0.01, :)', obj.ey(x<0.01, :)', 'white', ...
+                patch(obj.ex(x<0.5, :)', obj.ey(x<0.5, :)', 'white', ...
                       'EdgeColor', 'none', ...
                       'HandleVisibility', 'off');
                 legend
+
+                figure;
+                title("Hill Criterion", 'Interpreter', 'latex');
+                patch(obj.ex', obj.ey', Hc, ...
+                      'EdgeColor', 'none');
+                colormap(gca, 'jet');
+                colorbar;
                 
-                % softjet = [linspace(0.1, 1, 256)', ...
-                %            linspace(0.1, 0, 256)', ...
-                %            linspace(0.8, 0.1, 256)'];
-                % colormap(softjet);
                 iter = length(obj.g0);
                 if iter < 10
                     return
@@ -628,13 +628,28 @@ classdef Solver
                 save(dataPath, "x", "params", "val");
             end
         end
+
+        function Dtf = Dtf(obj, eps, Ds, ep, gam, phi)
+            delta = 1e-9;
+            
+            Dtf = zeros(4);
+            for i = 1:4
+                deps = [0; 0; 0; 0];
+                deps(i) = delta;
+                eps2 = eps - deps;
+                eps3 = eps + deps;
+                sig2 = DPMat(obj, eps2, Ds, ep, gam, phi);
+                sig3 = DPMat(obj, eps3, Ds, ep, gam, phi);
+                Dtf(:, i) = (sig3-sig2)/2/delta;
+            end
+        end
     end
     methods (Static)
         function out = assignVar(in, out)
-        fields = {'ex', 'ey', 'ngp', 'nel', 'sig', 'P', 'sigy0', 'sig1N', 'ep', 'g0', 'g1'};
-        for i = 1:numel(fields)
-            out.(fields{i}) = in.(fields{i});
-        end
+            fields = {'ex', 'ey', 'ngp', 'nel', 'sig', 'P', 'sigy0', 'sig1N', 'ep', 'g0', 'g1'};
+            for i = 1:numel(fields)
+                out.(fields{i}) = in.(fields{i});
+            end
         end
 
         function bc = addBC(bc, ly, le, ndof)
