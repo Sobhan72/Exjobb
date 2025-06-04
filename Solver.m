@@ -14,7 +14,6 @@ classdef Solver
         R1; R1tol; N
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
-        ao; R1o; Dto
         Z; filtOn; eta; beta
         del; dels; p; q; ncon
         rampB; rampPQ
@@ -46,7 +45,6 @@ classdef Solver
                 error("Load case doesn't exist");
             end
             obj.disp(:, 2) = obj.disp(:, 2)/obj.N;
-            
             % obj.fixDens = find(any(ismember(obj.edof,obj.disp(:,1)),2));
             
             obj.saveName = p.saveName;
@@ -116,7 +114,6 @@ classdef Solver
             obj.Ds = repmat(obj.De, obj.tgp, 1);
             obj.Dsi = obj.Ds;
             obj.Dt = obj.Ds;
-            obj.Dto = obj.Dt;
 
             obj.dDsdep = zeros(size(obj.Ds)); 
             obj.dR2dep = zeros(obj.tgp, 1); 
@@ -128,10 +125,8 @@ classdef Solver
             obj.DP = p.DP;
             obj.R1tol = p.R1tol;
             obj.R1 = sparse(obj.ndof, 1);
-            obj.R1o = obj.R1;
          
             obj.a = zeros(obj.ndof, 1);
-            obj.ao = obj.a;
 
             obj.pdof = [obj.bcS(:, 1); obj.disp(:, 1)];
             obj.fdof = setdiff((1:obj.ndof)', obj.pdof);
@@ -173,7 +168,7 @@ classdef Solver
                         obj.q = obj.q + 0.1;
                     end
                 end
-                obj = initOpt(obj, x);
+                obj = init(obj, x);
                 obj = newt(obj);
                 [obj.g0(iter), dg0, obj.g1(iter), dg1] = funcEval(obj, x);
                 if iter == 1
@@ -255,33 +250,6 @@ classdef Solver
             dg1(obj.fixDens) = 0;
         end
 
-        function obj = initOpt(obj, x)
-            obj.eps = zeros(obj.tgp, 4);
-            obj.sig = zeros(obj.tgp, 4);
-            obj.ep = zeros(obj.tgp, 1);
-            obj.epsi = zeros(obj.tgp, 4);
-            obj.sigi = zeros(obj.tgp, 4);
-            obj.epi = zeros(obj.tgp, 1);
-
-            obj.a = zeros(obj.ndof, 1);
-            obj.ao = obj.a;
-            obj.R1 = sparse(obj.ndof, 1);
-            obj.R1o = obj.R1;
-
-            x = obj.Z*x;
-            x = He(obj,x);
-            obj.gam = obj.del + (1-obj.del)*x.^obj.p;
-            obj.phi = obj.dels + (1-obj.dels)*x.^obj.q;
-            gam4 = repelem(obj.gam, 4*obj.ngp);
-            obj.Ds = gam4.*repmat(obj.De, obj.tgp, 1);
-            obj.Dsi = obj.Ds;
-            obj.Dt = obj.Ds;
-            obj.Dto = obj.Dt;
-
-            obj.dDsdep = zeros(size(obj.Ds)); 
-            obj.dR2dep = zeros(obj.tgp, 1);
-        end
-
         function Z = filterMatrix(obj, le, re)
             if obj.filtOn
                 ec = [obj.ex(:, 1) + le/2, obj.ey(:, 1) + le/2];
@@ -316,8 +284,8 @@ classdef Solver
 
         %% FEM
         function obj = newt(obj) % Newton-Raphson method
-            tdisp = abs(obj.disp(1, 2)*obj.N); cdisp = obj.disp; idisp = 0;
-            rst = 0; restart = false;
+            tdisp = abs(obj.disp(1, 2)*obj.N); cdisp = obj.disp; idisp = 0; pn = obj.N;
+            rst = 0; f = 1;
             n = 1;
             while abs(tdisp-idisp) > 1e-8
                 if obj.prints(1)
@@ -328,14 +296,17 @@ classdef Solver
                 while norm(obj.R1(obj.fdof)) > obj.R1tol || Nr == 0
                     Nr = Nr + 1;
                     if Nr == 9
-                        if rst == 15
+                        rst = rst + 1;
+                        if rst == 7
+                            f = 30;
+                        elseif rst == 12
                             error("Too many restarts");
                         end
-                        cdisp(:, 2) = cdisp(:, 2)/2;
-                        obj.a = obj.ao; obj.R1 = obj.R1o; obj.Dt = obj.Dto;
-                        rst = rst + 1;
-                        warning("Restart loadstep %i", rst);
-                        restart = true;
+                        pn = nextprime(pn+f);
+                        cdisp(:, 2) = obj.disp(:, 2)*obj.N/pn;
+                        obj = init(obj);
+                        idisp = 0; n = 1;
+                        warning("Restarting Nr %i", rst);
                         break;
                     end
                     obj = FEM(obj, bc);
@@ -344,14 +315,11 @@ classdef Solver
                         fprintf("  Nr: %i, R1: %4.2g \n", [Nr, norm(obj.R1(obj.fdof))]);
                     end
                 end
-                if restart
-                    restart = false;
+                if Nr == 9
                     continue;
                 end
                 idisp = idisp + abs(cdisp(1, 2));
-                % fprintf("disp: %4.2g \n", idisp);
                 obj.eps = obj.epsi; obj.sig = obj.sigi; obj.ep = obj.epi; obj.Ds = obj.Dsi; obj.sigy = obj.sigyi;
-                obj.ao = obj.a; obj.R1o = obj.R1; obj.Dto = obj.Dt;
                 if n == 1
                     obj.sig1N(:,1:obj.ngp) = obj.sig;
                 end
@@ -440,7 +408,7 @@ classdef Solver
                 a(bc(:,1),:) = repmat(bc(:,2),1,nc);
             end
         end
-         
+       
         %% Material Functions
         function [sig, Dt, Ds, ep, dDsdep, drdep, epst] = DPMat(obj, eps, Ds, ep, gam, phi)
             epst = 1/phi^2*eps'*Ds*obj.P*Ds*eps;
@@ -524,6 +492,32 @@ classdef Solver
         end
 
         %% Misc. Function
+        function obj = init(obj, x)
+            if nargin == 2
+                x = obj.Z*x;
+                x = He(obj,x);
+                obj.gam = obj.del + (1-obj.del)*x.^obj.p;
+                obj.phi = obj.dels + (1-obj.dels)*x.^obj.q;
+            end
+            gam4 = repelem(obj.gam, 4*obj.ngp);
+            obj.Ds = gam4.*repmat(obj.De, obj.tgp, 1);
+            obj.Dsi = obj.Ds;
+            obj.Dt = obj.Ds;
+
+            obj.eps = zeros(obj.tgp, 4);
+            obj.sig = zeros(obj.tgp, 4);
+            obj.ep = zeros(obj.tgp, 1);
+            obj.epsi = zeros(obj.tgp, 4);
+            obj.sigi = zeros(obj.tgp, 4);
+            obj.epi = zeros(obj.tgp, 1);
+
+            obj.a = zeros(obj.ndof, 1);
+            obj.R1 = sparse(obj.ndof, 1);
+
+            obj.dDsdep = zeros(size(obj.Ds)); 
+            obj.dR2dep = zeros(obj.tgp, 1);
+        end
+
         function plotFigs(obj, x, flag)
             if flag
                 clf;
