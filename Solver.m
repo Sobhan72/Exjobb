@@ -317,8 +317,7 @@ classdef Solver
         %% FEM
         function obj = newt(obj) % Newton-Raphson method
             tdisp = abs(obj.disp(1, 2)*obj.N); cdisp = obj.disp; idisp = 0;
-            ext = 0;
-            restart = false;
+            rst = 0; restart = false;
             n = 1;
             while abs(tdisp-idisp) > 1e-8
                 if obj.prints(1)
@@ -329,10 +328,13 @@ classdef Solver
                 while norm(obj.R1(obj.fdof)) > obj.R1tol || Nr == 0
                     Nr = Nr + 1;
                     if Nr == 9
+                        if rst == 15
+                            error("Too many restarts");
+                        end
                         cdisp(:, 2) = cdisp(:, 2)/2;
                         obj.a = obj.ao; obj.R1 = obj.R1o; obj.Dt = obj.Dto;
-                        ext = ext + 1;
-                        warning("Restart loadstep %i", ext);
+                        rst = rst + 1;
+                        warning("Restart loadstep %i", rst);
                         restart = true;
                         break;
                     end
@@ -360,7 +362,6 @@ classdef Solver
 
         function obj = FEM(obj, bc) % Main FEM function
             obj.K = assemK(obj, obj.Dt);
-
             da = obj.solvelin(obj.K, -obj.R1, bc);
             obj.a = obj.a + da;
             obj.ed = obj.a(obj.edof);

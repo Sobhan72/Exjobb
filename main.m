@@ -10,7 +10,7 @@ params.t = 1;
 params.ngp = 4;
 
 params.R1tol = 1e1;
-params.N = 7;
+params.N = 4;
 params.disp = -1e-3; % displacement [nodes total-size]
 
 % Material parameters
