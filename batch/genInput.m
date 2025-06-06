@@ -1,11 +1,16 @@
 %% Batch 
 E = 210e9;
-v = 0.3;
-sigy_base = [360e6, 300e6, 250e6];
-E_base = [E, 0.7*E, 0.5*E];
-v_base = [v, 0.5*v, 0.5*v];
+v = 0.4;
+% sigy_base = [360e6, 320e6, 280e6]; %01
+% E_base = [E, 0.85*E, 0.7*E];       %01
+% v_base = [v, 0.5*v, 0.5*v];        %01
+sigy_base = [360e6, 300e6, 250e6]; 
+E_base = [E, 0.7*E, 0.5*E];        
+v_base = [v, 0.5*v, 0.5*v];        
 
-x_values = [0.7, 0.8, 0.9, 1.0];
+x_values = [0, 0, 0.7, 0.8, 0.9, 1.0];
+disp_values = [-1e-3, -9e-4, -8e-4];
+
 n_cases = 3;
 
 count = 0;
@@ -17,36 +22,128 @@ for i = 1:length(x_values)
         % Rotate parameters according to case
         idx = mod((0:2) + case_num - 1, 3) + 1;
 
-        params.E1 = E_base(idx(1));
-        params.E2 = E_base(idx(2));
-        params.E3 = E_base(idx(3));
+        for d = 1:length(disp_values)
+            disp_val = disp_values(d);
+
+            params.E1 = E_base(idx(1));
+            params.E2 = E_base(idx(2));
+            params.E3 = E_base(idx(3));
 
         if case_num == 1
             params.v12 = v_base(1);
             params.v13 = v_base(2);
             params.v23 = v_base(3);
         elseif case_num == 2
-            params.v12 = v_base(3);
-            params.v13 = v_base(1) * (E_base(2) / E_base(1)); %v21
-            params.v23 = v_base(2)*(E_base(3) / E_base(1)); %v31
-        else
-            params.v12 = v_base(2)*(E_base(3) / E_base(1)); %v31
-            params.v13 = v_base(3)*(E_base(3) / E_base(2)); %v32
+            params.v12 = v_base(2)*(E_base(3) / E_base(1)); %v31 
+            params.v13 = v_base(3)*(E_base(3) / E_base(2)); %v32   
             params.v23 = v_base(1);
+        else
+            params.v12 = v_base(3);    
+            params.v13 = v_base(1)*(E_base(2) / E_base(1)); %v21
+            params.v23 = v_base(2)*(E_base(3) / E_base(1)); %v31
         end
 
-        params.sigy01 = sigy_base(idx(1));
-        params.sigy02 = sigy_base(idx(2));
-        params.sigy03 = sigy_base(idx(3));
+            params.sigy01 = sigy_base(idx(1));
+            params.sigy02 = sigy_base(idx(2));
+            params.sigy03 = sigy_base(idx(3));
 
-        % Save name and filename
-        params.saveName = sprintf("OptDesign_batch5_x=%02d_case%d", round(x*10), case_num);
-        filename = sprintf("input%d.mat", count);
-        save(filename, 'x', 'params');
-        
-        count = count + 1;
+            params.disp = disp_val;
+            params.saveName = sprintf("Anisotrop_x=%02d_case%d_disp=%.0fe-4", ...
+                round(x*10), case_num, -disp_val*1e4);
+
+            filename = sprintf("input%d.mat", count);
+            save(filename, 'x', 'params');
+
+            count = count + 1;
+        end
     end
 end
+
+clearvars -except count
+E = 210e9;
+v = 0.3;
+sigy_base = [360e6, 360e6,360e6]; 
+params.E1 = E;
+params.E2 = E;
+params.E3 = E;
+params.v12 = v;
+params.v13 = v;
+params.v23 = v;
+
+x_values = [0, 0, 0.7, 0.8, 0.9, 1.0];
+disp_values = [-1e-3, -9e-4, -8e-4];
+
+for i = 1:length(x_values)
+    x = x_values(i);    
+
+         for d = 1:length(disp_values)
+            disp_val = disp_values(d);
+            params.disp = disp_val;
+            params.saveName = sprintf("Isotrop_x=%02d_disp=%.0fe-4", ...
+                round(x*10), -disp_val*1e4);
+
+            filename = sprintf("input%d.mat", count);
+            save(filename, 'x', 'params');
+
+            count = count + 1;
+        end
+end
+   
+
+    % E = 210e9;
+% v = 0.3;
+% sigy_base = [360e6, 300e6, 250e6];
+% E_base = [E, 0.7*E, 0.5*E];
+% v_base = [v, 0.5*v, 0.5*v];
+% 
+% x_values = [0.7, 0.8, 0.9, 1.0];
+% n_cases = 3;
+% 
+% count = 0;
+% 
+% fprintf("Jag är i %", pwd);
+% fprintf("Börjar loopa!");
+% for i = 1:length(x_values)
+%     x = x_values(i);    
+% 
+%     for case_num = 1:n_cases
+%         % Rotate parameters according to case
+%         idx = mod((0:2) + case_num - 1, 3) + 1;
+% 
+%         params.E1 = E_base(idx(1));
+%         params.E2 = E_base(idx(2));
+%         params.E3 = E_base(idx(3));
+% 
+%         if case_num == 1
+%             params.v12 = v_base(1);
+%             params.v13 = v_base(2);
+%             params.v23 = v_base(3);
+%         elseif case_num == 2
+%             params.v12 = v_base(2)*(E_base(3) / E_base(1)); %v31 
+%             params.v13 = v_base(3)*(E_base(3) / E_base(2)); %v32   
+%             params.v23 = v_base(1);
+%         else
+%             params.v12 = v_base(3);    
+%             params.v13 = v_base(1)*(E_base(2) / E_base(1)); %v21
+%             params.v23 = v_base(2)*(E_base(3) / E_base(1)); %v31
+%         end
+% 
+%         params.sigy01 = sigy_base(idx(1));
+%         params.sigy02 = sigy_base(idx(2));
+%         params.sigy03 = sigy_base(idx(3));
+% 
+%         % Save name and filename
+%         params.saveName = sprintf("OptDesign_batch5_x=%02d_case%d", round(x*10), case_num);
+%         filename = sprintf("input%d.mat", count);
+%         save(filename, 'x', 'params');
+% 
+%         fprintf("Sparat inputs till fil %s", filename);
+%         count = count + 1;
+%     end
+% end
+% fprintf("Färdig!")
+
+
 
 % %% Batch3
 % File: generateInputs.m

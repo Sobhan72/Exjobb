@@ -1,12 +1,12 @@
 #!/bin/sh
 # requesting the number of nodes needed
 #SBATCH -A lu2025-2-33
-#SBATCH -N 1
-#SBATCH --tasks-per-node=12
-#SBATCH --mem-per-cpu=6200
-#
+#SBATCH -N 2
+#SBATCH --tasks-per-node=36
+
+
 # job time, change for what your job farm requires
-#SBATCH -t 12:00:00
+#SBATCH -t 08:00:00
 #
 # job name and output file names
 #SBATCH -J jobFarm
@@ -15,7 +15,7 @@
 cat $0
 
 # set the number of jobs - change for your requirements
-export NB_of_jobs=12
+export NB_of_jobs=72
 
 # Get the absolute path of the current working directory
 export WORK_DIR=$PWD
@@ -32,6 +32,8 @@ module load matlab/2024b
 # Run MATLAB to generate input files
 matlab -singleCompThread -nodesktop -nodisplay -nosplash -r "genInput; quit"
 
+echo "Done with generating inputs"
+
 # Copy necessary files
 cp -p input*.mat job.m $MASTER_DIR
 cp -p worker_script.sh $TMP_OUT
@@ -45,9 +47,12 @@ cd $MASTER_DIR
 # Loop over the job number
 for ((i=0; i<$NB_of_jobs; i++))
 do
+    echo "Starting job $i at $(TZ=Europe/Stockholm date +%T)"
     srun -Q --exclusive -n 1 -N 1 $TMP_OUT/worker_script.sh $i &> $TMP_OUT/worker_${SLURM_JOB_ID}_${i}.out &
     sleep 1
 done
+
+echo "Skickat alla jobb"
 
 # Remove job.m after starting the jobs
 rm -f job.m

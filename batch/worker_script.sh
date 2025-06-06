@@ -27,7 +27,9 @@ cd $WRK_DIR
 # Start program
 module load matlab/2024b
 
-matlab -singleCompThread -nodesktop -nodisplay -nosplash -r "job; quit" > outfile.txt
+#matlab -singleCompThread -nodesktop -nodisplay -nosplash -r "job; quit" > outfile.txt
+matlab -singleCompThread -nodesktop -nodisplay -nosplash -r "job; quit" > outfile.txt 2>&1
+echo "Starting job $i at $(TZ=Europe/Stockholm date +%T)"
 
 # rescue the results back to job directory
 # including any text files or images ending with png

@@ -58,13 +58,13 @@ saveData(sol, x, params, "data");
 %% Draw Design
 % clc, clear, close all
 % load("data\OptDesign_case=1_x=0.8_disp=1e-3.mat")
-load("DesignFailcase=1.mat");
+% load("DesignFailcase=1.mat");
 
-% sol = Solver(params);
+sol = Solver(params);
 sol = sol.assignVar(val, sol);
 sol.beta = 10; sol.p = 3; sol.q = 2.5;
 x = sol.He(sol.Z*x);
-plotFigs(sol, x, 1);
+plotFigs(sol, x, 0);
 % plotFigs(sol, x, 0);
 
 %% Mesh
