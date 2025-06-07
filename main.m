@@ -1,29 +1,29 @@
 clc, clear, close all
 
 % FEM parameters
-params.le = 0.001*1000;
-params.lx = 0.1*1000;
-params.ly = 0.05*1000;
+params.le = 0.001;
+params.lx = 0.1;
+params.ly = 0.05;
 params.Vf = 0.3;
 
 params.t = 1;
 params.ngp = 4;
 
-params.R1tol = 1e-5;
-params.N = 4;
-params.disp = -1e-3*1000; % displacement [nodes total-size]
+params.R1tol = 1e-1;
+params.N = 3;
+params.disp = -1e-3; % displacement [nodes total-size]
 
 % Material parameters
-E = 210e9/1e6;
+E = 210e9;
 v = 0.3;
-params.E1 = E; params.E2 = 0.7*E; params.E3 = 0.5*E;
-params.v12 = v; params.v13 = 0.5*v; params.v23 = 0.5*v;
+params.E1 = E; params.E2 = E; params.E3 = E;
+params.v12 = v; params.v13 = v; params.v23 = v;
 
-params.sigy01 = 360e6/1e6;
-params.sigy02 = 300e6/1e6;
-params.sigy03 = 250e6/1e6;
+params.sigy01 = 360e6;
+params.sigy02 = 300e6;
+params.sigy03 = 250e6;
  
-params.H = 10e9/1e6;
+params.H = 10e9;
 params.Kinf = 0; %0.3*params.sigy01; %extra terms linHard (sat. stress)
 params.xi = 1e3; %extra terms linHard (sat. exp)
 
@@ -34,8 +34,8 @@ params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 params.re = 3; % Elements in radius
 params.filtOn = true;
 params.loadcase = 1;
-params.p = 1.5;
-params.q = 1;
+params.p = 3;
+params.q = 2.5;
 params.eta = 0.5;
 params.beta = 1;
 params.rampB = 1; % 0: off, 1: B*1.1, 2: B + 1
@@ -46,8 +46,8 @@ params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
 params.iterMax = 500;
 
-params.print = [1,1,0]; %[Load step, R1, R2] 
-params.saveName = "OptDesign_case=1_x=0.8_disp=1e-3";
+params.print = [0,0,1]; %[Load step, R1, R2] 
+params.saveName = "";
 sol = Solver(params);
 
 %% Optimization
@@ -56,51 +56,44 @@ x = 0.8*ones(sol.nel, 1);
 saveData(sol, x, params, "data");
 
 %% Draw Design
-% clc, clear, close all
-% load("data\OptDesign_case=1_x=0.8_disp=1e-3.mat")
-% load("DesignFailcase=1.mat");
-
+clc, clear, close all
+load("Anisotrop_x=10_case1_disp=10e-4.mat");
 sol = Solver(params);
 sol = sol.assignVar(val, sol);
-sol.beta = 10; sol.p = 3; sol.q = 2.5;
+sol.beta = 10; sol.p = 3; sol.q = 2.5; sol.t = 1;
 x = sol.He(sol.Z*x);
 plotFigs(sol, x, 0);
-% plotFigs(sol, x, 0);
-
-%% Mesh
-patch(sol.ex', sol.ey', ones(sol.nel, 1));
-colorbar;
-colormap jet;
 
 %% Newton-Raphson
-% x = ones(sol.nel, 1);
-load("DesignFailcase=1.mat");
+clear, close all
+load("Anisotrop_x=00_case2_disp=8e-4.mat");
+params.N = 40;
+% params.print = [1,1,0];
+sol = Solver(params);
 % sol = sol.assignVar(val, sol);
-% sol.beta = 10; sol.p = 3; sol.q = 3; sol.t = 1;
-sol.beta = val.beta; sol.p = val.p; sol.q = val.q;
+sol.beta = 10; sol.p = 3; sol.q = 2.5;  sol.DP = 0;
 sol = init(sol, x);
 sol = newt(sol);
 plotFigs(sol, x, 0)
 
-fprintf("g0; %.4g \n",  -sol.a(sol.pdof)'*sol.R1(sol.pdof));
 % figure;
 % eldraw2(sol.ex, sol.ey, [1 2 1]);
 % hold on
 % eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
-% dof = 13;
-% fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
+dof = 13;
+fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
 
 %% Finite diff
 h = 1e-6;
 
-c = [0.3 0.5 0.2 0.7 0.9]';
-x = repmat(c, sol.nel/5, 1);
-% x = 0.8*ones(sol.nel, 1);
-sol = initOpt(sol, x);
+% c = [0.3 0.5 0.2 0.7 0.9]';
+% x = repmat(c, sol.nel/5, 1);
+x = rand(sol.nel, 1);
+sol = init(sol, x);
 sol = newt(sol);
 [~, dg0, ~, ~] = funcEval(sol, x);
 
-wrong = [];
+errperc = zeros(sol.nel, 1);
 for el = 1:sol.nel
     sol1 = Solver(params);
     sol2 = Solver(params);
@@ -109,8 +102,8 @@ for el = 1:sol.nel
     x1(el) = x1(el) - h;
     x2(el) = x2(el) + h;
 
-    sol1 = initOpt(sol1, x1);
-    sol2 = initOpt(sol2, x2);
+    sol1 = init(sol1, x1);
+    sol2 = init(sol2, x2);
 
     sol1 = newt(sol1);
     sol2 = newt(sol2);
@@ -123,12 +116,9 @@ for el = 1:sol.nel
 
     fprintf("El: %i \n", el)
     fprintf("  Diff: %.5g \ndg0: %.5g \ndgf: %.5g\n", [dgf-dg0(el), dg0(el), dgf])
-    if (dgf-dg0(el))/dg0(el) > 1e-4
-        wrong = [wrong; el];
-    end
+    errperc(el) = (dgf-dg0(el))/dg0(el)*1000;
 end
 
-y = ones(sol.nel, 1);
-y(wrong) = 0;
-patch(sol.ex', sol.ey', y);
-
+patch(sol.ex', sol.ey', errperc);
+colormap jet;
+colorbar;

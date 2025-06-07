@@ -1,4 +1,8 @@
 clc, clear, close all
+%% Mesh
+patch(sol.ex', sol.ey', ones(sol.nel, 1));
+colorbar;
+colormap jet;
 
 %% Model validation
 params.DP = 0;

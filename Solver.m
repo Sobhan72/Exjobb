@@ -453,11 +453,11 @@ classdef Solver
             iter = 0;
             while norm(r) > obj.rtol || iter == 0
                 iter = iter + 1;
-                 if iter == 9
-                    warning("Material converging slowly")
-                elseif iter == 20
-                    error("Material not converging")
-                end
+                %  if iter == 9
+                %     warning("Material converging slowly")
+                % elseif iter == 20
+                %     error("Material not converging")
+                % end
                 U = obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/(sigy + obj.H*Dep)*Dep*obj.Gam))*obj.iX;
                 dUdDep = gam/phi*(-U*obj.DeP*U*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2));
                 dsigtdU = 1/phi^2*(2*obj.P*U*(sigtr*sigtr'));
@@ -467,7 +467,7 @@ classdef Solver
                 Dep = Dep + DDep;
                 U = obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/(sigy + obj.H*Dep)*Dep*obj.Gam))*obj.iX;
                 sigt = 1/phi^2*(sigtr'*U*obj.P*U'*sigtr);
-                r = sigy + obj.H*Dep - obj.sigy0*sqrt(sigt);           
+                r = sigy + obj.H*Dep - obj.sigy0*sqrt(sigt);
                 if obj.prints(3)
                     fprintf("    iter: %i, r: %4.2g \n", [iter, norm(r)])
                 end
