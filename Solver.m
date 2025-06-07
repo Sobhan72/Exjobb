@@ -299,7 +299,7 @@ classdef Solver
                         rst = rst + 1;
                         if rst == 7
                             f = 30;
-                        elseif rst == 12
+                        elseif rst == 20
                             error("Too many restarts");
                         end
                         pn = nextprime(pn+f);
@@ -309,7 +309,7 @@ classdef Solver
                         warning("Restarting Nr %i", rst);
                         break;
                     end
-                    obj = FEM(obj, bc);
+                    obj = FEM(obj, bc, Nr);
                     bc(:, 2) = bc(:, 2)*0;
                     if obj.prints(2)
                         fprintf("  Nr: %i, R1: %4.2g \n", [Nr, norm(obj.R1(obj.fdof))]);
@@ -328,7 +328,7 @@ classdef Solver
             obj.sig1N(:,obj.ngp+1:end) = obj.sig;
         end
 
-        function obj = FEM(obj, bc) % Main FEM function
+        function obj = FEM(obj, bc, Nr) % Main FEM function
             obj.K = assemK(obj, obj.Dt);
             da = obj.solvelin(obj.K, -obj.R1, bc);
             obj.a = obj.a + da;
@@ -483,7 +483,7 @@ classdef Solver
         end
 
         function [X, iX, Gam] = diagDs(obj)
-            [Q, L] = eig(obj.De);
+            [Q, L] = svd(obj.De);
             sL = sqrt(L);
             B = sL*Q'*obj.P*Q*sL;
             [R, Gam] = svd(B);
