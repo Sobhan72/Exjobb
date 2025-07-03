@@ -1,29 +1,32 @@
 clc, clear, close all
 
 % FEM parameters
-params.le = 0.001*1000;
-params.lx = 0.1*1000;
-params.ly = 0.05*1000;
-params.Vf = 0.3;
+params.le = 0.001;
+params.lx = 0.1; %0.1;
+params.ly = 0.1; %0.05;
+params.wx = 0.04; %[];
+params.wy = 0.04; %[];
+params.loadcase = 3; %1;
 
+params.Vf = 0.3;
 params.t = 1;
 params.ngp = 4;
 
 params.R1tol = 1e-5;
-params.N = 4;
-params.disp = -1e-3*1000; % displacement [nodes total-size]
+params.N = 5;
+params.disp = -1e-3; % displacement [nodes total-size]
 
 % Material parameters
-E = 210e9/1e6;
+E = 210e9;
 v = 0.3;
 params.E1 = E; params.E2 = 0.7*E; params.E3 = 0.5*E;
 params.v12 = v; params.v13 = 0.5*v; params.v23 = 0.5*v;
 
-params.sigy01 = 360e6/1e6;
-params.sigy02 = 300e6/1e6;
-params.sigy03 = 250e6/1e6;
+params.sigy01 = 360e6;
+params.sigy02 = 300e6;
+params.sigy03 = 250e6;
  
-params.H = 10e9/1e6;
+params.H = 10e9;
 params.Kinf = 0; %0.3*params.sigy01; %extra terms linHard (sat. stress)
 params.xi = 1e3; %extra terms linHard (sat. exp)
 
@@ -33,7 +36,6 @@ params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 % Optimization Parameters
 params.re = 3; % Elements in radius
 params.filtOn = true;
-params.loadcase = 1;
 params.p = 1.5;
 params.q = 1;
 params.eta = 0.5;
@@ -69,24 +71,26 @@ plotFigs(sol, x, 0);
 
 %% Mesh
 patch(sol.ex', sol.ey', ones(sol.nel, 1));
-colorbar;
-colormap jet;
+% colorbar;
+% colormap jet;
+axis equal
 
 %% Newton-Raphson
-% x = ones(sol.nel, 1);
-load("DesignFailcase=1.mat");
+x = ones(sol.nel, 1);
+% load("DesignFailcase=1.mat");
 % sol = sol.assignVar(val, sol);
-% sol.beta = 10; sol.p = 3; sol.q = 3; sol.t = 1;
-sol.beta = val.beta; sol.p = val.p; sol.q = val.q;
+sol = Solver(params);
+sol.beta = 10; sol.p = 3; sol.q = 3; sol.t = 1; 
+% sol.beta = val.beta; sol.p = val.p; sol.q = val.q;
 sol = init(sol, x);
 sol = newt(sol);
-plotFigs(sol, x, 0)
+% plotFigs(sol, x, 0)
 
-fprintf("g0; %.4g \n",  -sol.a(sol.pdof)'*sol.R1(sol.pdof));
+% fprintf("g0; %.4g \n",  -sol.a(sol.pdof)'*sol.R1(sol.pdof));
 % figure;
-% eldraw2(sol.ex, sol.ey, [1 2 1]);
-% hold on
-% eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
+eldraw2(sol.ex, sol.ey, [1 2 1]);
+hold on
+eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
 % dof = 13;
 % fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
 
