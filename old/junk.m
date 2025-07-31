@@ -577,21 +577,19 @@ bc = [[ndof/nR*(0:nR-1)'+1; ndof/nR*(0:nR-1)'+2] zeros(2*nR,1)];
 disp = [ndof/nR*(1:nR)'-1, ones(nR,1)*3e-3];
 end
 
-function Dtf = FDM(obj, eps, sige, Ds, ep)
-delta = 1e-8;
-
-Dtf = zeros(4);
-for i = 1:4
-    deps = [0; 0; 0; 0];
-    deps(i) = delta;
-    eps2 = eps - deps;
-    eps3 = eps + deps;
-    [~, ~, Ds2, ~] = DMat(obj, eps2, sige, Ds, ep);
-    [~, ~, Ds3, ~] = DMat(obj, eps3, sige, Ds, ep);
-    sig2 = Ds2*eps2;
-    sig3 = Ds3*eps3;
-    Dtf(:, i) = (sig3-sig2)/2/delta;
-end
+function Dtf = fdmDt(obj, eps, Ds, ep, gam, phi)
+    delta = 1e-9;
+    
+    Dtf = zeros(4);
+    for i = 1:4
+        deps = [0; 0; 0; 0];
+        deps(i) = delta;
+        eps2 = eps - deps;
+        eps3 = eps + deps;
+        sig2 = DPMat(obj, eps2, Ds, ep, gam, phi);
+        sig3 = DPMat(obj, eps3, Ds, ep, gam, phi);
+        Dtf(:, i) = (sig3-sig2)/2/delta;
+    end
 end
 
 function fdtEP(obj, sigtr, sigy, gam, phi)

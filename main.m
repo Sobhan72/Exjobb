@@ -13,8 +13,8 @@ params.t = 1;
 params.ngp = 4;
 
 params.R1tol = 1e-2;
-params.N = 15;
-params.disp = -1e-3; % displacement [nodes total-size]
+params.N = 5;
+params.disp = -1e-3; % total displacement 
 
 % Material parameters
 E = 210e9;
@@ -31,7 +31,7 @@ params.Kinf = 0; %0.3*params.sigy01; %extra terms linHard (sat. stress)
 params.xi = 1e3; %extra terms linHard (sat. exp)
 
 params.rtol = 1e-4;
-params.DP = 0; % 1 for Deformation plasticity, 0 for Elastoplasticity
+params.PT = 1; % 0 for Incremental plasticity, 1 for Deformation plasticity
 
 % Optimization Parameters
 params.re = 3; % Elements in radius
@@ -54,7 +54,7 @@ sol = Solver(params);
 
 %% Optimization
 x = 0.8*ones(sol.nel, 1);
-[sol, x] = optimizer(sol, x);
+[sol, x] = opt(sol, x);
 saveData(sol, x, params, "data");
 
 %% Draw Design

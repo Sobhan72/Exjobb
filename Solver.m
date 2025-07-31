@@ -9,7 +9,7 @@ classdef Solver
         De; Ds; Dt; X; iX; Gam
         dDsdep; dR2dep; epst
         H; sigy0; Kinf; xi
-        sigy; rtol; DP
+        sigy; rtol; PT
         P; C; DeP
         R1; R1tol; N
         eps; sig; ep
@@ -25,10 +25,7 @@ classdef Solver
 
     methods
         function obj = Solver(p)  % Constructor
-            % Mesh
             [~, ~, ~, obj.edof, obj.ex, obj.ey, bc] = designDomain(p.lx, p.ly, p.le, p.wx, p.wy);
-            % obj.ndof = 2*((p.lx/p.le + 1)*(p.ly/p.le + 1));
-            % obj.nel = round(p.lx*p.ly/p.le^2);
             obj.nel = length(obj.edof(:,1));
             obj.ndof = max(max(obj.edof(:,2:end)));
             obj.endof = 8;
@@ -43,7 +40,7 @@ classdef Solver
                 obj.disp(:, 1) = bc(:,1);
                 obj.disp(:, 2) = linspace(-p.disp, p.disp, length(bc));
                 obj.bcS = obj.addBC([], p.ly, p.le, obj.ndof);
-            elseif p.loadcase == 3 %L-beam
+            elseif p.loadcase == 3 % L-beam
                 obj.disp(:,1) =  bc(bc(:,2) == 1, 1);
                 obj.disp = [obj.disp, p.disp*ones(size(obj.disp))];
                 obj.bcS = bc(bc(:,2) == 0, 1);
@@ -82,7 +79,7 @@ classdef Solver
             obj.detJ = zeros(obj.ngp, 1);
 
             for gp = 1:obj.ngp
-                [obj.Bgp(3*(gp-1)+1:3*gp, :), obj.detJ(gp)] = NablaB(obj, gp, 1);
+                [obj.Bgp(3*(gp-1)+1:3*gp, :), obj.detJ(gp)] = nablaB(obj, gp, 1);
             end
             obj.rows = zeros(obj.endof^2, obj.nel);
             obj.cols = zeros(obj.endof^2, obj.nel);
@@ -117,7 +114,7 @@ classdef Solver
                     -p.v13/p.E1, -p.v23/p.E2, 1/p.E3, 0;
                      0, 0, 0, 1/G12];
             obj.De = inv(obj.C);
-            [obj.X, obj.iX, obj.Gam] = diagDs(obj);
+            [obj.X, obj.iX, obj.Gam] = diagDe(obj);
             obj.Ds = repmat(obj.De, obj.tgp, 1);
             obj.Dsi = obj.Ds;
             obj.Dt = obj.Ds;
@@ -129,7 +126,7 @@ classdef Solver
             obj.DeP = obj.De*obj.P;
 
             obj.rtol = p.rtol;
-            obj.DP = p.DP;
+            obj.PT = p.PT;
             obj.R1tol = p.R1tol;
             obj.R1 = sparse(obj.ndof, 1);
          
@@ -152,7 +149,7 @@ classdef Solver
         end
 
         %% Optimization
-        function [obj, x] = optimizer(obj, x)
+        function [obj, x] = opt(obj, x) % Optimizer with MMA
             a0 = 1; a1 = zeros(obj.ncon,1); c = 1000*ones(obj.ncon,1); d = ones(obj.ncon,1);
             xold1 = []; xold2 = []; low = []; upp = [];
             x(obj.fixDens) = 1;
@@ -207,7 +204,7 @@ classdef Solver
             ap = sparse(obj.pdof, 1, obj.a(obj.pdof), obj.ndof, 1);
 
             x = obj.Z*x;
-            [x, dxH] = He(obj,x);
+            [x, dxH] = he(obj,x);
             for el = 1:obj.nel
                 dgam = obj.p*(1-obj.del)*x(el)^(obj.p-1);
                 dphi = obj.q*(1-obj.dels)*x(el)^(obj.q-1);
@@ -280,7 +277,7 @@ classdef Solver
             end
         end
 
-        function [x, dxH] = He(obj, x)
+        function [x, dxH] = he(obj, x)
             if obj.filtOn
                 dxH = obj.beta*(1-tanh(obj.beta*(x-obj.eta)).^2)/(tanh(obj.beta*obj.eta) + tanh(obj.beta*(1-obj.eta)));
                 x = (tanh(obj.beta*obj.eta) + tanh(obj.beta*(x-obj.eta)))/(tanh(obj.beta*obj.eta) + tanh(obj.beta*(1-obj.eta)));
@@ -337,7 +334,7 @@ classdef Solver
 
         function obj = FEM(obj, bc) % Main FEM function
             obj.K = assemK(obj, obj.Dt);
-            da = obj.solvelin(obj.K, -obj.R1, bc);
+            da = obj.solveLin(obj.K, -obj.R1, bc);
             obj.a = obj.a + da;
             obj.ed = obj.a(obj.edof);
 
@@ -353,16 +350,12 @@ classdef Solver
                     sigtr = obj.gam(el)*obj.De*deps + obj.sig(ix, :)';
 
                     if sqrt(obj.sigy0^2*sigtr'*obj.P*sigtr) > obj.phi(el)*obj.sigy(ix)
-                        if obj.DP
+                        if obj.PT
                             [obj.sigi(ix, :), obj.Dt(ixM, :), obj.Dsi(ixM, :), obj.epi(ix), obj.dDsdep(ixM, :), obj.dR2dep(ix), obj.epst(ix)]...
                              = DPMat(obj, obj.epsi(ix, :)', obj.Ds(ixM, :), obj.ep(ix), obj.gam(el), obj.phi(el));
-                            Dtf = fdmDt(obj, obj.epsi(ix, :)', obj.Ds(ixM, :), obj.ep(ix), obj.gam(el), obj.phi(el));
-                            Dtr = obj.Dt(ixM, :);
                         else
-                            [obj.sigi(ix, :), obj.Dt(ixM, :), obj.sigyi(ix), Dep] = EPMat(obj, sigtr, obj.sigy(ix), obj.gam(el), obj.phi(el));
+                            [obj.sigi(ix, :), obj.Dt(ixM, :), obj.sigyi(ix), Dep] = IPMat(obj, sigtr, obj.sigy(ix), obj.gam(el), obj.phi(el));
                             obj.epi(ix) = obj.epi(ix) + Dep;
-                            % Dtf = fdmDt(obj, obj.epsi(ix, :)', obj.Ds(ixM, :), obj.ep(ix), obj.gam(el), obj.phi(el));
-                            % Dtr = obj.Dt(ixM, :);
                         end
                     else
                         obj.sigi(ix, :) = sigtr;
@@ -383,7 +376,7 @@ classdef Solver
             for el = 1:obj.nel
                 ke = zeros(obj.endof);
                 for gp = 1:obj.ngp
-                    B = obj.Bgp(3*(gp-1)+1:3*gp, :); J = obj.detJ(gp); % [B, J] = NablaB(obj, gp, el);
+                    B = obj.Bgp(3*(gp-1)+1:3*gp, :); J = obj.detJ(gp); % [B, J] = nablaB(obj, gp, el);
                     ixM = 4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
                     ke = ke + B'*D(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
                 end
@@ -392,7 +385,7 @@ classdef Solver
             K = sparse(tripK(:, 1), tripK(:, 2), tripK(:, 3), obj.ndof, obj.ndof);
         end
 
-        function [Bgp, detJ] = NablaB(obj, gp, el) % Spatial gradient of shape functions
+        function [Bgp, detJ] = nablaB(obj, gp, el) % Spatial gradient of shape functions
             node = sqrt(1/3);
             gps = [-node -node; -node node; node node; node -node];
             etas = gps(gp, 1); xis = gps(gp, 2);
@@ -408,7 +401,7 @@ classdef Solver
             Bgp(3, :) = Npxf(:);
         end
 
-        function a = solvelin(obj,K,f,bc) % Solve FE-equations
+        function a = solveLin(obj,K,f,bc) % Solve FE-equations
             nc = size(f, 2);
             if nargin == 2
                 a = K\f;
@@ -421,7 +414,7 @@ classdef Solver
         end
        
         %% Material Functions
-        function [sig, Dt, Ds, ep, dDsdep, drdep, epst] = DPMat(obj, eps, Ds, ep, gam, phi)
+        function [sig, Dt, Ds, ep, dDsdep, drdep, epst] = DPMat(obj, eps, Ds, ep, gam, phi) % Deformation Plasticity
             epst = 1/phi^2*eps'*Ds*obj.P*Ds*eps;
             sige = (obj.sigy0 + obj.H*ep + obj.Kinf*(1-exp(-obj.xi*ep)));
             r = (sige - obj.sigy0*sqrt(epst));
@@ -433,10 +426,8 @@ classdef Solver
                 elseif iter == 15
                     error("Material not converging")
                 end
-                Ds = gam*obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/sige*ep*obj.Gam))*obj.X';
                 detdDs = 1/phi^2*(2*obj.P*Ds*(eps*eps'));
                 dDsdep = 1/phi*(-Ds*obj.P*Ds*(obj.sigy0^2*(sige-(obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep))*ep)/sige^2));
-                epst = 1/phi^2*(eps'*Ds*obj.P*Ds*eps);
                 drdep = (obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep) - obj.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
                 Dep = -r/drdep;
                 ep = ep + Dep;
@@ -457,22 +448,21 @@ classdef Solver
             Dt = Ds + dDsdep*eps*depdeps';
         end
 
-        function [sig, Dt, sigy, Dep] = EPMat(obj, sigtr, sigy, gam, phi)
+        function [sig, Dt, sigy, Dep] = IPMat(obj, sigtr, sigy, gam, phi) % Incremental Plasticity
             Dep = 0;
+            U = eye(4);
             sigt = 1/phi^2*(sigtr'*obj.P*sigtr);
             r = sigy - obj.sigy0*sqrt(sigt);
             iter = 0;
             while norm(r) > obj.rtol || iter == 0
                 iter = iter + 1;
-                 if iter == 9
+                if iter == 9
                     warning("Material converging slowly")
                 elseif iter == 15
                     error("Material not converging")
-                 end
-                U = obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/(sigy + obj.H*Dep)*Dep*obj.Gam))*obj.iX;
+                end
                 dsigtdU = 1/phi^2*(2*obj.P*U*(sigtr*sigtr'));
                 dUdDep = gam/phi*(-U*obj.DeP*U*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2));
-                sigt = 1/phi^2*(sigtr'*U'*obj.P*U*sigtr);
                 drdDep = obj.H - obj.sigy0/(2*sqrt(sigt))*trace(dsigtdU'*dUdDep);
                 DDep = -r/drdDep;
                 Dep = Dep + DDep;
@@ -493,7 +483,7 @@ classdef Solver
             Dt = gam*U*obj.De + dUdDep*sigtr*dDepdDeps';
         end
 
-        function [X, iX, Gam] = diagDs(obj)
+        function [X, iX, Gam] = diagDe(obj)
             [Q, L] = svd(obj.De);
             sL = sqrt(L);
             B = sL*Q'*obj.P*Q*sL;
@@ -505,7 +495,7 @@ classdef Solver
         %% Misc. Function
         function obj = init(obj, x)
             if nargin == 2
-                x = He(obj, obj.Z*x);
+                x = he(obj, obj.Z*x);
                 obj.gam = obj.del + (1-obj.del)*x.^obj.p;
                 obj.phi = obj.dels + (1-obj.dels)*x.^obj.q;
             end
@@ -552,7 +542,7 @@ classdef Solver
                 figure;
                 tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
                 nexttile;
-                %title("cos($\theta$) field for compliance maximization", 'Interpreter', 'latex');
+                title("cos($\theta$) field for compliance maximization", 'Interpreter', 'latex');
                 patch(obj.ex', obj.ey', cosT, ...
                       'EdgeColor', 'none');
                 colormap(gca, 'jet'); 
@@ -562,7 +552,7 @@ classdef Solver
                 axis(obj.axi);
 
                 nexttile;
-                %title("Effective Hill Stress", 'Interpreter', 'latex');
+                title("Effective Hill Stress", 'Interpreter', 'latex');
                 patch(obj.ex', obj.ey', Hs*1e-6, ...
                       'EdgeColor', 'none');
                 colormap(gca, 'jet');
@@ -571,7 +561,7 @@ classdef Solver
                 axis(obj.axi);
 
                 figure;
-                % title("Plastic Zone", 'Interpreter', 'latex');
+                title("Plastic Zone", 'Interpreter', 'latex');
                 pl = obj.ep>0;
                 pl = reshape(pl, 4, obj.nel)';
                 pl = any(pl, 2);
@@ -589,7 +579,7 @@ classdef Solver
                 axis(obj.axi);
 
                 figure;
-                % title("Hill Criterion", 'Interpreter', 'latex');
+                title("Hill Criterion", 'Interpreter', 'latex');
                 patch(obj.ex', obj.ey', Hc, ...
                       'EdgeColor', 'none');
                 colormap(gca, 'jet');
@@ -642,22 +632,8 @@ classdef Solver
                 save(dataPath, "x", "params", "val");
             end
         end
-
-        function Dtf = fdmDt(obj, eps, Ds, ep, gam, phi)
-            delta = 1e-9;
-            
-            Dtf = zeros(4);
-            for i = 1:4
-                deps = [0; 0; 0; 0];
-                deps(i) = delta;
-                eps2 = eps - deps;
-                eps3 = eps + deps;
-                sig2 = DPMat(obj, eps2, Ds, ep, gam, phi);
-                sig3 = DPMat(obj, eps3, Ds, ep, gam, phi);
-                Dtf(:, i) = (sig3-sig2)/2/delta;
-            end
-        end
     end
+
     methods (Static)
         function out = assignVar(in, out)
             fields = {'ex', 'ey', 'ngp', 'nel', 'sig', 'P', 'sigy0', 'sig1N', 'ep', 'g0', 'g1'};
