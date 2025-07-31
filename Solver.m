@@ -309,7 +309,7 @@ classdef Solver
                         warning("Restarting Nr %i", rst);
                         break;
                     end
-                    obj = FEM(obj, bc, Nr);
+                    obj = FEM(obj, bc);
                     bc(:, 2) = bc(:, 2)*0;
                     if obj.prints(2)
                         fprintf("  Nr: %i, R1: %4.2g \n", [Nr, norm(obj.R1(obj.fdof))]);
@@ -328,7 +328,7 @@ classdef Solver
             obj.sig1N(:,obj.ngp+1:end) = obj.sig;
         end
 
-        function obj = FEM(obj, bc, Nr) % Main FEM function
+        function obj = FEM(obj, bc) % Main FEM function
             obj.K = assemK(obj, obj.Dt);
             da = obj.solvelin(obj.K, -obj.R1, bc);
             obj.a = obj.a + da;
@@ -453,20 +453,20 @@ classdef Solver
             iter = 0;
             while norm(r) > obj.rtol || iter == 0
                 iter = iter + 1;
-                %  if iter == 9
-                %     warning("Material converging slowly")
-                % elseif iter == 20
-                %     error("Material not converging")
-                % end
+                 if iter == 9
+                    warning("Material converging slowly")
+                elseif iter == 20
+                    error("Material not converging")
+                 end
                 U = obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/(sigy + obj.H*Dep)*Dep*obj.Gam))*obj.iX;
-                dUdDep = gam/phi*(-U*obj.DeP*U*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2));
                 dsigtdU = 1/phi^2*(2*obj.P*U*(sigtr*sigtr'));
-                sigt = 1/phi^2*(sigtr'*U*obj.P*U'*sigtr);
-                drdDep = obj.H - obj.sigy0/(2*sqrt(sigt))*trace(dUdDep*dsigtdU);
+                dUdDep = gam/phi*(-U*obj.DeP*U*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2));
+                sigt = 1/phi^2*(sigtr'*U'*obj.P*U*sigtr);
+                drdDep = obj.H - obj.sigy0/(2*sqrt(sigt))*trace(dsigtdU'*dUdDep);
                 DDep = -r/drdDep;
                 Dep = Dep + DDep;
                 U = obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/(sigy + obj.H*Dep)*Dep*obj.Gam))*obj.iX;
-                sigt = 1/phi^2*(sigtr'*U*obj.P*U'*sigtr);
+                sigt = 1/phi^2*(sigtr'*U'*obj.P*U*sigtr);
                 r = sigy + obj.H*Dep - obj.sigy0*sqrt(sigt);
                 if obj.prints(3)
                     fprintf("    iter: %i, r: %4.2g \n", [iter, norm(r)])
@@ -494,8 +494,7 @@ classdef Solver
         %% Misc. Function
         function obj = init(obj, x)
             if nargin == 2
-                x = obj.Z*x;
-                x = He(obj,x);
+                x = He(obj, obj.Z*x);
                 obj.gam = obj.del + (1-obj.del)*x.^obj.p;
                 obj.phi = obj.dels + (1-obj.dels)*x.^obj.q;
             end
@@ -524,9 +523,9 @@ classdef Solver
                 colormap(flipud(gray(256)));
                 patch(obj.ex', obj.ey', x, ...
                     'EdgeColor', 'none');
-                axis equal
-                axis(obj.axi)
-                set(gca,'XTick',[], 'YTick', [])
+                axis equal;
+                axis(obj.axi);
+                axis off;
                 drawnow;
             else
                 cosT = zeros(obj.nel,1);
@@ -542,22 +541,26 @@ classdef Solver
                 figure;
                 tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
                 nexttile;
-                title("cos($\theta$) field for compliance maximization", 'Interpreter', 'latex');
+                %title("cos($\theta$) field for compliance maximization", 'Interpreter', 'latex');
                 patch(obj.ex', obj.ey', cosT, ...
                       'EdgeColor', 'none');
                 colormap(gca, 'jet'); 
                 clim([0 1]);
-                colorbar;
-                
+                colorbar('FontSize', 16);
+                axis equal off;
+                axis(obj.axi);
+
                 nexttile;
-                title("Effective Hill Stress", 'Interpreter', 'latex');
-                patch(obj.ex', obj.ey', Hs, ...
+                %title("Effective Hill Stress", 'Interpreter', 'latex');
+                patch(obj.ex', obj.ey', Hs*1e-6, ...
                       'EdgeColor', 'none');
                 colormap(gca, 'jet');
-                colorbar;
+                colorbar('FontSize', 16);
+                axis equal off;
+                axis(obj.axi);
 
                 figure;
-                title("Plastic Zone", 'Interpreter', 'latex');
+                % title("Plastic Zone", 'Interpreter', 'latex');
                 pl = obj.ep>0;
                 pl = reshape(pl, 4, obj.nel)';
                 pl = any(pl, 2);
@@ -570,38 +573,43 @@ classdef Solver
                 patch(obj.ex(x<0.5, :)', obj.ey(x<0.5, :)', 'white', ...
                       'EdgeColor', 'none', ...
                       'HandleVisibility', 'off');
-                legend
+                legend('Location', 'south', 'FontSize', 12)
+                axis equal off;
+                axis(obj.axi);
 
                 figure;
-                title("Hill Criterion", 'Interpreter', 'latex');
+                % title("Hill Criterion", 'Interpreter', 'latex');
                 patch(obj.ex', obj.ey', Hc, ...
                       'EdgeColor', 'none');
                 colormap(gca, 'jet');
-                colorbar;
-                
+                clim([0 1.5]);
+                colorbar('FontSize', 16);
+                axis equal off;
+                axis(obj.axi);
+
                 iter = length(obj.g0);
                 if iter < 10
                     return
                 else
                     figure;
-                    yyaxis left
-                    plot((10:iter)', -obj.g0(10:end), 'r:', 'LineWidth', 2)
-                    ylabel('g0 objective')
-                    ylim([0 round(max(-obj.g0(10:end))+100, -2)])
+                    yyaxis left;
+                    plot((10:iter)', -obj.g0(10:end), 'r:', 'LineWidth', 2);
+                    ylabel('g0 objective');
+                    ylim([0 round(max(-obj.g0(10:end))+100, -2)]);
                     ax = gca;
                     ax.YColor = 'k';
 
-                    yyaxis right
-                    plot((10:iter)', obj.g1(10:end), 'k', 'LineWidth', 2)
-                    ylabel('g1 constraint')
+                    yyaxis right;
+                    plot((10:iter)', obj.g1(10:end), 'k', 'LineWidth', 2);
+                    ylabel('g1 constraint');
+                    ylim([-0.5 0.5]);
                     ax = gca;
-                    ylim([-0.5 0.5])
                     ax.YColor = 'k';
 
-                    xlabel('Iteration')
-                    legend('Stiffness', 'Volume')                
+                    xlabel('Iteration');
+                    legend('Stiffness', 'Volume');            
                     title("Convergence Plot");
-                    grid on
+                    grid on;
                 end
             end
         end

@@ -1,4 +1,3 @@
-clc, clear, close all
 %% Mesh
 patch(sol.ex', sol.ey', ones(sol.nel, 1));
 colorbar;
@@ -593,4 +592,46 @@ for i = 1:4
     sig3 = Ds3*eps3;
     Dtf(:, i) = (sig3-sig2)/2/delta;
 end
+end
+
+function fdtEP(obj, sigtr, sigy, gam, phi)
+    Dep = 1e-4;
+    U = obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/(sigy + obj.H*Dep)*Dep*obj.Gam))*obj.iX;
+    sigt = 1/phi^2*(sigtr'*U'*obj.P*U*sigtr);
+    dUdDep = gam/phi*(-U*obj.DeP*U*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2));
+    dsigtdU = 1/phi^2*(2*obj.P*U*(sigtr*sigtr'));
+    drdDep = obj.H - obj.sigy0/(2*sqrt(sigt))*trace(dsigtdU'*dUdDep);
+    h = 1e-10;
+    Dep1 = Dep + h;
+    Dep2 = Dep - h;
+    U1 = obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/(sigy + obj.H*Dep1)*Dep1*obj.Gam))*obj.iX;
+    U2 = obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/(sigy + obj.H*Dep2)*Dep2*obj.Gam))*obj.iX;
+    sigt1 = 1/phi^2*(sigtr'*U1'*obj.P*U1*sigtr);
+    sigt2 = 1/phi^2*(sigtr'*U2'*obj.P*U2*sigtr);
+    r1 = sigy + obj.H*Dep1 - obj.sigy0*sqrt(sigt1);
+    r2 = sigy + obj.H*Dep2 - obj.sigy0*sqrt(sigt2);
+    drdDepf = (r1-r2)/2/h;
+    fprintf("Diff: %.5g\n", norm(drdDepf-drdDep));
+end
+function fdtDP(obj, eps, gam, phi)
+    ep = 1e-4;
+    sige = (obj.sigy0 + obj.H*ep + obj.Kinf*(1-exp(-obj.xi*ep)));
+    Ds = gam*obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/sige*ep*obj.Gam))*obj.X';
+    detdDs = 1/phi^2*(2*obj.P*Ds*(eps*eps'));
+    dDsdep = 1/phi*(-Ds*obj.P*Ds*(obj.sigy0^2*(sige-(obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep))*ep)/sige^2));
+    epst = 1/phi^2*(eps'*Ds*obj.P*Ds*eps);
+    drdep = (obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep) - obj.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
+    h = 1e-10;
+    ep1 = ep + h;
+    ep2 = ep - h;
+    sige1 = (obj.sigy0 + obj.H*ep1 + obj.Kinf*(1-exp(-obj.xi*ep1)));
+    sige2 = (obj.sigy0 + obj.H*ep2 + obj.Kinf*(1-exp(-obj.xi*ep2)));
+    Ds1 = gam*obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/sige1*ep1*obj.Gam))*obj.X';
+    Ds2 = gam*obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/sige2*ep2*obj.Gam))*obj.X';
+    epst1 = 1/phi^2*(eps'*Ds1*obj.P*Ds1*eps);
+    epst2 = 1/phi^2*(eps'*Ds2*obj.P*Ds2*eps);
+    r1 = (sige1 - obj.sigy0*sqrt(epst1));
+    r2 = (sige2 - obj.sigy0*sqrt(epst2));
+    drdepf = (r1-r2)/2/h;
+    fprintf("Diff: %.5g\n", norm(drdepf-drdep));
 end
