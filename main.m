@@ -3,17 +3,17 @@ clc, clear, close all
 % FEM parameters
 params.le = 0.001;
 params.lx = 0.1; %0.1;
-params.ly = 0.1; %0.05;
-params.wx = 0.04; %[];
-params.wy = 0.04; %[];
-params.loadcase = 3; %1;
+params.ly = 0.05; %0.1;
+params.wx = []; %0.04;
+params.wy = []; %0.04;
+params.loadcase = 1; %3;
 
 params.Vf = 0.3;
 params.t = 1;
 params.ngp = 4;
 
-params.R1tol = 1e-5;
-params.N = 5;
+params.R1tol = 1e-2;
+params.N = 15;
 params.disp = -1e-3; % displacement [nodes total-size]
 
 % Material parameters
@@ -31,13 +31,13 @@ params.Kinf = 0; %0.3*params.sigy01; %extra terms linHard (sat. stress)
 params.xi = 1e3; %extra terms linHard (sat. exp)
 
 params.rtol = 1e-4;
-params.DP = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
+params.DP = 0; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
 % Optimization Parameters
 params.re = 3; % Elements in radius
 params.filtOn = true;
-params.p = 1.5;
-params.q = 1;
+params.p = 3; %1.5
+params.q = 2.5; %1
 params.eta = 0.5;
 params.beta = 1;
 params.rampB = 1; % 0: off, 1: B*1.1, 2: B + 1
@@ -49,7 +49,7 @@ params.xtol = 1e-5;
 params.iterMax = 500;
 
 params.print = [1,1,0]; %[Load step, R1, R2] 
-params.saveName = "OptDesign_case=1_x=0.8_disp=1e-3";
+params.saveName = "";
 sol = Solver(params);
 
 %% Optimization
@@ -71,27 +71,25 @@ plotFigs(sol, x, 0);
 
 %% Mesh
 patch(sol.ex', sol.ey', ones(sol.nel, 1));
-% colorbar;
-% colormap jet;
 axis equal
 
 %% Newton-Raphson
-x = ones(sol.nel, 1);
-% load("DesignFailcase=1.mat");
+% x = 0.8*ones(sol.nel, 1);
+load("DesignFailcase=1.mat");
 % sol = sol.assignVar(val, sol);
-sol = Solver(params);
-sol.beta = 10; sol.p = 3; sol.q = 3; sol.t = 1; 
-% sol.beta = val.beta; sol.p = val.p; sol.q = val.q;
+% sol = Solver(params);
+% sol.beta = 10; sol.p = 3; sol.q = 3; sol.t = 1; 
+sol.beta = val.beta; sol.p = val.p; sol.q = val.q;
 sol = init(sol, x);
 sol = newt(sol);
-% plotFigs(sol, x, 0)
+plotFigs(sol, x, 0)
 
 % fprintf("g0; %.4g \n",  -sol.a(sol.pdof)'*sol.R1(sol.pdof));
 % figure;
-eldraw2(sol.ex, sol.ey, [1 2 1]);
-hold on
-eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
-% dof = 13;
+% eldraw2(sol.ex, sol.ey, [1 2 1]);
+% hold on
+% eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
+% dof = 16;
 % fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
 
 %% Finite diff

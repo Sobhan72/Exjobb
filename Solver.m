@@ -356,9 +356,13 @@ classdef Solver
                         if obj.DP
                             [obj.sigi(ix, :), obj.Dt(ixM, :), obj.Dsi(ixM, :), obj.epi(ix), obj.dDsdep(ixM, :), obj.dR2dep(ix), obj.epst(ix)]...
                              = DPMat(obj, obj.epsi(ix, :)', obj.Ds(ixM, :), obj.ep(ix), obj.gam(el), obj.phi(el));
+                            Dtf = fdmDt(obj, obj.epsi(ix, :)', obj.Ds(ixM, :), obj.ep(ix), obj.gam(el), obj.phi(el));
+                            Dtr = obj.Dt(ixM, :);
                         else
                             [obj.sigi(ix, :), obj.Dt(ixM, :), obj.sigyi(ix), Dep] = EPMat(obj, sigtr, obj.sigy(ix), obj.gam(el), obj.phi(el));
                             obj.epi(ix) = obj.epi(ix) + Dep;
+                            % Dtf = fdmDt(obj, obj.epsi(ix, :)', obj.Ds(ixM, :), obj.ep(ix), obj.gam(el), obj.phi(el));
+                            % Dtr = obj.Dt(ixM, :);
                         end
                     else
                         obj.sigi(ix, :) = sigtr;
@@ -426,7 +430,7 @@ classdef Solver
                 iter = iter + 1;
                 if iter == 9
                     warning("Material converging slowly")
-                elseif iter == 20
+                elseif iter == 15
                     error("Material not converging")
                 end
                 Ds = gam*obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/sige*ep*obj.Gam))*obj.X';
@@ -462,7 +466,7 @@ classdef Solver
                 iter = iter + 1;
                  if iter == 9
                     warning("Material converging slowly")
-                elseif iter == 20
+                elseif iter == 15
                     error("Material not converging")
                  end
                 U = obj.X*diag(1./diag(eye(4) + gam/phi*obj.sigy0^2/(sigy + obj.H*Dep)*Dep*obj.Gam))*obj.iX;
@@ -483,7 +487,7 @@ classdef Solver
             sigy = sigy + obj.H*Dep;
             dUdDep = gam/phi*(-U*obj.DeP*U*(obj.sigy0^2*sigy/(sigy + obj.H*Dep)^2));
             dsigtdU = 1/phi^2*(2*obj.P*U*(sigtr*sigtr'));
-            drdDep = phi*(obj.H - obj.sigy0/(2*sqrt(sigt))*trace(dUdDep*dsigtdU));
+            drdDep = phi*(obj.H - obj.sigy0/(2*sqrt(sigt))*trace(dsigtdU'*dUdDep));
             drdDeps = gam/phi*(-obj.sigy0/sqrt(sigt)*obj.De*U'*obj.P*U*sigtr);
             dDepdDeps = -drdDeps/drdDep;
             Dt = gam*U*obj.De + dUdDep*sigtr*dDepdDeps';
@@ -639,7 +643,7 @@ classdef Solver
             end
         end
 
-        function Dtf = Dtf(obj, eps, Ds, ep, gam, phi)
+        function Dtf = fdmDt(obj, eps, Ds, ep, gam, phi)
             delta = 1e-9;
             
             Dtf = zeros(4);
