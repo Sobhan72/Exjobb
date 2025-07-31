@@ -26,9 +26,11 @@ classdef Solver
     methods
         function obj = Solver(p)  % Constructor
             % Mesh
-            [~, ~, ~, obj.edof, obj.ex, obj.ey, bc] = designDomain(p.lx, p.ly, p.le);
-            obj.ndof = 2*((p.lx/p.le + 1)*(p.ly/p.le + 1));
-            obj.nel = round(p.lx*p.ly/p.le^2);
+            [~, ~, ~, obj.edof, obj.ex, obj.ey, bc] = designDomain(p.lx, p.ly, p.le, p.wx, p.wy);
+            % obj.ndof = 2*((p.lx/p.le + 1)*(p.ly/p.le + 1));
+            % obj.nel = round(p.lx*p.ly/p.le^2);
+            obj.nel = length(obj.edof(:,1));
+            obj.ndof = max(max(obj.edof(:,2:end)));
             obj.endof = 8;
             obj.N = p.N;
             obj.axi = [0 p.lx 0 p.ly];
@@ -41,6 +43,11 @@ classdef Solver
                 obj.disp(:, 1) = bc(:,1);
                 obj.disp(:, 2) = linspace(-p.disp, p.disp, length(bc));
                 obj.bcS = obj.addBC([], p.ly, p.le, obj.ndof);
+            elseif p.loadcase == 3 %L-beam
+                obj.disp(:,1) =  bc(bc(:,2) == 1, 1);
+                obj.disp = [obj.disp, p.disp*ones(size(obj.disp))];
+                obj.bcS = bc(bc(:,2) == 0, 1);
+                obj.bcS = [obj.bcS, zeros(size(obj.bcS))];
             else
                 error("Load case doesn't exist");
             end
