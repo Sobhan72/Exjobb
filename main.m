@@ -12,6 +12,11 @@ params.Vf = 0.3;
 params.t = 1;
 params.ngp = 4;
 
+params.stressCon = 1;
+params.pnm = 8;
+params.sigc = 360e6; % Max stress for constraint
+params.ngr = 1;
+
 params.R1tol = 1e-2;
 params.N = 5;
 params.disp = -1e-3; % total displacement 
@@ -36,24 +41,24 @@ params.PT = 1; % 0 for Incremental plasticity, 1 for Deformation plasticity
 % Optimization Parameters
 params.re = 3; % Elements in radius
 params.filtOn = true;
-params.p = 3; %1.5
-params.q = 2.5; %1
+params.p = 1.5; %1.5
+params.q = 1; %1
 params.eta = 0.5;
 params.beta = 1;
 params.rampB = 1; % 0: off, 1: B*1.1, 2: B + 1
 params.rampPQ = true;
-params.del = 1e-9;
-params.dels = 1e-3;
-params.ncon = 1; % Nr of constraints
+params.del = 1e-9; % 
+params.dels = 1e-3; % 
+% params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
 params.iterMax = 500;
 
-params.print = [1,1,0]; %[Load step, R1, R2] 
+params.print = [0,0,0]; %[Load step, R1, R2] 
 params.saveName = "";
 sol = Solver(params);
 
 %% Optimization
-x = 0.8*ones(sol.nel, 1);
+x = ones(sol.nel, 1);
 [sol, x] = opt(sol, x);
 saveData(sol, x, params, "data");
 

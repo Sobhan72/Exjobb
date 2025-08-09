@@ -3,7 +3,7 @@ classdef Solver
         edof; ex; ey; axi
         ed; a; K
         A; t; ngp; tgp; Amax
-        ndof; nel; endof; pdof; fdof 
+        ndof; nel; endof; pdof; fdof
         bcS; disp; fixDens
         Bgp; detJ; rows; cols
         De; Ds; Dt; X; iX; Gam
@@ -15,6 +15,8 @@ classdef Solver
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
         Z; filtOn; eta; beta
+        stressCon; pnm; cp; ngr
+        sigc; sigh; sigm;
         del; dels; p; q; ncon
         rampB; rampPQ
         xtol; iterMax
@@ -50,21 +52,26 @@ classdef Solver
             end
             obj.disp(:, 2) = obj.disp(:, 2)/obj.N;
             % obj.fixDens = find(any(ismember(obj.edof,obj.disp(:,1)),2));
-            
+
             obj.saveName = p.saveName;
             obj.prints = p.print;
             obj.filtOn = p.filtOn;
             obj.Z = filterMatrix(obj, p.le, p.re);
             obj.p = p.p;
             obj.q = p.q;
-            obj.eta = p.eta;    
+            obj.eta = p.eta;
             obj.beta = p.beta;
             obj.rampB = p.rampB;
             obj.rampPQ = p.rampPQ;
-            
+
+            obj.stressCon = p.stressCon;
+            obj.pnm = p.pnm;
+            obj.sigc = p.sigc;
+            obj.ngr = p.ngr;
+
             obj.del = p.del;
             obj.dels = p.dels;
-            obj.ncon = p.ncon;
+            obj.ncon = 1 + obj.stressCon*obj.ngr;
             obj.xtol = p.xtol;
             obj.iterMax = p.iterMax;
             obj.g0 = zeros(obj.iterMax, 1);
@@ -202,6 +209,7 @@ classdef Solver
             dgt0dep = zeros(obj.tgp, 1);
             dR1dep = zeros(obj.endof*obj.tgp, 1);
             ap = sparse(obj.pdof, 1, obj.a(obj.pdof), obj.ndof, 1);
+            sigb = zeros(obj.nel, 1); %%
 
             x = obj.Z*x;
             [x, dxH] = he(obj,x);
@@ -229,10 +237,14 @@ classdef Solver
                     dR1depe = Kh*obj.a(eix);
                     dgt0dep(ix) = -ap(eix)'*dR1depe;
                     dR1dep(8*(ix-1)+1:8*ix) = dR1depe; 
+                    
+                    sigb(el) = sigb(el) + obj.sig(ix, :)*obj.P*obj.sig(ix, :)'/obj.ngp; %%
                 end
                 dR1dxe = Kte*obj.a(eix);
                 dgt0dx(el) = -ap(eix)'*dR1dxe;
                 dR1dx(8*(el-1)+1:8*el) = dR1dxe; 
+                
+                sigb(el) = obj.sigy0*sqrt(sigb(el)); %%
             end
             dR1dx = sparse(reshape(obj.edof', [], 1), repelem((1:obj.nel)', obj.endof), dR1dx, obj.ndof, obj.nel);
             dR2dx = sparse((1:obj.tgp)', repelem((1:obj.nel)', obj.ngp), dR2dx, obj.tgp, obj.nel);
@@ -252,6 +264,9 @@ classdef Solver
             g1 = x'*obj.A/obj.Amax - 1;
             dg1 = (dxH'.*obj.Z'*obj.A/obj.Amax)';
             dg1(obj.fixDens) = 0;
+           
+            g2 = obj.cp*norm(obj.gam.*sigb, obj.pnm); %%
+            
         end
 
         function Z = filterMatrix(obj, le, re)
@@ -325,11 +340,11 @@ classdef Solver
                 idisp = idisp + abs(cdisp(1, 2));
                 obj.eps = obj.epsi; obj.sig = obj.sigi; obj.ep = obj.epi; obj.Ds = obj.Dsi; obj.sigy = obj.sigyi;
                 if n == 1
-                    obj.sig1N(:,1:obj.ngp) = obj.sig;
+                    obj.sig1N(:,1:4) = obj.sig;
                 end
                 n = n + 1;
             end
-            obj.sig1N(:,obj.ngp+1:end) = obj.sig;
+            obj.sig1N(:,5:8) = obj.sig;
         end
 
         function obj = FEM(obj, bc) % Main FEM function
@@ -426,9 +441,9 @@ classdef Solver
                 elseif iter == 15
                     error("Material not converging")
                 end
-                detdDs = 1/phi^2*(2*obj.P*Ds*(eps*eps'));
+                depstdDs = 1/phi^2*(2*obj.P*Ds*(eps*eps'));
                 dDsdep = 1/phi*(-Ds*obj.P*Ds*(obj.sigy0^2*(sige-(obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep))*ep)/sige^2));
-                drdep = (obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep) - obj.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
+                drdep = (obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep) - obj.sigy0/(2*sqrt(epst))*trace(depstdDs*dDsdep));
                 Dep = -r/drdep;
                 ep = ep + Dep;
                 sige = (obj.sigy0 + obj.H*ep + obj.Kinf*(1-exp(-obj.xi*ep)));
@@ -440,9 +455,9 @@ classdef Solver
                 end
             end
             sig = Ds*eps;
-            detdDs = 1/phi^2*(2*obj.P*Ds*(eps*eps'));
+            depstdDs = 1/phi^2*(2*obj.P*Ds*(eps*eps'));
             dDsdep = 1/phi*(-Ds*obj.P*Ds*(obj.sigy0^2*(sige-(obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep))*ep)/sige^2));
-            drdep =  phi*(obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep) - obj.sigy0/(2*sqrt(epst))*trace(detdDs*dDsdep));
+            drdep =  phi*(obj.H + obj.Kinf*obj.xi*exp(-obj.xi*ep) - obj.sigy0/(2*sqrt(epst))*trace(depstdDs*dDsdep));
             drdeps = 1/phi*(-obj.sigy0/sqrt(epst)*Ds*obj.P*Ds*eps);
             depdeps = -drdeps/drdep;
             Dt = Ds + dDsdep*eps*depdeps';
@@ -533,7 +548,7 @@ classdef Solver
                 Hs = zeros(obj.nel, 1);
                 for el = 1:obj.nel
                     ix = obj.ngp*(el-1)+1:el*obj.ngp;
-                    cosT(el) = trace(obj.sig1N(ix,1:obj.ngp)*obj.sig1N(ix,obj.ngp+1:end)')/(vecnorm(obj.sig1N(ix,1:obj.ngp),2,2)'*vecnorm(obj.sig1N(ix,obj.ngp+1:end),2,2));
+                    cosT(el) = trace(obj.sig1N(ix,1:4)*obj.sig1N(ix,5:8)')/(vecnorm(obj.sig1N(ix,1:4),2,2)'*vecnorm(obj.sig1N(ix,5:8),2,2));
                     Hs(el) = sqrt(obj.sigy0^2*trace(obj.sig(ix, :)*obj.P*obj.sig(ix, :)')/obj.ngp);
                 end
                 cosT(x<0.5) = 0;
