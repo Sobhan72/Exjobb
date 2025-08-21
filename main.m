@@ -1,9 +1,9 @@
 clc, clear, close all
 
 % FEM parameters
-params.le = 0.001;
+params.le = 0.02;
 params.lx = 0.1; %0.1;
-params.ly = 0.05; %0.1;
+params.ly = 0.04; %0.1;
 params.wx = []; %0.04;
 params.wy = []; %0.04;
 params.loadcase = 1; %3;
@@ -12,7 +12,7 @@ params.Vf = 0.3;
 params.t = 1;
 params.ngp = 4;
 
-params.stressCon = 1;
+params.stressCon = 0;
 params.pnm = 8;
 params.sigc = 360e6; % Max stress for constraint
 params.ngr = 1;
@@ -51,7 +51,7 @@ params.del = 1e-9; %
 params.dels = 1e-3; % 
 % params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
-params.iterMax = 500;
+params.iterMax = 1;
 
 params.print = [0,0,0]; %[Load step, R1, R2] 
 params.saveName = "";
@@ -79,21 +79,21 @@ patch(sol.ex', sol.ey', ones(sol.nel, 1));
 axis equal
 
 %% Newton-Raphson
-% x = 0.8*ones(sol.nel, 1);
-load("DesignFailcase=1.mat");
+x = ones(sol.nel, 1);
+% load("DesignFailcase=1.mat");
 % sol = sol.assignVar(val, sol);
 % sol = Solver(params);
 % sol.beta = 10; sol.p = 3; sol.q = 3; sol.t = 1; 
-sol.beta = val.beta; sol.p = val.p; sol.q = val.q;
+% sol.beta = val.beta; sol.p = val.p; sol.q = val.q;
 sol = init(sol, x);
 sol = newt(sol);
 plotFigs(sol, x, 0)
 
-% fprintf("g0; %.4g \n",  -sol.a(sol.pdof)'*sol.R1(sol.pdof));
-% figure;
-% eldraw2(sol.ex, sol.ey, [1 2 1]);
-% hold on
-% eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 10);
+fprintf("g0; %.4g \n",  -sol.a(sol.pdof)'*sol.R1(sol.pdof));
+figure;
+eldraw2(sol.ex, sol.ey, [1 2 1]);
+hold on
+eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 1);
 % dof = 16;
 % fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
 
