@@ -249,15 +249,16 @@ classdef Solver
                     
                     sigP = obj.sig(ix, :)*obj.P; %%
                     sigb(el) = sigb(el) + sigP*obj.sig(ix, :)'/obj.ngp; %%
-                    dsigbdx(el) = dsigbdx(el) + obj.sigy0^2/sigb(el)*sigP*dDsdx(:, [1 2 4])*B*obj.a(eix)/obj.ngp; %%
-                    dsigbda(el, :) = dsigbda(el, :) + obj.sigy0^2/sigb(el)*sigP*obj.Dt(ixM, [1 2 4])*B/obj.ngp; %%
-                    dsigbdep(ix) = sigb(el)^(obj.pnm - 2)*obj.sigy0^2*trace(obj.P*obj.Ds(ixM, [1 2 4])*B*obj.a(eix)*(B*obj.a(eix))'*obj.phi(el)*obj.dDsdep(ixM([1 2 4]), :)); %% % sigb^(p-1)*dsigbdep
+                    dsigbdx(el) = dsigbdx(el) + obj.sigy0^2*sigP*dDsdx(:, [1 2 4])*B*obj.a(eix)/obj.ngp; %%
+                    dsigbda(el, :) = dsigbda(el, :) + obj.sigy0^2*sigP*obj.Dt(ixM, [1 2 4])*B/obj.ngp; %%
+                    dsigbdep(ix) = obj.sigy0^2*trace(obj.P*obj.Ds(ixM, [1 2 4])*B*obj.a(eix)*(B*obj.a(eix))'*obj.phi(el)*obj.dDsdep(ixM([1 2 4]), :)); %%
                 end
                 dR1dxe = Kte*obj.a(eix);
                 dgt0dx(el) = -ap(eix)'*dR1dxe;
                 dR1dx(obj.endof*(el-1)+1:obj.endof*el) = dR1dxe; 
                 
                 sigb(el) = obj.sigy0*sqrt(sigb(el)); %%
+                dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el) = sigb(el)^(obj.pnm - 2)*dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el);
             end
             
             dgt0da = -obj.a(obj.pdof)'*obj.K(obj.pdof, obj.fdof);
@@ -279,8 +280,8 @@ classdef Solver
             dg1 = (dxH'.*obj.Z'*obj.A/obj.Amax)';
             dg1(obj.fixDens) = 0;
 
-            dg2dx = obj.cp/obj.sigc*(sigb/norm(sigb, obj.pnm)).^(obj.pnm - 1).*dsigbdx; %%
-            dg2da = reshape((obj.cp/obj.sigc*sum(sigb.^obj.pnm)^(1/obj.pnm - 1)*sigb.^(obj.pnm - 1).*dsigbda)', [], 1); %%
+            dg2dx = obj.cp/obj.sigc*(sigb/norm(sigb, obj.pnm)).^(obj.pnm - 1).*dsigbdx./sigb; %%
+            dg2da = reshape((obj.cp/obj.sigc*sum(sigb.^obj.pnm)^(1/obj.pnm - 1)*sigb.^(obj.pnm - 1).*dsigbda./sigb)', [], 1); %%
             dg2da = accumarray(reshape(obj.edof', [], 1), dg2da, [obj.ndof, 1]); %%
             dg2dep = obj.cp/obj.sigc*sum(sigb.^obj.pnm)^(1/obj.pnm - 1)*dsigbdep; %%
 
@@ -289,7 +290,7 @@ classdef Solver
 
             g2 = obj.cp/obj.sigc*norm(sigb, obj.pnm) - 1; %%
             dg2 = (dxH'.*obj.Z'*(dg2dx' + nut*dR1dx(obj.fdof, :) + xit*dR2dx(pgp, :))')'; %%
-            fprintf("  g2: %.2g\n", g2) %%
+            %fprintf("  g2: %.2g\n", g2) %%
             
             gc = [g1; g2];
             dgc = [dg1; dg2];

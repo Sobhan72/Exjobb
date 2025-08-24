@@ -40,7 +40,7 @@ params.PT = 1; % 0 for Incremental plasticity, 1 for Deformation plasticity
 
 % Optimization Parameters
 params.re = 3; % Elements in radius
-params.filtOn = true;
+params.filtOn = false;
 params.p = 1.5; %1.5
 params.q = 1; %1
 params.eta = 0.5;
@@ -98,7 +98,7 @@ eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 1);
 % fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
 
 %% Finite diff
-h = 1e-6;
+h = 1e-7;
 
 % c = [0.3 0.5 0.2 0.7 0.9]';
 % x = repmat(c, sol.nel/5, 1);
@@ -130,7 +130,7 @@ for el = 1:sol.nel
 
     fprintf("El: %i \n", el)
     fprintf("  Diff: %.5g \ndg0: %.5g \ndgf: %.5g\n", [dgf-dgc(2, el), dgc(2, el), dgf])
-    if (dgf-dgc(2, el))/dgc(2, el) > 1e-4
+    if (abs((dgf-dgc(2, el))/dgc(2, el))) > 1e-4
         wrong = [wrong; el];
     end
 end
