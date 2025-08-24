@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % FEM parameters
-params.le = 0.02;
+params.le = 0.01;
 params.lx = 0.1; %0.1;
 params.ly = 0.04; %0.1;
 params.wx = []; %0.04;
@@ -12,7 +12,7 @@ params.Vf = 0.3;
 params.t = 1;
 params.ngp = 4;
 
-params.stressCon = 0;
+params.stressCon = 1;
 params.pnm = 8;
 params.sigc = 360e6; % Max stress for constraint
 params.ngr = 1;
@@ -51,7 +51,7 @@ params.del = 1e-9; %
 params.dels = 1e-3; % 
 % params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
-params.iterMax = 1;
+params.iterMax = 20;
 
 params.print = [0,0,0]; %[Load step, R1, R2] 
 params.saveName = "";
@@ -100,12 +100,12 @@ eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 1);
 %% Finite diff
 h = 1e-6;
 
-c = [0.3 0.5 0.2 0.7 0.9]';
-x = repmat(c, sol.nel/5, 1);
-% x = 0.8*ones(sol.nel, 1);
-sol = initOpt(sol, x);
+% c = [0.3 0.5 0.2 0.7 0.9]';
+% x = repmat(c, sol.nel/5, 1);
+x = 0.8*ones(sol.nel, 1);
+sol = init(sol, x);
 sol = newt(sol);
-[~, dg0, ~, ~] = funcEval(sol, x);
+[~, ~, ~, ~, dgc] = funcEval(sol, x);
 
 wrong = [];
 for el = 1:sol.nel
@@ -116,21 +116,21 @@ for el = 1:sol.nel
     x1(el) = x1(el) - h;
     x2(el) = x2(el) + h;
 
-    sol1 = initOpt(sol1, x1);
-    sol2 = initOpt(sol2, x2);
+    sol1 = init(sol1, x1);
+    sol2 = init(sol2, x2);
 
     sol1 = newt(sol1);
     sol2 = newt(sol2);
 
-    [g1, ~, ~, ~] = funcEval(sol1, x1);
-    [g2, ~, ~, ~] = funcEval(sol2, x2);
+    [~, ~, ~, gc1, ~] = funcEval(sol1, x1);
+    [~, ~, ~, gc2, ~] = funcEval(sol2, x2);
 
-    dgf = (g2-g1)/2/h;
+    dgf = (gc2(2)-gc1(2))/2/h;
 
 
     fprintf("El: %i \n", el)
-    fprintf("  Diff: %.5g \ndg0: %.5g \ndgf: %.5g\n", [dgf-dg0(el), dg0(el), dgf])
-    if (dgf-dg0(el))/dg0(el) > 1e-4
+    fprintf("  Diff: %.5g \ndg0: %.5g \ndgf: %.5g\n", [dgf-dgc(2, el), dgc(2, el), dgf])
+    if (dgf-dgc(2, el))/dgc(2, el) > 1e-4
         wrong = [wrong; el];
     end
 end

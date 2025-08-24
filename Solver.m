@@ -20,7 +20,7 @@ classdef Solver
         del; dels; p; q; ncon
         rampB; rampPQ
         xtol; iterMax
-        gam; phi; g0; g1
+        gam; phi; g0; gc
         sig1N
         saveName; prints
     end
@@ -79,7 +79,7 @@ classdef Solver
             obj.xtol = p.xtol;
             obj.iterMax = p.iterMax;
             obj.g0 = zeros(obj.iterMax, 1);
-            obj.g1 = zeros(obj.iterMax, 1);
+            obj.gc = zeros(obj.iterMax, obj.stressCon*obj.ngr + 1);
             
             obj.A = p.le^2*ones(obj.nel, 1);
             obj.t = p.t;
@@ -185,12 +185,12 @@ classdef Solver
                 end
                 obj = init(obj, x);
                 obj = newt(obj);
-                [obj, obj.g0(iter), dg0, obj.g1(iter), dg1] = funcEval(obj, x);
+                [obj, obj.g0(iter), dg0, obj.gc(iter, :), dgc] = funcEval(obj, x);
                 if iter == 1
                     s = abs(100/obj.g0(1));
                 end
                 [xmma,~,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon, obj.nel, iter, x, zeros(obj.nel, 1), ones(obj.nel, 1), ...
-                                                            xold1, xold2, s*obj.g0(iter), s*dg0, obj.g1(iter), dg1, low, upp, a0, a1, c, d);
+                                                            xold1, xold2, s*obj.g0(iter), s*dg0, obj.gc(iter, :)', dgc, low, upp, a0, a1, c, d);
                 xold2 = xold1;
                 xold1 = x;
   
@@ -199,14 +199,14 @@ classdef Solver
 
                 plotFigs(obj, x, 1);
                 fprintf("Opt iter: %i\n", iter)
-                fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.g1(iter), dx])
+                fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.gc(iter, 1), dx])
             end
             obj.g0 = obj.g0(1:iter);
-            obj.g1 = obj.g1(1:iter);
+            obj.gc = obj.gc(1:iter, :);
             plotFigs(obj, x, 0);
         end
 
-        function [obj, g0, dg0, g1, dg1] = funcEval(obj, x)
+        function [obj, g0, dg0, gc, dgc] = funcEval(obj, x)
             dgt0dx = zeros(1, obj.nel);
             dR1dx = zeros(obj.endof*obj.nel, 1);  
             dR2dx = zeros(obj.tgp, 1);  
@@ -215,9 +215,10 @@ classdef Solver
             ap = sparse(obj.pdof, 1, obj.a(obj.pdof), obj.ndof, 1);
 
             sigb = zeros(obj.nel, 1); %%
-            sigbb = zeros(obj.nel, 1); %%
-            temp = zeros(obj.nel, obj.endof); %%
-
+            dsigbdx = zeros(obj.nel, 1); %%
+            dsigbdep = zeros(obj.tgp, 1); %%
+            dsigbda = zeros(obj.nel, obj.endof); %%
+            
             x = obj.Z*x;
             [x, dxH] = he(obj,x);
             for el = 1:obj.nel
@@ -239,17 +240,18 @@ classdef Solver
                               - obj.Ds(ixM, :)*obj.P*2*dphi/obj.phi(el)*obj.Ds(ixM, :)...
                               + obj.Ds(ixM, :)*obj.P*dDsdx)*obj.eps(ix, :)'/obj.phi(el)^2;
                     dR2dx(ix) = dphi*(obj.sigy0 + obj.H*obj.ep(ix) + obj.Kinf*(1-exp(-obj.xi*obj.ep(ix))))...
-                                 - dphi*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx;
+                                 - dphi*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx; % TA BORT EXTRA TERMER
 
                     Kh = B'*obj.dDsdep(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
                     dR1depe = Kh*obj.a(eix);
                     dgt0dep(ix) = -ap(eix)'*dR1depe;
                     dR1dep(obj.endof*(ix-1)+1:obj.endof*ix) = dR1depe; 
                     
-                    sigP = obj.sig(ix, :)*obj.P;
+                    sigP = obj.sig(ix, :)*obj.P; %%
                     sigb(el) = sigb(el) + sigP*obj.sig(ix, :)'/obj.ngp; %%
-                    sigbb(el) = sigbb(el) + sigP*dDsdx(:, [1 2 4])*B*obj.a(eix)/obj.ngp; %%
-                    temp(el, :) = temp(el, :) + sigP*obj.Ds(ixM, [1 2 4])*B/obj.ngp; %%
+                    dsigbdx(el) = dsigbdx(el) + obj.sigy0^2/sigb(el)*sigP*dDsdx(:, [1 2 4])*B*obj.a(eix)/obj.ngp; %%
+                    dsigbda(el, :) = dsigbda(el, :) + obj.sigy0^2/sigb(el)*sigP*obj.Dt(ixM, [1 2 4])*B/obj.ngp; %%
+                    dsigbdep(ix) = sigb(el)^(obj.pnm - 2)*obj.sigy0^2*trace(obj.P*obj.Ds(ixM, [1 2 4])*B*obj.a(eix)*(B*obj.a(eix))'*obj.phi(el)*obj.dDsdep(ixM([1 2 4]), :)); %% % sigb^(p-1)*dsigbdep
                 end
                 dR1dxe = Kte*obj.a(eix);
                 dgt0dx(el) = -ap(eix)'*dR1dxe;
@@ -264,9 +266,6 @@ classdef Solver
             dR2dx = sparse((1:obj.tgp)', repelem((1:obj.nel)', obj.ngp), dR2dx, obj.tgp, obj.nel);
             dR1dep = sparse(reshape(repelem(obj.edof', 1, obj.ngp), [], 1), repelem((1:obj.tgp)', obj.endof), dR1dep, obj.ndof, obj.tgp);
 
-            temp = reshape((obj.cp/obj.sigc*sum(obj.gam.*sigb.^obj.pnm)^(1/obj.pnm - 1)*obj.gam.*sigb.^(obj.pnm - 1).*temp)', [], 1); %%
-            temp = accumarray(reshape(obj.edof', [], 1), temp, [obj.ndof, 1]); %%
-            
             pgp = find(obj.ep);
             lamt = -dgt0da/obj.K(obj.fdof, obj.fdof);
             idR2dep = diag(1./obj.dR2dep(pgp));
@@ -280,9 +279,20 @@ classdef Solver
             dg1 = (dxH'.*obj.Z'*obj.A/obj.Amax)';
             dg1(obj.fixDens) = 0;
 
-            nut = temp(obj.fdof)'/obj.K(obj.fdof, obj.fdof); %%
-            g2 = obj.cp/obj.sigc*norm(obj.gam.*sigb, obj.pnm) - 1; %%
-            dg2 = obj.cp/obj.sigc*sum(obj.gam.*sigb.^obj.pnm)^(1/obj.pnm - 1)*(obj.gam.*sigb.^(obj.pnm - 1).*(dgam.*sigb + obj.sigy0^2*obj.gam.*sigbb./sigb))' - nut*dR1dx(obj.fdof, :); %%
+            dg2dx = obj.cp/obj.sigc*(sigb/norm(sigb, obj.pnm)).^(obj.pnm - 1).*dsigbdx; %%
+            dg2da = reshape((obj.cp/obj.sigc*sum(sigb.^obj.pnm)^(1/obj.pnm - 1)*sigb.^(obj.pnm - 1).*dsigbda)', [], 1); %%
+            dg2da = accumarray(reshape(obj.edof', [], 1), dg2da, [obj.ndof, 1]); %%
+            dg2dep = obj.cp/obj.sigc*sum(sigb.^obj.pnm)^(1/obj.pnm - 1)*dsigbdep; %%
+
+            nut = -dg2da(obj.fdof)'/obj.K(obj.fdof, obj.fdof); %%
+            xit = -dg2dep(pgp)'*idR2dep - nut*dR1dep(obj.fdof, pgp)*idR2dep; %%
+
+            g2 = obj.cp/obj.sigc*norm(sigb, obj.pnm) - 1; %%
+            dg2 = (dxH'.*obj.Z'*(dg2dx' + nut*dR1dx(obj.fdof, :) + xit*dR2dx(pgp, :))')'; %%
+            fprintf("  g2: %.2g\n", g2) %%
+            
+            gc = [g1; g2];
+            dgc = [dg1; dg2];
         end
 
         function Z = filterMatrix(obj, le, re)
@@ -632,7 +642,7 @@ classdef Solver
                     ax.YColor = 'k';
 
                     yyaxis right;
-                    plot((10:iter)', obj.g1(10:end), 'k', 'LineWidth', 2);
+                    plot((10:iter)', obj.gc(10:end, 1), 'k', 'LineWidth', 2);
                     ylabel('g1 constraint');
                     ylim([-0.5 0.5]);
                     ax = gca;
