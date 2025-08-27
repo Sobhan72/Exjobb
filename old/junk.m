@@ -1,3 +1,55 @@
+%% Finite diff dsigbdep
+h = 1e-8;
+sol1 = Solver(params);
+sol2 = Solver(params);
+
+x = ones(sol.nel, 1);
+sol = init(sol, x);
+sol = newt(sol);
+[~, ~, ~, ~, dsigbdep] = funcEval(sol, x);
+
+ep1 = sol.ep;
+ep2 = sol.ep;
+gpc = 1;
+ep1(gpc) = ep1(gpc) - h;
+ep2(gpc) = ep2(gpc) + h;
+
+sigb1 = zeros(sol.nel, 1);
+sigb2 = zeros(sol.nel, 1);
+
+for el = 1:sol.nel
+    gam1 = sol.gam(el);
+    gam2 = sol.gam(el);
+    phi1 = sol.phi(el);
+    phi2 = sol.phi(el);
+
+    for gp = 1:sol.ngp
+        ix = sol.ngp*(el-1) + gp;
+        ixM = 4*sol.ngp*(el-1) + (gp-1)*4 + 1:4*sol.ngp*(el-1) + gp*4;
+
+        if sol.ep(ix) ~= 0
+            sol1.Ds(ixM, :) = gam1*sol.X*diag(1./diag(eye(4) + gam1/phi1*sol.sigy0^2/(sol.sigy0+sol.H*ep1(ix))*ep1(ix)*sol.Gam))*sol.X';
+        else
+            sol1.Ds(ixM, :) = gam1*sol.De;
+        end
+
+        if sol.ep(ix) ~= 0
+            sol2.Ds(ixM, :) = gam2*sol.X*diag(1./diag(eye(4) + gam2/phi2*sol.sigy0^2/(sol.sigy0+sol.H*ep2(ix))*ep2(ix)*sol.Gam))*sol.X';
+        else
+            sol2.Ds(ixM, :) = gam2*sol.De;  
+        end
+
+        sig1 = sol1.Ds(ixM, :)*sol.eps(ix, :)';
+        sigb1(el) = sigb1(el) + sig1'*sol.P*sig1/sol.ngp;
+        sig2 = sol2.Ds(ixM, :)*sol.eps(ix, :)';
+        sigb2(el) = sigb2(el) + sig2'*sol.P*sig2/sol.ngp;
+    end
+    sigb1(el) = sol.sigy0*sqrt(sigb1(el));
+    sigb2(el) = sol.sigy0*sqrt(sigb2(el)); 
+end
+
+dsigbdepf = (sigb2 - sigb1)/(2*h);
+
 %% Mesh
 patch(sol.ex', sol.ey', ones(sol.nel, 1));
 colorbar;

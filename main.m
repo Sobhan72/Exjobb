@@ -40,7 +40,7 @@ params.PT = 1; % 0 for Incremental plasticity, 1 for Deformation plasticity
 
 % Optimization Parameters
 params.re = 3; % Elements in radius
-params.filtOn = false;
+params.filtOn = true;
 params.p = 1.5; %1.5
 params.q = 1; %1
 params.eta = 0.5;
@@ -51,7 +51,7 @@ params.del = 1e-9; %
 params.dels = 1e-3; % 
 % params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
-params.iterMax = 20;
+params.iterMax = 1;
 
 params.print = [0,0,0]; %[Load step, R1, R2] 
 params.saveName = "";
@@ -100,12 +100,14 @@ eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 1);
 %% Finite diff
 h = 1e-7;
 
-% c = [0.3 0.5 0.2 0.7 0.9]';
-% x = repmat(c, sol.nel/5, 1);
-x = 0.8*ones(sol.nel, 1);
+c = [0.3 0.5 0.2 0.7 0.9]';
+x = repmat(c, sol.nel/5, 1);
+% x = 0.7*ones(sol.nel, 1);
 sol = init(sol, x);
 sol = newt(sol);
-[~, ~, ~, ~, dgc] = funcEval(sol, x);
+[~, ~, ~, dgc] = funcEval(sol, x);
+
+
 
 wrong = [];
 for el = 1:sol.nel
@@ -122,8 +124,8 @@ for el = 1:sol.nel
     sol1 = newt(sol1);
     sol2 = newt(sol2);
 
-    [~, ~, ~, gc1, ~] = funcEval(sol1, x1);
-    [~, ~, ~, gc2, ~] = funcEval(sol2, x2);
+    [~, ~, gc1, ~] = funcEval(sol1, x1);
+    [~, ~, gc2, ~] = funcEval(sol2, x2);
 
     dgf = (gc2(2)-gc1(2))/2/h;
 
