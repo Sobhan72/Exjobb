@@ -15,7 +15,7 @@
 cat $0
 
 # set the number of jobs - change for your requirements
-export NB_of_jobs=72
+export NB_of_jobs=288
 
 # Get the absolute path of the current working directory
 export WORK_DIR=$PWD
