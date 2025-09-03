@@ -70,9 +70,10 @@ saveData(sol, x, params, "data");
 sol = Solver(params);
 sol = sol.assignVar(val, sol);
 sol.beta = 10; sol.p = 3; sol.q = 2.5;
-x = sol.He(sol.Z*x);
-plotFigs(sol, x, 0);
-% plotFigs(sol, x, 0);
+x = sol.he(sol.Z*x);
+sol.phi = sol.dels + (1-sol.dels)*x.^sol.q;
+%plotFigs(sol, x, 0);
+ plotFigs(sol, x, 1);
 
 %% Mesh
 patch(sol.ex', sol.ey', ones(sol.nel, 1));

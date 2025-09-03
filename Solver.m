@@ -195,13 +195,13 @@ classdef Solver
                 dx = norm((xmma - x)/obj.nel);
                 x = xmma;
 
-                plotFigs(obj, x, 1);
+                % plotFigs(obj, x, 1);
                 fprintf("Opt iter: %i\n", iter)
                 fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.gc(iter, 1), dx])
             end
             obj.g0 = obj.g0(1:iter);
             obj.gc = obj.gc(1:iter, :);
-            plotFigs(obj, x, 0);
+            % plotFigs(obj, x, 0);
         end
 
         function [g0, dg0, gc, dgc, cp] = funcEval(obj, x)
@@ -284,6 +284,7 @@ classdef Solver
             if ~obj.stressCon
                 gc = g1;
                 dgc = dg1;
+                cp = [];
             else
                 dg2dx = obj.cp/obj.sigc*(sigb/norm(sigb, obj.pnm)).^(obj.pnm - 1).*dsigbdx./sigb;
                 dg2da = reshape((obj.cp/obj.sigc*(sigb/norm(sigb, obj.pnm)).^(obj.pnm - 1).*dsigbda./sigb)', [], 1);
@@ -649,14 +650,24 @@ classdef Solver
                     ax.YColor = 'k';
 
                     yyaxis right;
+                    hold on
                     plot((10:iter)', obj.gc(10:end, 1), 'k', 'LineWidth', 2);
-                    ylabel('g1 constraint');
+                    if size(obj.gc,2) > 1
+                        plot((10:iter)', obj.gc(10:end, 2), 'b', 'LineWidth', 2);
+                        ylabel('g_{1,2} constraint');
+                        legend('Stiffness', 'Volume', 'Stress');
+                    else
+                        legend('Stiffness', 'Volume');
+                        ylabel('g1 constraint');
+                    end
+                    hold off
+                    % ylabel('g1 constraint');
                     ylim([-0.5 0.5]);
                     ax = gca;
                     ax.YColor = 'k';
 
                     xlabel('Iteration');
-                    legend('Stiffness', 'Volume');            
+                    % legend('Stiffness', 'Volume');            
                     title("Convergence Plot");
                     grid on;
                 end
@@ -684,7 +695,7 @@ classdef Solver
 
     methods (Static)
         function out = assignVar(in, out)
-            fields = {'ex', 'ey', 'ngp', 'nel', 'sig', 'P', 'sigy0', 'sig1N', 'ep', 'g0', 'g1'};
+            fields = {'ex', 'ey', 'ngp', 'nel', 'sig', 'P', 'sigy0', 'sig1N', 'ep', 'g0', 'gc'};
             for i = 1:numel(fields)
                 out.(fields{i}) = in.(fields{i});
             end

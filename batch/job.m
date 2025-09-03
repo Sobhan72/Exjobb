@@ -75,5 +75,5 @@ elseif ~isempty(data.x)
     x = data.x*ones(sol.nel, 1);
 end
     
-[sol, x] = optimizer(sol, x);
+[sol, x] = opt(sol, x);
 saveData(sol, x, params);
