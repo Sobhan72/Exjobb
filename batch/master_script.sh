@@ -4,9 +4,8 @@
 #SBATCH -N 8
 #SBATCH --tasks-per-node=36
 
-
 # job time, change for what your job farm requires
-#SBATCH -t 12:00:00
+#SBATCH -t 10:00:00
 #
 # job name and output file names
 #SBATCH -J jobFarm
@@ -44,18 +43,29 @@ rm -f input*.mat
 # Change to master directory
 cd $MASTER_DIR
 
-# Loop over the job number
-for ((i=0; i<$NB_of_jobs; i++))
-do
+# Maximum number of concurrent workers
+MAX_PARALLEL=72
+running=0
+
+# Loop over the job number with throttling
+for ((i=0; i<$NB_of_jobs; i++)); do
     echo "Starting job $i at $(TZ=Europe/Stockholm date +%T)"
-    srun -Q --exclusive -n 1 -N 1 $TMP_OUT/worker_script.sh $i &> $TMP_OUT/worker_${SLURM_JOB_ID}_${i}.out &
-    sleep 1
+    srun -Q --exclusive -n 1 -N 1 $TMP_OUT/worker_script.sh $i \
+         &> $TMP_OUT/worker_${SLURM_JOB_ID}_${i}.out &
+
+    ((running++))
+
+    # if we've launched MAX_PARALLEL jobs, wait until one finishes
+    if (( running >= MAX_PARALLEL )); then
+        wait -n    # wait for *one* job to finish
+        ((running--))
+    fi
 done
+
+# wait for all remaining jobs to finish
+wait
 
 echo "Skickat alla jobb"
 
 # Remove job.m after starting the jobs
 rm -f job.m
-
-# Keep the wait statement; it is important
-wait
