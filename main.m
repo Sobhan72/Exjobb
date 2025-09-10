@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % FEM parameters
-params.le = 0.001;
+params.le = 0.0005; %ändrad (halverad)
 params.lx = 0.1; %0.1;
 params.ly = 0.05; %0.1;
 params.wx = []; %0.04;
@@ -9,7 +9,7 @@ params.wy = []; %0.04;
 params.loadcase = 1; %3;
 
 params.Vf = 0.3;
-params.t = 1;
+params.t = 0.1;
 params.ngp = 4;
 
 params.stressCon = 1;
@@ -39,7 +39,7 @@ params.rtol = 1e-4;
 params.PT = 1; % 0 for Incremental plasticity, 1 for Deformation plasticity
 
 % Optimization Parameters
-params.re = 3; % Elements in radius
+params.re = 6; % Elements in radius %ändrad (dubblerad)
 params.filtOn = true;
 params.p = 1.5; %1.5
 params.q = 1; %1

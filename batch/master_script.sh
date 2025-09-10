@@ -1,11 +1,11 @@
 #!/bin/sh
 # requesting the number of nodes needed
 #SBATCH -A lu2025-2-33
-#SBATCH -N 8
+#SBATCH -N 2
 #SBATCH --tasks-per-node=36
 
 # job time, change for what your job farm requires
-#SBATCH -t 10:00:00
+#SBATCH -t 12:00:00
 #
 # job name and output file names
 #SBATCH -J jobFarm
@@ -14,7 +14,7 @@
 cat $0
 
 # set the number of jobs - change for your requirements
-export NB_of_jobs=288
+export NB_of_jobs=72
 
 # Get the absolute path of the current working directory
 export WORK_DIR=$PWD

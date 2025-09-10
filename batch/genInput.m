@@ -1,10 +1,10 @@
-%% Batch 
+%% Batch
 E = 210e9;
-v = 0.3;
+v = 0.4;
 
-sigy_base = [360e6, 300e6, 250e6]; 
-E_base    = [E, 0.7*E, 0.5*E];        
-v_base    = [v, 0.5*v, 0.5*v];        
+sigy_base = [360e6, 300e6, 250e6];
+E_base    = [E, 0.7*E, 0.5*E];
+v_base    = [v, 0.5*v, 0.5*v];
 
 x_values   = [0, 0, 0.7, 0.8, 0.9, 1.0];
 disp_values = [-1e-3, -9e-4, -8e-4];
@@ -12,16 +12,9 @@ disp_values = [-1e-3, -9e-4, -8e-4];
 n_cases = 3;
 count = 0;
 
-% --- Define loadcase settings ---
-loadcases(1).le = 0.001; loadcases(1).lx = 0.1; loadcases(1).ly = 0.05;
-loadcases(1).wx = [];   loadcases(1).wy = [];   loadcases(1).loadcase = 1;
-
-loadcases(2).le = 0.001; loadcases(2).lx = 0.1; loadcases(2).ly = 0.1;
-loadcases(2).wx = 0.04; loadcases(2).wy = 0.04; loadcases(2).loadcase = 3;
-
 %ANISOTROPIC CASES
 for i = 1:length(x_values)
-    x = x_values(i);    
+    x = x_values(i);
 
     for case_num = 1:n_cases
         % Rotate parameters according to case
@@ -39,11 +32,11 @@ for i = 1:length(x_values)
                 params.v13 = v_base(2);
                 params.v23 = v_base(3);
             elseif case_num == 2
-                params.v12 = v_base(2)*(E_base(3) / E_base(1)); % v31 
-                params.v13 = v_base(3)*(E_base(3) / E_base(2)); % v32   
+                params.v12 = v_base(2)*(E_base(3) / E_base(1)); % v31
+                params.v13 = v_base(3)*(E_base(3) / E_base(2)); % v32
                 params.v23 = v_base(1);
             else
-                params.v12 = v_base(3);    
+                params.v12 = v_base(3);
                 params.v13 = v_base(1)*(E_base(2) / E_base(1)); % v21
                 params.v23 = v_base(2)*(E_base(3) / E_base(1)); % v31
             end
@@ -54,36 +47,27 @@ for i = 1:length(x_values)
 
             params.disp = disp_val;
 
-            % --- Loop stressCon and loadcases ---
-            for stressCon = [0, 1]
-                params.stressCon = stressCon;
 
-                for lc = 1:length(loadcases)
-                    fn = loadcases(lc);
-                    params.le       = fn.le;
-                    params.lx       = fn.lx;
-                    params.ly       = fn.ly;
-                    params.wx       = fn.wx;
-                    params.wy       = fn.wy;
-                    params.loadcase = fn.loadcase;
+            params.saveName = sprintf("Anisotrop_x=%02d_case%d_disp=%.0fe-4", ...
+                round(x*10), case_num, -disp_val*1e4);
 
-                    params.saveName = sprintf("Anisotrop_x=%02d_case%d_disp=%.0fe-4_stressCon%d_loadcase%d", ...
-                        round(x*10), case_num, -disp_val*1e4, stressCon, fn.loadcase);
+            filename = sprintf("input%d.mat", count);
+            save(filename, 'x', 'params');
 
-                    filename = sprintf("input%d.mat", count);
-                    save(filename, 'x', 'params');
+            count = count + 1;
 
-                    count = count + 1;
-                end
-            end
+
         end
     end
 end
 
 %ISOTROPIC CASES
-clearvars -except count E v x_values disp_values loadcases
+clearvars -except count E x_values disp_values
 
-sigy_base = [360e6, 360e6, 360e6]; 
+v = 0.3;
+params.sigy01 = 360e6;
+params.sigy02 = 360e6;
+params.sigy03 = 360e6;
 params.E1 = E;
 params.E2 = E;
 params.E3 = E;
@@ -92,34 +76,20 @@ params.v13 = v;
 params.v23 = v;
 
 for i = 1:length(x_values)
-    x = x_values(i);    
+    x = x_values(i);
 
     for d = 1:length(disp_values)
         disp_val = disp_values(d);
         params.disp = disp_val;
 
-        % --- Loop stressCon and loadcases ---
-        for stressCon = [0, 1]
-            params.stressCon = stressCon;
+        params.saveName = sprintf("Isotrop_x=%02d_disp=%.0fe-4", ...
+            round(x*10), -disp_val*1e4);
 
-            for lc = 1:length(loadcases)
-                fn = loadcases(lc);
-                params.le       = fn.le;
-                params.lx       = fn.lx;
-                params.ly       = fn.ly;
-                params.wx       = fn.wx;
-                params.wy       = fn.wy;
-                params.loadcase = fn.loadcase;
+        filename = sprintf("input%d.mat", count);
+        save(filename, 'x', 'params');
 
-                params.saveName = sprintf("Isotrop_x=%02d_disp=%.0fe-4_stressCon%d_loadcase%d", ...
-                    round(x*10), -disp_val*1e4, stressCon, fn.loadcase);
+        count = count + 1;
 
-                filename = sprintf("input%d.mat", count);
-                save(filename, 'x', 'params');
-
-                count = count + 1;
-            end
-        end
     end
 end
 

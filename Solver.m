@@ -67,7 +67,7 @@ classdef Solver
             obj.stressCon = p.stressCon;
             obj.pnm = p.pnm;
             obj.ngr = p.ngr;
-            obj.sigc = p.sigc;
+            % obj.sigc = p.sigc;
             obj.cp = 1;
             obj.ca = 1;
 
@@ -102,6 +102,7 @@ classdef Solver
             Gco = 1/2*(1/p.sigy01^2-1/p.sigy02^2+1/p.sigy03^2);
             Hco = 1/2*(-1/p.sigy01^2+1/p.sigy02^2+1/p.sigy03^2);
             obj.sigy0 = sqrt(3/(2*(Fco+Gco+Hco)));
+            obj.sigc = obj.sigy0;
             Lco = 3/(2*obj.sigy0^2);
             
             if 4/(p.sigy01^2*p.sigy02^2) <= (1/p.sigy03^2-(1/p.sigy01^2+1/p.sigy02^2))^2
