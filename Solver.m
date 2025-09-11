@@ -221,11 +221,11 @@ classdef Solver
             dsigbda = zeros(obj.nel, obj.endof);
             
             x = obj.Z*x;
-            [x, dxH] = he(obj,x);
+            [x, dxH] = he(obj, x);
+            dgam = obj.p*(1-obj.del)*x.^(obj.p-1);
+            dphi = obj.q*(1-obj.dels)*x.^(obj.q-1);
+            th = (dgam.*obj.phi - dphi.*obj.gam)./obj.phi.^2;
             for el = 1:obj.nel
-                dgam = obj.p*(1-obj.del)*x(el)^(obj.p-1);
-                dphi = obj.q*(1-obj.dels)*x(el)^(obj.q-1);
-                th = (dgam*obj.phi(el)-dphi*obj.gam(el))/obj.phi(el)^2;
                 Kte = zeros(obj.endof);
                 eix = obj.edof(el, :);
 
@@ -234,14 +234,14 @@ classdef Solver
                     ix = obj.ngp*(el-1) + gp;
                     ixM =  4*obj.ngp*(el-1) + (gp-1)*4 + 1:4*obj.ngp*(el-1) + gp*4;
                     k0 = obj.ep(ix)*obj.sigy0^2/(obj.sigy0 + obj.H*obj.ep(ix) + obj.Kinf*(1-exp(-obj.xi*obj.ep(ix))));
-                    dDsdx = (dgam*obj.Ds(ixM, :) - th*k0*obj.Ds(ixM, :)*obj.P*obj.Ds(ixM, :))/obj.gam(el);
+                    dDsdx = (dgam(el)*obj.Ds(ixM, :) - th(el)*k0*obj.Ds(ixM, :)*obj.P*obj.Ds(ixM, :))/obj.gam(el);
                     Kte = Kte + B'*dDsdx(([1 2 4]), [1 2 4])*B*J*obj.t;
 
                     depstdx = obj.eps(ix, :)*(dDsdx*obj.P*obj.Ds(ixM, :)...
-                              - obj.Ds(ixM, :)*obj.P*2*dphi/obj.phi(el)*obj.Ds(ixM, :)...
+                              - obj.Ds(ixM, :)*obj.P*2*dphi(el)/obj.phi(el)*obj.Ds(ixM, :)...
                               + obj.Ds(ixM, :)*obj.P*dDsdx)*obj.eps(ix, :)'/obj.phi(el)^2;
-                    dR2dx(ix) = dphi*(obj.sigy0 + obj.H*obj.ep(ix) + obj.Kinf*(1-exp(-obj.xi*obj.ep(ix))))...
-                                 - dphi*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx; % TA BORT EXTRA TERMER
+                    dR2dx(ix) = dphi(el)*(obj.sigy0 + obj.H*obj.ep(ix) + obj.Kinf*(1-exp(-obj.xi*obj.ep(ix))))...
+                                - dphi(el)*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx; % TA BORT EXTRA TERMER
 
                     Kh = B'*obj.dDsdep(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
                     dR1depe = Kh*obj.a(eix);
@@ -262,7 +262,7 @@ classdef Solver
                 
                 if obj.stressCon
                     sigb(el) = obj.sigy0*sqrt(sigb(el));
-                    dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el) = dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el)/sigb(el);
+                    dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el) = dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el)/sigb(el)/obj.phi(el);
                 end
             end
             dgt0da = -obj.a(obj.pdof)'*obj.K(obj.pdof, obj.fdof);
@@ -289,20 +289,21 @@ classdef Solver
                 dgc = dg1;
                 cp = [];
             else
-                dg2dx = obj.cp/obj.sigm*(sigb/norm(sigb, obj.pnm)).^(obj.pnm - 1).*dsigbdx./sigb;
-                dg2da = reshape((obj.cp/obj.sigm*(sigb/norm(sigb, obj.pnm)).^(obj.pnm - 1).*dsigbda./sigb)', [], 1);
-                dg2da = accumarray(reshape(obj.edof', [], 1), dg2da, [obj.ndof, 1]);
-                dg2dep = obj.cp/obj.sigm*(repelem(sigb, obj.ngp)/norm(sigb, obj.pnm)).^(obj.pnm - 1).*dsigbdep;
+                sigp = norm(sigb./obj.phi, obj.pnm);
+                dgt2dx = obj.cp/obj.sigm*(sigb./obj.phi/sigp).^(obj.pnm - 1).*(dsigbdx./sigb.*obj.phi - sigb.*dphi)./obj.phi.^2;
+                dgt2da = reshape((obj.cp/obj.sigm*(sigb./obj.phi/sigp).^(obj.pnm - 1).*dsigbda./sigb./obj.phi)', [], 1);
+                dgt2da = accumarray(reshape(obj.edof', [], 1), dgt2da, [obj.ndof, 1]);
+                dgt2dep = obj.cp/obj.sigm*(repelem(sigb./obj.phi, obj.ngp)/sigp).^(obj.pnm - 1).*dsigbdep;
 
-                nut = -dg2da(obj.fdof)'/obj.K(obj.fdof, obj.fdof);
-                xit = -dg2dep(pgp)'*idR2dep - nut*dR1dep(obj.fdof, pgp)*idR2dep;
+                nut = -dgt2da(obj.fdof)'/obj.K(obj.fdof, obj.fdof);
+                xit = -dgt2dep(pgp)'*idR2dep - nut*dR1dep(obj.fdof, pgp)*idR2dep;
 
-                g2 = obj.cp/obj.sigm*norm(sigb, obj.pnm) - 1;
-                dg2 = (dxH'.*obj.Z'*(dg2dx' + nut*dR1dx(obj.fdof, :) + xit*dR2dx(pgp, :))')';
+                g2 = obj.cp/obj.sigm*sigp - 1;
+                dg2 = (dxH'.*obj.Z'*(dgt2dx' + nut*dR1dx(obj.fdof, :) + xit*dR2dx(pgp, :))')';
                 gc = [g1; g2];
                 dgc = [dg1; dg2];
 
-                cp = obj.ca*max(sigb)/norm(sigb, obj.pnm) + (1 - obj.ca)*obj.cp;
+                cp = obj.ca*max(sigb./obj.phi)/sigp + (1 - obj.ca)*obj.cp;
             end
         end
 

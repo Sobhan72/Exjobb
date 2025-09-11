@@ -8,16 +8,16 @@ params.wx = 0.04; %[];
 params.wy = 0.04; %[];
 params.loadcase = 3; %1;
 
-params.Vf = 0.35;
+params.Vf = 0.3;
 params.t = 1;
 params.ngp = 4;
 
 params.stressCon = 1;
 params.pnm = 8; % p-norm exponent
-params.sigc = 1; % Stress constraint factor: sigm = sigy0*sigc
+params.sigc = 1.15e-1; % Stress constraint factor: sigm = sigy0*sigc
 
 params.R1tol = 1e-2; 
-params.N = 4; % Loadsteps
+params.N = 1; % Loadsteps
 params.disp = -1e-3; % Total displacement 
 
 % Material parameters
@@ -26,9 +26,9 @@ v = 0.3;
 params.E1 = E; params.E2 = E; params.E3 = E;
 params.v12 = v; params.v13 = v; params.v23 = v;
 
-params.sigy01 = 360e6;
-params.sigy02 = 360e6;
-params.sigy03 = 360e6;
+params.sigy01 = 360e7;
+params.sigy02 = 360e7;
+params.sigy03 = 360e7;
  
 params.H = 10e9;
 params.Kinf = 0; %0.3*params.sigy01; % Extra terms linHard (sat. stress)
@@ -70,8 +70,8 @@ sol = sol.assignVar(val, sol);
 sol.beta = 10; sol.p = 3; sol.q = 2.5;
 x = sol.he(sol.Z*x);
 sol.phi = sol.dels + (1-sol.dels)*x.^sol.q;
-plotFigs(sol, x, 0);
-% plotFigs(sol, x, 1);
+% plotFigs(sol, x, 0);
+plotFigs(sol, x, 1);
 
 %% Mesh
 patch(sol.ex', sol.ey', ones(sol.nel, 1));
@@ -101,8 +101,8 @@ h = 1e-6;
 
 % c = [0.3 0.5 0.2 0.7]';
 % x = repmat(c, sol.nel/4, 1);
-% x = 0.5*ones(sol.nel, 1);
-load("x.mat");
+x = 0.5*ones(sol.nel, 1);
+% load("x.mat");
 sol = init(sol, x);
 sol = newt(sol);
 [~, ~, ~, dgc] = funcEval(sol, x);
@@ -129,7 +129,7 @@ for el = 1:sol.nel
 
 
     fprintf("El: %i \n", el)
-    fprintf("  Diff: %.5g \ndg0: %.5g \ndgf: %.5g\n", [dgf-dgc(2, el), dgc(2, el), dgf])
+    fprintf("  Diff: %.5g \ndg2: %.5g \ndgf: %.5g\n", [dgf-dgc(2, el), dgc(2, el), dgf])
     if (abs((dgf-dgc(2, el))/dgc(2, el))) > 1e-4
         wrong = [wrong; el];
     end
