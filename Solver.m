@@ -15,8 +15,8 @@ classdef Solver
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
         Z; filtOn; eta; beta
-        stressCon; pnm; ngr
-        sigc; cp; ca
+        stressCon; pnm
+        sigm; cp; ca
         del; dels; p; q; ncon
         rampB; rampPQ
         xtol; iterMax
@@ -66,18 +66,16 @@ classdef Solver
 
             obj.stressCon = p.stressCon;
             obj.pnm = p.pnm;
-            obj.ngr = p.ngr;
-            obj.sigc = p.sigc;
             obj.cp = 1;
             obj.ca = 1;
 
             obj.del = p.del;
             obj.dels = p.dels;
-            obj.ncon = 1 + obj.stressCon*obj.ngr;
+            obj.ncon = 1 + obj.stressCon;
             obj.xtol = p.xtol;
             obj.iterMax = p.iterMax;
             obj.g0 = zeros(obj.iterMax, 1);
-            obj.gc = zeros(obj.iterMax, obj.stressCon*obj.ngr + 1);
+            obj.gc = zeros(obj.iterMax, 1 + obj.stressCon);
             
             obj.A = p.le^2*ones(obj.nel, 1);
             obj.t = p.t;
@@ -103,7 +101,8 @@ classdef Solver
             Hco = 1/2*(-1/p.sigy01^2+1/p.sigy02^2+1/p.sigy03^2);
             obj.sigy0 = sqrt(3/(2*(Fco+Gco+Hco)));
             Lco = 3/(2*obj.sigy0^2);
-            
+            obj.sigm = p.sigc*obj.sigy0;
+
             if 4/(p.sigy01^2*p.sigy02^2) <= (1/p.sigy03^2-(1/p.sigy01^2+1/p.sigy02^2))^2
                 error("Not positive definite")
             end
@@ -195,13 +194,17 @@ classdef Solver
                 dx = norm((xmma - x)/obj.nel);
                 x = xmma;
 
-                % plotFigs(obj, x, 1);
+                plotFigs(obj, x, 1);
                 fprintf("Opt iter: %i\n", iter)
-                fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.gc(iter, 1), dx])
+                if obj.stressCon
+                    fprintf("  g0: %.2g, g1: %.2g, g2: %.2g, dx: %.2g\n", [obj.g0(iter), obj.gc(iter, 1), obj.gc(iter, 2), dx])
+                else
+                    fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.gc(iter, 1), dx])
+                end
             end
             obj.g0 = obj.g0(1:iter);
             obj.gc = obj.gc(1:iter, :);
-            % plotFigs(obj, x, 0);
+            plotFigs(obj, x, 0);
         end
 
         function [g0, dg0, gc, dgc, cp] = funcEval(obj, x)
@@ -286,15 +289,15 @@ classdef Solver
                 dgc = dg1;
                 cp = [];
             else
-                dg2dx = obj.cp/obj.sigc*(sigb/norm(sigb, obj.pnm)).^(obj.pnm - 1).*dsigbdx./sigb;
-                dg2da = reshape((obj.cp/obj.sigc*(sigb/norm(sigb, obj.pnm)).^(obj.pnm - 1).*dsigbda./sigb)', [], 1);
+                dg2dx = obj.cp/obj.sigm*(sigb/norm(sigb, obj.pnm)).^(obj.pnm - 1).*dsigbdx./sigb;
+                dg2da = reshape((obj.cp/obj.sigm*(sigb/norm(sigb, obj.pnm)).^(obj.pnm - 1).*dsigbda./sigb)', [], 1);
                 dg2da = accumarray(reshape(obj.edof', [], 1), dg2da, [obj.ndof, 1]);
-                dg2dep = obj.cp/obj.sigc*(repelem(sigb, obj.ngp)/norm(sigb, obj.pnm)).^(obj.pnm - 1).*dsigbdep;
-    
+                dg2dep = obj.cp/obj.sigm*(repelem(sigb, obj.ngp)/norm(sigb, obj.pnm)).^(obj.pnm - 1).*dsigbdep;
+
                 nut = -dg2da(obj.fdof)'/obj.K(obj.fdof, obj.fdof);
                 xit = -dg2dep(pgp)'*idR2dep - nut*dR1dep(obj.fdof, pgp)*idR2dep;
-    
-                g2 = obj.cp/obj.sigc*norm(sigb, obj.pnm) - 1;
+
+                g2 = obj.cp/obj.sigm*norm(sigb, obj.pnm) - 1;
                 dg2 = (dxH'.*obj.Z'*(dg2dx' + nut*dR1dx(obj.fdof, :) + xit*dR2dx(pgp, :))')';
                 gc = [g1; g2];
                 dgc = [dg1; dg2];
@@ -652,22 +655,19 @@ classdef Solver
                     yyaxis right;
                     hold on
                     plot((10:iter)', obj.gc(10:end, 1), 'k', 'LineWidth', 2);
-                    if size(obj.gc,2) > 1
+                    if obj.stressCon
                         plot((10:iter)', obj.gc(10:end, 2), 'b', 'LineWidth', 2);
                         ylabel('g_{1,2} constraint');
                         legend('Stiffness', 'Volume', 'Stress');
                     else
-                        legend('Stiffness', 'Volume');
                         ylabel('g1 constraint');
+                        legend('Stiffness', 'Volume');
                     end
                     hold off
-                    % ylabel('g1 constraint');
                     ylim([-0.5 0.5]);
                     ax = gca;
                     ax.YColor = 'k';
-
                     xlabel('Iteration');
-                    % legend('Stiffness', 'Volume');            
                     title("Convergence Plot");
                     grid on;
                 end
