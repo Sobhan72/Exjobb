@@ -5,20 +5,20 @@ addpath(genpath('/home/zachariand/Exjobb/functions'));
 %% Run Job
 % FEM parameters
 
-params.le = 0.001;
-params.lx = 0.1; %0.1;
-params.ly = 0.05; %0.1;
-params.wx = []; %0.04;
-params.wy = []; %0.04;
-params.loadcase = 1; %3;
+params.le = 0.0005; %halverad
+params.lx = 0.1;
+params.ly = 0.1;
+params.wx = 0.04;
+params.wy = 0.04;
+params.loadcase = 3;
 params.Vf = 0.3;
 
-params.t = 1;
+params.t = 0.1;
 params.ngp = 4;
 
 params.stressCon = 1;
 params.pnm = 8;
-params.sigc = 360e6; % Max stress for constraint
+% params.sigc = 360e6; % Max stress for constraint
 params.ngr = 1;
 
 params.R1tol = 1e-1;
@@ -44,9 +44,8 @@ params.rtol = 1e-1;
 params.PT = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
 % Optimization Parameters
-params.re = 3; % Elements in radius
+params.re = 6; % Elements in radius (dubblerad)
 params.filtOn = true;
-params.loadcase = 1;
 params.p = 1.5; %3;
 params.q = 1; %2,5;
 params.eta = 0.5;
