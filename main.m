@@ -14,21 +14,21 @@ params.ngp = 4;
 
 params.stressCon = 1;
 params.pnm = 8; % p-norm exponent
-params.sigc = 1.15e-1; % Stress constraint factor: sigm = sigy0*sigc
+params.sigc = 1e-1; % Stress constraint factor: sigm = sigy0*sigc
 
-params.R1tol = 1e-2; 
+params.R1tol = 1e-2;
 params.N = 1; % Loadsteps
 params.disp = -1e-3; % Total displacement 
 
-% Material parameters
-E = 210e9;
+% Material
+E = 210e1;
 v = 0.3;
 params.E1 = E; params.E2 = E; params.E3 = E;
 params.v12 = v; params.v13 = v; params.v23 = v;
 
-params.sigy01 = 360e7;
-params.sigy02 = 360e7;
-params.sigy03 = 360e7;
+params.sigy01 = 360e-1;
+params.sigy02 = 360e-1;
+params.sigy03 = 360e-1;
  
 params.H = 10e9;
 params.Kinf = 0; %0.3*params.sigy01; % Extra terms linHard (sat. stress)
@@ -48,8 +48,8 @@ params.rampB = 1; % 0: off, 1: B*1.1, 2: B + 1
 params.rampPQ = true;
 params.del = 1e-9; 
 params.dels = 1e-3;
-params.xtol = 1e-5;
-params.iterMax = 500;
+params.xtol = 5e-7;
+params.iterMax = 750;
 
 params.print = [0,0,0]; % [Load step, R1, R2] 
 params.saveName = "";
@@ -97,11 +97,11 @@ eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 1);
 % fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
 
 %% Finite diff
-h = 1e-6;
+h = 1e-5;
 
 % c = [0.3 0.5 0.2 0.7]';
 % x = repmat(c, sol.nel/4, 1);
-x = 0.5*ones(sol.nel, 1);
+x = rand(sol.nel, 1);
 % load("x.mat");
 sol = init(sol, x);
 sol = newt(sol);

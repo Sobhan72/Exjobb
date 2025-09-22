@@ -193,18 +193,19 @@ classdef Solver
   
                 dx = norm((xmma - x)/obj.nel);
                 x = xmma;
+                rho = he(obj, obj.Z*x);
 
-                plotFigs(obj, x, 1);
+                plotFigs(obj, rho, 1);
                 fprintf("Opt iter: %i\n", iter)
                 if obj.stressCon
-                    fprintf("  g0: %.2g, g1: %.2g, g2: %.2g, dx: %.2g\n", [obj.g0(iter), obj.gc(iter, 1), obj.gc(iter, 2), dx])
+                    fprintf("  g0: %.2g, g1: %.2g, g2: %.2g, dx: %.2g\n", [s*obj.g0(iter), obj.gc(iter, 1), obj.gc(iter, 2), dx])
                 else
-                    fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [obj.g0(iter), obj.gc(iter, 1), dx])
+                    fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [s*obj.g0(iter), obj.gc(iter, 1), dx])
                 end
             end
             obj.g0 = obj.g0(1:iter);
             obj.gc = obj.gc(1:iter, :);
-            plotFigs(obj, x, 0);
+            plotFigs(obj, rho, 0);
         end
 
         function [g0, dg0, gc, dgc, cp] = funcEval(obj, x)
@@ -220,8 +221,7 @@ classdef Solver
             dsigbdep = zeros(obj.tgp, 1);
             dsigbda = zeros(obj.nel, obj.endof);
             
-            x = obj.Z*x;
-            [x, dxH] = he(obj, x);
+            [x, dxH] = he(obj, obj.Z*x);
             dgam = obj.p*(1-obj.del)*x.^(obj.p-1);
             dphi = obj.q*(1-obj.dels)*x.^(obj.q-1);
             th = (dgam.*obj.phi - dphi.*obj.gam)./obj.phi.^2;
@@ -412,7 +412,7 @@ classdef Solver
                         end
                     else
                         obj.sigi(ix, :) = sigtr;
-                        obj.Dt(ixM, :) = obj.gam(el)*obj.De;  
+                        obj.Dt(ixM, :) = obj.gam(el)*obj.De;
                         obj.Dsi(ixM, :) = obj.gam(el)*obj.De;
                         obj.epi(ix) = 0; obj.dDsdep(ixM, :) = 0; obj.dR2dep(ix) = 0;
                         obj.epst(ix) = (obj.gam(el)/obj.phi(el))^2*obj.epsi(ix, :)*obj.De*obj.P*obj.De*obj.epsi(ix, :)';
