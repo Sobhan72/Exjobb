@@ -163,7 +163,7 @@ classdef Solver
             x(obj.fixDens) = 1;
             dx = 1;
             iter = 0;
-            while dx > obj.xtol
+            while dx > obj.xtol && all(obj.gc(end, :) <= 0)
                 iter = iter + 1;
                 if iter == obj.iterMax + 1
                     iter = obj.iterMax;
@@ -195,7 +195,7 @@ classdef Solver
                 x = xmma;
                 rho = he(obj, obj.Z*x);
 
-                plotFigs(obj, rho, 1);
+                % plotFigs(obj, rho, 1);
                 fprintf("Opt iter: %i\n", iter)
                 if obj.stressCon
                     fprintf("  g0: %.2g, g1: %.2g, g2: %.2g, dx: %.2g\n", [s*obj.g0(iter), obj.gc(iter, 1), obj.gc(iter, 2), dx])
@@ -205,7 +205,7 @@ classdef Solver
             end
             obj.g0 = obj.g0(1:iter);
             obj.gc = obj.gc(1:iter, :);
-            plotFigs(obj, rho, 0);
+            % plotFigs(obj, rho, 0);
         end
 
         function [g0, dg0, gc, dgc, cp] = funcEval(obj, x)

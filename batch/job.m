@@ -13,12 +13,12 @@ params.wy = 0.04;
 params.loadcase = 3;
 params.Vf = 0.3;
 
-params.t = 0.1;
+params.t = 1;
 params.ngp = 4;
 
 params.stressCon = 1;
 params.pnm = 8;
-% params.sigc = 360e6; % Max stress for constraint
+params.sigc = 1.2; %360e6; % Max stress for constraint
 params.ngr = 1;
 
 params.R1tol = 1e-1;
@@ -56,7 +56,7 @@ params.del = 1e-9;
 params.dels = 1e-3;
 %params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
-params.iterMax = 500;
+params.iterMax = 750;
 params.print = [0,0,0];
 
 params.saveName = "";
