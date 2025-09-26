@@ -14,21 +14,21 @@ params.ngp = 4;
 
 params.stressCon = 1;
 params.pnm = 8; % p-norm exponent
-params.sigc = 1e-1; % Stress constraint factor: sigm = sigy0*sigc
+params.sigc = 1; % Stress constraint factor: sigm = sigy0*sigc
 
 params.R1tol = 1e-2;
-params.N = 1; % Loadsteps
+params.N = 4; % Loadsteps
 params.disp = -1e-3; % Total displacement 
 
 % Material
-E = 210e1;
+E = 210e9;
 v = 0.3;
 params.E1 = E; params.E2 = E; params.E3 = E;
 params.v12 = v; params.v13 = v; params.v23 = v;
 
-params.sigy01 = 360e-1;
-params.sigy02 = 360e-1;
-params.sigy03 = 360e-1;
+params.sigy01 = 360e6;
+params.sigy02 = 360e6;
+params.sigy03 = 360e6;
  
 params.H = 10e9;
 params.Kinf = 0; %0.3*params.sigy01; % Extra terms linHard (sat. stress)
@@ -43,15 +43,16 @@ params.filtOn = true;
 params.p = 1.5;
 params.q = 1; 
 params.eta = 0.5;
-params.beta = 1;
-params.rampB = 1; % 0: off, 1: B*1.1, 2: B + 1
+params.beta = 0.1;
+params.rampB = 2; % 0: off, 1: on, 2: on after simp converges
 params.rampPQ = true;
 params.del = 1e-9; 
 params.dels = 1e-3;
-params.xtol = 5e-7;
-params.iterMax = 750;
+params.xtol = 1e-5;
+params.iterMax = 1000;
 
 params.print = [0,0,0]; % [Load step, R1, R2] 
+params.plots = 1;
 params.saveName = "";
 sol = Solver(params);
 
@@ -63,15 +64,15 @@ saveData(sol, x, params, "data");
 %% Draw Design
 % clc, clear, close all
 % load("data\OptDesign_case=1_x=0.8_disp=1e-3.mat")
-% load("DesignFailcase=1.mat");
 
+params.plots = 1;
 sol = Solver(params);
 sol = sol.assignVar(val, sol);
 sol.beta = 10; sol.p = 3; sol.q = 2.5;
-x = sol.he(sol.Z*x);
-sol.phi = sol.dels + (1-sol.dels)*x.^sol.q;
-% plotFigs(sol, x, 0);
-plotFigs(sol, x, 1);
+rho = sol.he(sol.Z*x);
+sol.phi = sol.dels + (1-sol.dels)*rho.^sol.q;
+plotFigs(sol, rho, 1);
+plotFigs(sol, rho, 0);
 
 %% Mesh
 patch(sol.ex', sol.ey', ones(sol.nel, 1));

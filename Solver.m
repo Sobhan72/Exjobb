@@ -22,7 +22,7 @@ classdef Solver
         xtol; iterMax
         gam; phi; g0; gc
         sig1N
-        saveName; prints
+        saveName; prints; plots
     end
 
     methods
@@ -55,6 +55,7 @@ classdef Solver
 
             obj.saveName = p.saveName;
             obj.prints = p.print;
+            obj.plots = p.plots;
             obj.filtOn = p.filtOn;
             obj.Z = filterMatrix(obj, p.le, p.re);
             obj.p = p.p;
@@ -153,7 +154,7 @@ classdef Solver
             obj.epi = zeros(obj.tgp, 1);
             obj.sigyi = obj.sigy0*ones(obj.tgp, 1);
 
-            obj.sig1N = zeros(obj.tgp,8);
+            obj.sig1N = zeros(obj.tgp, 8);
         end
 
         %% Optimization
@@ -162,9 +163,8 @@ classdef Solver
             xold1 = []; xold2 = []; low = []; upp = [];
             x(obj.fixDens) = 1;
             dx = 1;
-            iter = 0;
-            while dx > obj.xtol && all(obj.gc(end, :) <= 0)
-                iter = iter + 1;
+            iter = 1;
+            while dx > obj.xtol || any(obj.gc(iter, :) > 0)
                 if iter == obj.iterMax + 1
                     iter = obj.iterMax;
                     fprintf("\n\nMax iteration count reached\n")
@@ -172,8 +172,6 @@ classdef Solver
                 elseif mod(iter, 10) == 0
                     if obj.rampB == 1 && obj.beta < 10
                         obj.beta = obj.beta*1.1;
-                    elseif obj.rampB == 2 && obj.beta < 10
-                        obj.beta = obj.beta + 1;
                     end
                     if obj.rampPQ && obj.p < 3
                         obj.p = obj.p + 0.1;
@@ -191,21 +189,29 @@ classdef Solver
                 xold2 = xold1;
                 xold1 = x;
   
-                dx = norm((xmma - x)/obj.nel);
+                dx = norm(xmma - x, inf);
+                if obj.rampB == 2 && dx < obj.xtol*5
+                    obj.rampB = 1;
+                    warning("Heavi ramp on")
+                end
                 x = xmma;
                 rho = he(obj, obj.Z*x);
-
-                % plotFigs(obj, rho, 1);
+                if obj.plots
+                    plotFigs(obj, rho, 1);
+                end
                 fprintf("Opt iter: %i\n", iter)
                 if obj.stressCon
                     fprintf("  g0: %.2g, g1: %.2g, g2: %.2g, dx: %.2g\n", [s*obj.g0(iter), obj.gc(iter, 1), obj.gc(iter, 2), dx])
                 else
                     fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [s*obj.g0(iter), obj.gc(iter, 1), dx])
                 end
+                iter = iter + 1;
             end
             obj.g0 = obj.g0(1:iter);
             obj.gc = obj.gc(1:iter, :);
-            % plotFigs(obj, rho, 0);
+            if obj.plots
+                plotFigs(obj, rho, 0);
+            end
         end
 
         function [g0, dg0, gc, dgc, cp] = funcEval(obj, x)
