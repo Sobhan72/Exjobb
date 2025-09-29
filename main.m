@@ -72,7 +72,7 @@ sol.beta = 10; sol.p = 3; sol.q = 2.5;
 rho = sol.he(sol.Z*x);
 sol.phi = sol.dels + (1-sol.dels)*rho.^sol.q;
 plotFigs(sol, rho, 1);
-plotFigs(sol, rho, 0);
+% plotFigs(sol, rho, 0);
 
 %% Mesh
 patch(sol.ex', sol.ey', ones(sol.nel, 1));

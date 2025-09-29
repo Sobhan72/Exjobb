@@ -164,7 +164,7 @@ classdef Solver
             x(obj.fixDens) = 1;
             dx = 1;
             iter = 1;
-            while dx > obj.xtol || any(obj.gc(iter, :) > 0)
+            while dx > obj.xtol || any(obj.gc(iter, :) > 0) || iter < 400
                 if iter == obj.iterMax + 1
                     iter = obj.iterMax;
                     fprintf("\n\nMax iteration count reached\n")

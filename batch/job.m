@@ -13,7 +13,7 @@ params.wy = 0.04;
 params.loadcase = 3;
 params.Vf = 0.3;
 
-params.t = 1;
+params.t = 0.1;
 params.ngp = 4;
 
 params.stressCon = 1;
@@ -21,7 +21,7 @@ params.pnm = 8;
 params.sigc = 1.2; %360e6; % Max stress for constraint
 params.ngr = 1;
 
-params.R1tol = 1e-1;
+params.R1tol = 1e-2;
 params.N = 3;
 params.disp = -9e-4; % displacement [nodes total-size]
 
@@ -40,24 +40,25 @@ params.H = 10e9;
 params.Kinf = 0; %0.3*params.sigy01; %extra terms linHard (sat. stress)
 params.xi = 1e-3; %extra terms linHard (sat. exp)
 
-params.rtol = 1e-1;
+params.rtol = 1e-4;
 params.PT = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
 % Optimization Parameters
-params.re = 6; % Elements in radius (dubblerad)
+params.re = 8; %6% Elements in radius (dubblerad)
 params.filtOn = true;
 params.p = 1.5; %3;
 params.q = 1; %2,5;
 params.eta = 0.5;
-params.beta = 1;
-params.rampB = 1; % 0: off, 1: B*1.1, 2: B + 1
+params.beta = 0.1;
+params.rampB = 2; % 0: off, 1: B*1.1, 2: B + 1
 params.rampPQ = true;
 params.del = 1e-9;
 params.dels = 1e-3;
 %params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
-params.iterMax = 750;
+params.iterMax = 1500;
 params.print = [0,0,0];
+params.plots = 0;
 
 params.saveName = "";
 data = load('input.mat');
