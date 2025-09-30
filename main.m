@@ -50,6 +50,7 @@ params.del = 1e-9;
 params.dels = 1e-3;
 params.xtol = 1e-5;
 params.iterMax = 1000;
+params.stressFree = 3; % Width of area in elements left of right side where stress is ignored for L-beam
 
 params.print = [0,0,0]; % [Load step, R1, R2] 
 params.plots = 1;
@@ -72,10 +73,10 @@ sol.beta = 10; sol.p = 3; sol.q = 2.5;
 rho = sol.he(sol.Z*x);
 sol.phi = sol.dels + (1-sol.dels)*rho.^sol.q;
 plotFigs(sol, rho, 1);
-% plotFigs(sol, rho, 0);
+plotFigs(sol, rho, 0);
 
 %% Mesh
-patch(sol.ex', sol.ey', ones(sol.nel, 1));
+patch(sol.ex', sol.ey', rand(sol.nel, 1));
 axis equal
 
 %% Newton-Raphson
@@ -100,9 +101,9 @@ eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 1);
 %% Finite diff
 h = 1e-5;
 
-% c = [0.3 0.5 0.2 0.7]';
-% x = repmat(c, sol.nel/4, 1);
-x = rand(sol.nel, 1);
+c = [0.3 0.5 1e-4 0.7]';
+x = repmat(c, sol.nel/4, 1);
+% x = rand(sol.nel, 1);
 % load("x.mat");
 sol = init(sol, x);
 sol = newt(sol);

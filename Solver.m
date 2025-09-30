@@ -21,7 +21,7 @@ classdef Solver
         rampB; rampPQ
         xtol; iterMax
         gam; phi; g0; gc
-        sig1N
+        sig1N; elZone
         saveName; prints; plots
     end
 
@@ -69,6 +69,7 @@ classdef Solver
             obj.pnm = p.pnm;
             obj.cp = 1;
             obj.ca = 1;
+            obj.elZone = find(obj.ex(:, 1) >= p.lx - p.le*(p.stressFree + 1e-3));
 
             obj.del = p.del;
             obj.dels = p.dels;
@@ -254,7 +255,7 @@ classdef Solver
                     dgt0dep(ix) = -ap(eix)'*dR1depe;
                     dR1dep(obj.endof*(ix-1)+1:obj.endof*ix) = dR1depe; 
                     
-                    if obj.stressCon
+                    if obj.stressCon && ~ismember(el, obj.elZone)
                         sigP = obj.sig(ix, :)*obj.P;
                         sigb(el) = sigb(el) + sigP*obj.sig(ix, :)'/obj.ngp;
                         dsigbdx(el) = dsigbdx(el) + obj.sigy0^2*sigP*dDsdx*obj.eps(ix, :)'/obj.ngp;
@@ -266,7 +267,7 @@ classdef Solver
                 dgt0dx(el) = -ap(eix)'*dR1dxe;
                 dR1dx(obj.endof*(el-1)+1:obj.endof*el) = dR1dxe; 
                 
-                if obj.stressCon
+                if obj.stressCon && ~ismember(el, obj.elZone)
                     sigb(el) = obj.sigy0*sqrt(sigb(el));
                     dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el) = dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el)/sigb(el)/obj.phi(el);
                 end
@@ -298,6 +299,7 @@ classdef Solver
                 sigp = norm(sigb./obj.phi, obj.pnm);
                 dgt2dx = obj.cp/obj.sigm*(sigb./obj.phi/sigp).^(obj.pnm - 1).*(dsigbdx./sigb.*obj.phi - sigb.*dphi)./obj.phi.^2;
                 dgt2da = reshape((obj.cp/obj.sigm*(sigb./obj.phi/sigp).^(obj.pnm - 1).*dsigbda./sigb./obj.phi)', [], 1);
+                dgt2dx(isnan(dgt2dx)) = 0; dgt2da(isnan(dgt2da)) = 0;
                 dgt2da = accumarray(reshape(obj.edof', [], 1), dgt2da, [obj.ndof, 1]);
                 dgt2dep = obj.cp/obj.sigm*(repelem(sigb./obj.phi, obj.ngp)/sigp).^(obj.pnm - 1).*dsigbdep;
 
@@ -344,7 +346,6 @@ classdef Solver
                 dxH = ones(obj.nel, 1);
             end
         end
-
         %% FEM
         function obj = newt(obj) % Newton-Raphson method
             tdisp = abs(obj.disp(1, 2)*obj.N); cdisp = obj.disp; idisp = 0; pn = obj.N;
