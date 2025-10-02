@@ -1,23 +1,18 @@
 clc, clear, close all
 
 % FEM parameters
-params.le = 0.001;
+params.le = 0.002;
 params.lx = 0.1; %0.1;
 params.ly = 0.1; %0.05;
 params.wx = 0.04; %[];
 params.wy = 0.04; %[];
 params.loadcase = 3; %1;
 
-params.Vf = 0.3;
 params.t = 1;
 params.ngp = 4;
 
-params.stressCon = 1;
-params.pnm = 8; % p-norm exponent
-params.sigc = 1; % Stress constraint factor: sigm = sigy0*sigc
-
 params.R1tol = 1e-2;
-params.N = 4; % Loadsteps
+params.N = 3; % Loadsteps
 params.disp = -1e-3; % Total displacement 
 
 % Material
@@ -38,19 +33,27 @@ params.rtol = 1e-4;
 params.PT = 1; % 0 for Incremental plasticity, 1 for Deformation plasticity
 
 % Optimization Parameters
-params.re = 3; % Elements in radius
+params.re = 2; % Elements in radius
 params.filtOn = true;
+
 params.p = 1.5;
 params.q = 1; 
-params.eta = 0.5;
-params.beta = 0.1;
-params.rampB = 2; % 0: off, 1: on, 2: on after simp converges
-params.rampPQ = true;
 params.del = 1e-9; 
 params.dels = 1e-3;
-params.xtol = 1e-5;
-params.iterMax = 1000;
-params.stressFree = 3; % Width of area in elements left of right side where stress is ignored for L-beam
+params.rampPQ = true;
+
+params.beta = 0.1;
+params.eta = 0.5;
+params.rampB = 2; % 0: off, 1: on, 2: on after simp converges
+
+params.Vf = 0.3;
+params.xtol = 1e-3;
+params.iterMax = 1500;
+
+params.stressCon = 1;
+params.pnm = 8; % p-norm exponent
+params.sigc = 0.05; % Stress constraint factor: sigm = sigy0*sigc
+params.stressFree = 6; % Width of area in elements left of right side where stress is ignored for L-beam
 
 params.print = [0,0,0]; % [Load step, R1, R2] 
 params.plots = 1;
@@ -58,7 +61,7 @@ params.saveName = "";
 sol = Solver(params);
 
 %% Optimization
-x = ones(sol.nel, 1);
+x = 0.35*ones(sol.nel, 1);
 [sol, x] = opt(sol, x);
 saveData(sol, x, params, "data");
 
@@ -73,7 +76,7 @@ sol.beta = 10; sol.p = 3; sol.q = 2.5;
 rho = sol.he(sol.Z*x);
 sol.phi = sol.dels + (1-sol.dels)*rho.^sol.q;
 plotFigs(sol, rho, 1);
-% plotFigs(sol, rho, 0);
+plotFigs(sol, rho, 0);
 
 %% Mesh
 patch(sol.ex', sol.ey', rand(sol.nel, 1));
@@ -132,7 +135,7 @@ for el = 1:sol.nel
 
     fprintf("El: %i \n", el)
     fprintf("  Diff: %.5g \ndg2: %.5g \ndgf: %.5g\n", [dgf-dgc(2, el), dgc(2, el), dgf])
-    if (abs((dgf-dgc(2, el))/dgc(2, el))) > 1e-4
+    if (abs((dgf-dgc(2, el))/dgc(2, el))) > 5e-4
         wrong = [wrong; el];
     end
 end

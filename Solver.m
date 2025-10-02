@@ -103,7 +103,8 @@ classdef Solver
             Hco = 1/2*(-1/p.sigy01^2+1/p.sigy02^2+1/p.sigy03^2);
             obj.sigy0 = sqrt(3/(2*(Fco+Gco+Hco)));
             Lco = 3/(2*obj.sigy0^2);
-            obj.sigm = p.sigc*obj.sigy0;
+            obj.sigm = p.sigc*obj.sigy0*ones(obj.nel, 1);
+            obj.sigm(obj.elZone) = p.sigc*obj.sigy0*50;
 
             if 4/(p.sigy01^2*p.sigy02^2) <= (1/p.sigy03^2-(1/p.sigy01^2+1/p.sigy02^2))^2
                 error("Not positive definite")
@@ -255,7 +256,7 @@ classdef Solver
                     dgt0dep(ix) = -ap(eix)'*dR1depe;
                     dR1dep(obj.endof*(ix-1)+1:obj.endof*ix) = dR1depe; 
                     
-                    if obj.stressCon && ~ismember(el, obj.elZone)
+                    if obj.stressCon %&& ~ismember(el, obj.elZone)
                         sigP = obj.sig(ix, :)*obj.P;
                         sigb(el) = sigb(el) + sigP*obj.sig(ix, :)'/obj.ngp;
                         dsigbdx(el) = dsigbdx(el) + obj.sigy0^2*sigP*dDsdx*obj.eps(ix, :)'/obj.ngp;
@@ -267,9 +268,9 @@ classdef Solver
                 dgt0dx(el) = -ap(eix)'*dR1dxe;
                 dR1dx(obj.endof*(el-1)+1:obj.endof*el) = dR1dxe; 
                 
-                if obj.stressCon && ~ismember(el, obj.elZone)
+                if obj.stressCon %&& ~ismember(el, obj.elZone)
                     sigb(el) = obj.sigy0*sqrt(sigb(el));
-                    dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el) = dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el)/sigb(el)/obj.phi(el);
+                    dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el) = dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el)/sigb(el)/obj.phi(el)/obj.sigm(el);
                 end
             end
             dgt0da = -obj.a(obj.pdof)'*obj.K(obj.pdof, obj.fdof);
@@ -296,22 +297,22 @@ classdef Solver
                 dgc = dg1;
                 cp = [];
             else
-                sigp = norm(sigb./obj.phi, obj.pnm);
-                dgt2dx = obj.cp/obj.sigm*(sigb./obj.phi/sigp).^(obj.pnm - 1).*(dsigbdx./sigb.*obj.phi - sigb.*dphi)./obj.phi.^2;
-                dgt2da = reshape((obj.cp/obj.sigm*(sigb./obj.phi/sigp).^(obj.pnm - 1).*dsigbda./sigb./obj.phi)', [], 1);
-                dgt2dx(isnan(dgt2dx)) = 0; dgt2da(isnan(dgt2da)) = 0;
-                dgt2da = accumarray(reshape(obj.edof', [], 1), dgt2da, [obj.ndof, 1]);
-                dgt2dep = obj.cp/obj.sigm*(repelem(sigb./obj.phi, obj.ngp)/sigp).^(obj.pnm - 1).*dsigbdep;
+                sigp = norm(sigb./obj.phi./obj.sigm, obj.pnm);
+                dgt2dx = obj.cp*(sigb./obj.phi./obj.sigm/sigp).^(obj.pnm - 1).*(dsigbdx./sigb.*obj.phi - sigb.*dphi)./obj.phi.^2./obj.sigm;
+                dgt2da = obj.cp*(sigb./obj.phi./obj.sigm/sigp).^(obj.pnm - 1).*dsigbda./sigb./obj.phi./obj.sigm;
+                %dgt2dx(obj.elZone) = 0; dgt2da(obj.elZone, :) = 0;
+                dgt2da = accumarray(reshape(obj.edof', [], 1), reshape(dgt2da', [], 1), [obj.ndof, 1]);
+                dgt2dep = obj.cp*(repelem(sigb./obj.phi./obj.sigm, obj.ngp)/sigp).^(obj.pnm - 1).*dsigbdep;
 
                 nut = -dgt2da(obj.fdof)'/obj.K(obj.fdof, obj.fdof);
                 xit = -dgt2dep(pgp)'*idR2dep - nut*dR1dep(obj.fdof, pgp)*idR2dep;
 
-                g2 = obj.cp/obj.sigm*sigp - 1;
+                g2 = obj.cp*sigp - 1;
                 dg2 = (dxH'.*obj.Z'*(dgt2dx' + nut*dR1dx(obj.fdof, :) + xit*dR2dx(pgp, :))')';
                 gc = [g1; g2];
                 dgc = [dg1; dg2];
 
-                cp = obj.ca*max(sigb./obj.phi)/sigp + (1 - obj.ca)*obj.cp;
+                cp = obj.ca*max(sigb./obj.phi./obj.sigm)/sigp + (1 - obj.ca)*obj.cp;
             end
         end
 
@@ -598,6 +599,7 @@ classdef Solver
                 end
                 cosT(x<0.5) = 0;
                 Hc = Hs./(obj.phi*obj.sigy0);
+                Hc(x<0.5) = 0;
 
                 figure;
                 tiledlayout(2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
@@ -611,6 +613,9 @@ classdef Solver
                 axis equal off;
                 axis(obj.axi);
 
+
+                % [~, idx] = maxk(Hs, 10);
+                % Hs(~ismember(1:numel(Hs), idx)) = 0;
                 nexttile;
                 title("Effective Hill Stress", 'Interpreter', 'latex');
                 patch(obj.ex', obj.ey', Hs*1e-6, ...
