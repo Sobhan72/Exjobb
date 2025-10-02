@@ -44,7 +44,7 @@ params.rtol = 1e-4;
 params.PT = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
 % Optimization Parameters
-params.re = 8; %6% Elements in radius (dubblerad)
+params.re = 6; % Elements in radius (dubblerad)
 params.filtOn = true;
 params.p = 1.5; %3;
 params.q = 1; %2,5;
@@ -57,6 +57,7 @@ params.dels = 1e-3;
 %params.ncon = 1; % Nr of constraints
 params.xtol = 1e-5;
 params.iterMax = 1500;
+params.stressFree = 3; % Width of area in elements left of right side where stress is ignored for L-beam
 params.print = [0,0,0];
 params.plots = 0;
 
