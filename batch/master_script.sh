@@ -1,7 +1,7 @@
 #!/bin/sh
 # requesting the number of nodes needed
 #SBATCH -A lu2025-2-33
-#SBATCH -N 2
+#SBATCH -N 4
 #SBATCH --tasks-per-node=36
 
 # job time, change for what your job farm requires
