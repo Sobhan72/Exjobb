@@ -19,10 +19,10 @@ classdef Solver
         sigm; cp; ca
         del; dels; p; q; ncon
         rampB; rampPQ
-        xtol; iterMax
+        dx; xtol; iterMax
         gam; phi; g0; gc
         sig1N; elZone
-        saveName; prints; plots
+        saveName; prints; plots; design
     end
 
     methods
@@ -76,8 +76,9 @@ classdef Solver
             obj.ncon = 1 + obj.stressCon;
             obj.xtol = p.xtol;
             obj.iterMax = p.iterMax;
-            obj.g0 = zeros(obj.iterMax, 1);
-            obj.gc = zeros(obj.iterMax, 1 + obj.stressCon);
+            obj.dx = zeros(obj.iterMax + 1, 1);
+            obj.g0 = zeros(obj.iterMax + 1, 1);
+            obj.gc = zeros(obj.iterMax + 1, 1 + obj.stressCon);
             
             obj.A = p.le^2*ones(obj.nel, 1);
             obj.t = p.t;
@@ -164,20 +165,18 @@ classdef Solver
             a0 = 1; a1 = zeros(obj.ncon,1); c = 1000*ones(obj.ncon,1); d = ones(obj.ncon,1);
             xold1 = []; xold2 = []; low = []; upp = [];
             x(obj.fixDens) = 1;
-            dx = 1;
             iter = 1;
-            while dx > obj.xtol || any(obj.gc(iter, :) > 0) || iter < 400
+            while obj.dx(iter) > obj.xtol || any(obj.gc(iter, :) > 0) || iter < 400
                 if iter == obj.iterMax + 1
-                    iter = obj.iterMax;
                     fprintf("\n\nMax iteration count reached\n")
                     break
                 elseif mod(iter, 10) == 0
-                    if obj.rampB == 1 && obj.beta < 10
-                        obj.beta = obj.beta*1.1;
+                    if obj.rampB(1) == 1 && obj.beta < obj.rampB(2)
+                        obj.beta = obj.beta*obj.rampB(3);
                     end
-                    if obj.rampPQ && obj.p < 3
-                        obj.p = obj.p + 0.1;
-                        obj.q = obj.q + 0.1;
+                    if obj.p < obj.rampPQ(1)
+                        obj.p = obj.p + obj.rampPQ(2);
+                        obj.q = obj.q + obj.rampPQ(2);
                     end
                 end
                 obj = init(obj, x);
@@ -191,26 +190,31 @@ classdef Solver
                 xold2 = xold1;
                 xold1 = x;
   
-                dx = norm(xmma - x, inf);
-                if obj.rampB == 2 && dx < obj.xtol*5
-                    obj.rampB = 1;
+                obj.dx(iter) = norm(xmma - x, inf);
+                if obj.rampB(1) == 2 && obj.dx(iter) < obj.xtol*10
+                    obj.rampB(1) = 1;
                     warning("Heavi ramp on")
                 end
+
                 x = xmma;
                 rho = he(obj, obj.Z*x);
                 if obj.plots
+                    if iter == 1
+                        obj.design = figure;
+                    end
                     plotFigs(obj, rho, 1);
                 end
                 fprintf("Opt iter: %i\n", iter)
                 if obj.stressCon
-                    fprintf("  g0: %.2g, g1: %.2g, g2: %.2g, dx: %.2g\n", [s*obj.g0(iter), obj.gc(iter, 1), obj.gc(iter, 2), dx])
+                    fprintf("  g0: %.2g, g1: %.2g, g2: %.2g, dx: %.2g\n", [s*obj.g0(iter), obj.gc(iter, 1), obj.gc(iter, 2), obj.dx(iter)])
                 else
-                    fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [s*obj.g0(iter), obj.gc(iter, 1), dx])
+                    fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [s*obj.g0(iter), obj.gc(iter, 1), obj.dx(iter)])
                 end
                 iter = iter + 1;
             end
-            obj.g0 = obj.g0(1:iter);
-            obj.gc = obj.gc(1:iter, :);
+            obj.dx = obj.dx(1:iter-1);
+            obj.g0 = s*obj.g0(1:iter-1);
+            obj.gc = obj.gc(1:iter-1, :);
             if obj.plots
                 plotFigs(obj, rho, 0);
             end
@@ -581,6 +585,10 @@ classdef Solver
 
         function plotFigs(obj, x, flag)
             if flag
+                if isempty(obj.design)
+                    obj.design = figure;
+                end
+                figure(obj.design);
                 clf;
                 colormap(flipud(gray(256)));
                 patch(obj.ex', obj.ey', x, ...
@@ -661,7 +669,7 @@ classdef Solver
                     yyaxis left;
                     plot((10:iter)', -obj.g0(10:end), 'r:', 'LineWidth', 2);
                     ylabel('g0 objective');
-                    ylim([0 round(max(-obj.g0(10:end))+100, -2)]);
+                    ylim([round(min(-obj.g0(10:end))-6, -1) round(max(-obj.g0(10:end)+5), -1)]);
                     ax = gca;
                     ax.YColor = 'k';
 
@@ -677,11 +685,19 @@ classdef Solver
                         legend('Stiffness', 'Volume');
                     end
                     hold off
-                    ylim([-0.5 0.5]);
+                    ylim([-0.05 0.05]);
                     ax = gca;
                     ax.YColor = 'k';
                     xlabel('Iteration');
-                    title("Convergence Plot");
+                    title('Convergence Plot');
+                    grid on;
+
+                    figure;
+                    plot((10:iter)', obj.dx(10:end), 'b', 'LineWidth', 2);
+                    ylim([0 ceil(max(obj.dx)*11)/11]);
+                    xlabel('Iteration');
+                    ylabel('dx')
+                    title('Design Change Plot');
                     grid on;
                 end
             end
@@ -708,9 +724,13 @@ classdef Solver
 
     methods (Static)
         function out = assignVar(in, out)
-            fields = {'ex', 'ey', 'ngp', 'nel', 'sig', 'P', 'sigy0', 'sig1N', 'ep', 'g0', 'gc'};
+            fields = {'ex', 'ey', 'ngp', 'nel', 'sig', 'P', 'sigy0', 'sig1N', 'ep', 'g0', 'gc', 'dx'};
             for i = 1:numel(fields)
-                out.(fields{i}) = in.(fields{i});
+                if isfield(in, fields{i})
+                    out.(fields{i}) = in.(fields{i});
+                else
+                    out.(fields{i}) = ones(length(in.g0), 1);
+                end
             end
         end
 
