@@ -9,14 +9,13 @@ sigc_values = [0.01, 0.1, 0.3, 0.5];
 
 % x_values   = [0, 0, 0.7, 0.8, 0.9, 1.0];
 x_values   = [0, 0.8, 1.0];
-disp_values = [-1e-3, -9e-4, -8e-4];
+disp_values = [-1.2e-3, -1.4e-3, -1.6e-3];
+%disp_values = [-1e-3, 9e-4, -8e-4];
 
 n_cases = 3;
 count = 0;
 
 %ANISOTROPIC CASES
-for c = 1:length(sigc_values)
-    params.sigc = sigc_values(c);
 for i = 1:length(x_values)
     x = x_values(i);
 
@@ -64,10 +63,9 @@ for i = 1:length(x_values)
         end
     end
 end
-end
 
 %ISOTROPIC CASES
-clearvars -except count E x_values disp_values sigc_values
+clearvars -except count E x_values disp_values
 
 v = 0.3;
 params.sigy01 = 360e6;
@@ -80,8 +78,6 @@ params.v12 = v;
 params.v13 = v;
 params.v23 = v;
 
-for c = 1:length(sigc_values)
-    params.sigc = sigc_values(c);
 for i = 1:length(x_values)
     x = x_values(i);
 
@@ -99,7 +95,7 @@ for i = 1:length(x_values)
 
     end
 end
-end
+
 
 
 % %% Batch 

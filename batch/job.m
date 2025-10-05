@@ -18,11 +18,11 @@ params.ngp = 4;
 
 params.stressCon = 1;
 params.pnm = 8;
-params.sigc = 1.2; %360e6; % Max stress for constraint
+params.sigc = 1.05; %360e6; % Max stress for constraint
 params.ngr = 1;
 
 params.R1tol = 1e-2;
-params.N = 3;
+params.N = 5;
 params.disp = -9e-4; % displacement [nodes total-size]
 
 % Material parameters
@@ -50,8 +50,8 @@ params.p = 1.5; %3;
 params.q = 1; %2,5;
 params.eta = 0.5;
 params.beta = 0.1;
-params.rampB = 2; % 0: off, 1: B*1.1, 2: B + 1
-params.rampPQ = true;
+params.rampB = [2, 10, 1.1]; % [0/1/2, end value, factor size]  (0: off, 1: on, 2: on after simp converges)
+params.rampPQ = [3, 0.1]; % [end value of p, increment size]
 params.del = 1e-9;
 params.dels = 1e-3;
 %params.ncon = 1; % Nr of constraints

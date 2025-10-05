@@ -726,7 +726,7 @@ classdef Solver
         function out = assignVar(in, out)
             fields = {'ex', 'ey', 'ngp', 'nel', 'sig', 'P', 'sigy0', 'sig1N', 'ep', 'g0', 'gc', 'dx'};
             for i = 1:numel(fields)
-                if isfield(in, fields{i})
+                if isfield(in, fields{i}) || isprop(in, fields{i})
                     out.(fields{i}) = in.(fields{i});
                 else
                     out.(fields{i}) = ones(length(in.g0), 1);
