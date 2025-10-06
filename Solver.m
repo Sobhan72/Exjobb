@@ -14,7 +14,7 @@ classdef Solver
         R1; R1tol; N
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
-        Z; filtOn; eta; beta
+        Z; Zp; filtOn; eta; beta
         stressCon; pnm
         sigm; cp; ca
         del; dels; p; q; ncon
@@ -45,8 +45,7 @@ classdef Solver
             elseif p.loadcase == 3 % L-beam
                 obj.disp(:,1) =  bc(bc(:,2) == 1, 1);
                 obj.disp = [obj.disp, p.disp*ones(size(obj.disp))];
-                obj.bcS = bc(bc(:,2) == 0, 1);
-                obj.bcS = [obj.bcS, zeros(size(obj.bcS))];
+                obj.bcS = bc(bc(:,2) == 0, :);
             else
                 error("Load case doesn't exist");
             end
@@ -57,7 +56,8 @@ classdef Solver
             obj.prints = p.print;
             obj.plots = p.plots;
             obj.filtOn = p.filtOn;
-            obj.Z = filterMatrix(obj, p.le, p.re);
+            pc = obj.padding(p.lx, p.ly, p.le, p.wx, p.wy, p.re, p.loadcase, p.pad);
+            [obj.Z, obj.Zp] = filterMatrix(obj, p.le, p.re, pc);
             obj.p = p.p;
             obj.q = p.q;
             obj.eta = p.eta;
@@ -165,9 +165,13 @@ classdef Solver
             a0 = 1; a1 = zeros(obj.ncon,1); c = 1000*ones(obj.ncon,1); d = ones(obj.ncon,1);
             xold1 = []; xold2 = []; low = []; upp = [];
             x(obj.fixDens) = 1;
-            iter = 1;
-            while obj.dx(iter) > obj.xtol || any(obj.gc(iter, :) > 0) || iter < 400
+            iter = 0;
+            criteria = true;
+
+            while criteria
+                iter = iter + 1;
                 if iter == obj.iterMax + 1
+                    iter = obj.iterMax;
                     fprintf("\n\nMax iteration count reached\n")
                     break
                 elseif mod(iter, 10) == 0
@@ -191,13 +195,15 @@ classdef Solver
                 xold1 = x;
   
                 obj.dx(iter) = norm(xmma - x, inf);
+                criteria = obj.dx(iter) > obj.xtol || any(obj.gc(iter, :) > 0) || obj.p < obj.rampPQ(1) || obj.rampB(1) == 2;
+
                 if obj.rampB(1) == 2 && obj.dx(iter) < obj.xtol*10
                     obj.rampB(1) = 1;
                     warning("Heavi ramp on")
                 end
 
                 x = xmma;
-                rho = he(obj, obj.Z*x);
+                rho = he(obj, (obj.Z*x + obj.Zp));
                 if obj.plots
                     if iter == 1
                         obj.design = figure;
@@ -210,11 +216,10 @@ classdef Solver
                 else
                     fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [s*obj.g0(iter), obj.gc(iter, 1), obj.dx(iter)])
                 end
-                iter = iter + 1;
             end
-            obj.dx = obj.dx(1:iter-1);
-            obj.g0 = s*obj.g0(1:iter-1);
-            obj.gc = obj.gc(1:iter-1, :);
+            obj.dx = obj.dx(1:iter);
+            obj.g0 = s*obj.g0(1:iter);
+            obj.gc = obj.gc(1:iter, :);
             if obj.plots
                 plotFigs(obj, rho, 0);
             end
@@ -233,7 +238,7 @@ classdef Solver
             dsigbdep = zeros(obj.tgp, 1);
             dsigbda = zeros(obj.nel, obj.endof);
             
-            [x, dxH] = he(obj, obj.Z*x);
+            [x, dxH] = he(obj, (obj.Z*x + obj.Zp));
             dgam = obj.p*(1-obj.del)*x.^(obj.p-1);
             dphi = obj.q*(1-obj.dels)*x.^(obj.q-1);
             th = (dgam.*obj.phi - dphi.*obj.gam)./obj.phi.^2;
@@ -260,7 +265,7 @@ classdef Solver
                     dgt0dep(ix) = -ap(eix)'*dR1depe;
                     dR1dep(obj.endof*(ix-1)+1:obj.endof*ix) = dR1depe; 
                     
-                    if obj.stressCon %&& ~ismember(el, obj.elZone)
+                    if obj.stressCon
                         sigP = obj.sig(ix, :)*obj.P;
                         sigb(el) = sigb(el) + sigP*obj.sig(ix, :)'/obj.ngp;
                         dsigbdx(el) = dsigbdx(el) + obj.sigy0^2*sigP*dDsdx*obj.eps(ix, :)'/obj.ngp;
@@ -272,7 +277,7 @@ classdef Solver
                 dgt0dx(el) = -ap(eix)'*dR1dxe;
                 dR1dx(obj.endof*(el-1)+1:obj.endof*el) = dR1dxe; 
                 
-                if obj.stressCon %&& ~ismember(el, obj.elZone)
+                if obj.stressCon
                     sigb(el) = obj.sigy0*sqrt(sigb(el));
                     dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el) = dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el)/sigb(el)/obj.phi(el)/obj.sigm(el);
                 end
@@ -304,7 +309,6 @@ classdef Solver
                 sigp = norm(sigb./obj.phi./obj.sigm, obj.pnm);
                 dgt2dx = obj.cp*(sigb./obj.phi./obj.sigm/sigp).^(obj.pnm - 1).*(dsigbdx./sigb.*obj.phi - sigb.*dphi)./obj.phi.^2./obj.sigm;
                 dgt2da = obj.cp*(sigb./obj.phi./obj.sigm/sigp).^(obj.pnm - 1).*dsigbda./sigb./obj.phi./obj.sigm;
-                %dgt2dx(obj.elZone) = 0; dgt2da(obj.elZone, :) = 0;
                 dgt2da = accumarray(reshape(obj.edof', [], 1), reshape(dgt2da', [], 1), [obj.ndof, 1]);
                 dgt2dep = obj.cp*(repelem(sigb./obj.phi./obj.sigm, obj.ngp)/sigp).^(obj.pnm - 1).*dsigbdep;
 
@@ -320,7 +324,7 @@ classdef Solver
             end
         end
 
-        function Z = filterMatrix(obj, le, re)
+        function [Z, Zp] = filterMatrix(obj, le, re, pc)
             if obj.filtOn
                 ec = [obj.ex(:, 1) + le/2, obj.ey(:, 1) + le/2];
                 I = zeros(obj.nel*(2*re)^2, 3);
@@ -328,18 +332,25 @@ classdef Solver
                 weights = max(0, 1 - sqrt(x.^2 + y.^2)/re);
                 sw = sum(weights(:));
                 r0 = le*re;
+                Zp = zeros(obj.nel, 1);
                 i = 0;
                 for ii = 1:obj.nel
                     r = vecnorm(ec - ec(ii, :), 2, 2);
-                    ix = find(r < r0);
+                    ix = find(r - r0 < 0);
                     ixn = length(ix);
                     w = 1-r(ix)/r0;
                     I(i+1:i+ixn, :) = [ii*ones(ixn, 1), ix, w/sw];
                     i = i + ixn;
+                    if ~isnan(pc)
+                        rp = vecnorm(pc(:, 1:2) - ec(ii, :), 2, 2);
+                        ixp = find(rp - r0 < 0);
+                        Zp(ii) = pc(ixp, 3)'*(1-rp(ixp)/r0)/sw;
+                    end
                 end
                 Z = sparse(I(1:i, 1), I(1:i, 2), I(1:i, 3), obj.nel, obj.nel);
             else
                 Z = speye(obj.nel);
+                Zp = zeros(obj.nel, 1);
             end
         end
 
@@ -351,6 +362,7 @@ classdef Solver
                 dxH = ones(obj.nel, 1);
             end
         end
+
         %% FEM
         function obj = newt(obj) % Newton-Raphson method
             tdisp = abs(obj.disp(1, 2)*obj.N); cdisp = obj.disp; idisp = 0; pn = obj.N;
@@ -560,7 +572,7 @@ classdef Solver
         %% Misc. Function
         function obj = init(obj, x)
             if nargin == 2
-                x = he(obj, obj.Z*x);
+                x = he(obj, (obj.Z*x + obj.Zp));
                 obj.gam = obj.del + (1-obj.del)*x.^obj.p;
                 obj.phi = obj.dels + (1-obj.dels)*x.^obj.q;
             end
@@ -738,6 +750,53 @@ classdef Solver
             nR = ly/le + 1;
             fix = [ndof/nR*(1:nR)'; ndof/nR*(1:nR)'-1];
             bc = [bc; [fix zeros(2*nR,1)]];
+        end
+
+        function pc = padding(lx, ly, le, wx, wy, re, loadcase, pad)
+            if loadcase == 3 && pad
+                XC = {le/2:le:lx+le*(re-0.5), lx+le/2:le:lx+le*(re-0.5), lx-le/2:-le:wy+le/2,...
+                     wy+le/2:le:wy+le*(re-0.5), wy-le/2:-le:-le*(re-0.5), -le/2:-le:-le*(re-0.5)};
+                YC = {-le/2:-le:-le*(re-0.5), le/2:le:wx+le*(re-0.5), wx+le/2:le:wx+le*(re-0.5),...
+                     wx+le*(re+0.5):le:ly+le*(re-0.5), ly+le/2:le:ly+le*(re-0.5), ly-le/2:-le:-le*(re-0.5)};
+                lenX = cellfun(@numel, XC);
+                lenY = cellfun(@numel, YC);
+                pc = zeros(lenX*lenY', 3);
+                nP = 1;
+                for i = 1:6
+                    nX = numel(XC{i});
+                    nY = numel(YC{i});
+                    pc(nP:nP+nX*nY-1, 1) = repelem(XC{i}, nY);
+                    pc(nP:nP+nX*nY-1, 2) = repmat(YC{i}, 1, nX);
+                    nP = nP + numel(XC{i})*numel(YC{i});
+                end
+                pc(:, 3) = double(pc(:,1) > lx  & abs(pc(:, 2) - wx/2) < 2*le);
+            else
+                pc = NaN;
+            end
+        end
+        
+        function drawDesign(sol, val, x, plots)
+            sol = sol.assignVar(val, sol);
+            sol.beta = 10; sol.p = 3; sol.q = 2.5;
+            rho = sol.he(sol.Z*x);
+            sol.phi = sol.dels + (1-sol.dels)*rho.^sol.q;
+            plotFigs(sol, rho, 1);
+            if ~plots
+                plotFigs(sol, rho, 0);
+            end
+        end
+        
+        function drawMultipleDesigns(JOB)
+            path = fullfile("batch", sprintf("JOB_%s", JOB));
+            jobs = dir(fullfile(path, "**", "*.mat"));
+            for i=1:length(jobs)
+                load(fullfile(jobs(i).folder, jobs(i).name), "params", "val", "x");
+                if i == 1
+                    sol = Solver(params);
+                end
+                sol.drawDesign(sol, val, x, 1);
+                title(jobs(i).name, 'Interpreter', 'none')
+            end
         end
     end
 end
