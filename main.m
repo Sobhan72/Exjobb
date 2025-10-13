@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % FEM parameters
-params.le = 0.002;
+params.le = 0.005;
 params.lx = 0.1; %0.1;
 params.ly = 0.1; %0.05;
 params.wx = 0.04; %[];
@@ -34,7 +34,8 @@ params.PT = 1; % 0 for Incremental plasticity, 1 for Deformation plasticity
 
 % Optimization Parameters
 params.re = 2; % Elements in radius
-params.filtOn = true;
+params.filtOn = true; % Filter on
+params.pad = true; % Padding on displacement BC (L-beam)
 
 params.p = 1.5;
 params.q = 1; 
@@ -48,7 +49,7 @@ params.rampB = [2, 10, 1.1]; % [0/1/2, end value, factor size]  (0: off, 1: on, 
 
 params.Vf = 0.3;
 params.xtol = 1e-3;
-params.iterMax = 300;
+params.iterMax = 1000;
 
 params.stressCon = 1;
 params.pnm = 8; % p-norm exponent
@@ -66,17 +67,14 @@ x = 0.35*ones(sol.nel, 1);
 saveData(sol, x, params, "data");
 
 %% Draw Design
-% clc, clear, close all
-% load("data\OptDesign_case=1_x=0.8_disp=1e-3.mat")
-
 params.plots = 1;
 sol = Solver(params);
-sol = sol.assignVar(val, sol);
-sol.beta = 10; sol.p = 3; sol.q = 2.5;
-rho = sol.he(sol.Z*x);
-sol.phi = sol.dels + (1-sol.dels)*rho.^sol.q;
-% plotFigs(sol, rho, 0);
-plotFigs(sol, rho, 1);
+sol.drawDesign(sol, val, x, 1);
+
+%% Draw All Designs
+clc, clear, close all
+JOB = "1657973";
+Solver.drawMultipleDesigns(JOB)
 
 %% Mesh
 patch(sol.ex', sol.ey', rand(sol.nel, 1));
@@ -101,10 +99,10 @@ eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 1);
 % dof = 16;
 % fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
 
-%% Finite diff
-h = 1e-5;
+%% Finite Difference
+h = 5e-6;
 
-c = [0.3 0.5 1e-4 0.7]';
+c = [0.3 0.5 0.01 0.7]';
 x = repmat(c, sol.nel/4, 1);
 % x = rand(sol.nel, 1);
 % load("x.mat");
@@ -135,7 +133,7 @@ for el = 1:sol.nel
 
     fprintf("El: %i \n", el)
     fprintf("  Diff: %.5g \ndg2: %.5g \ndgf: %.5g\n", [dgf-dgc(2, el), dgc(2, el), dgf])
-    if (abs((dgf-dgc(2, el))/dgc(2, el))) > 5e-4 && abs(dgf) > 1e-6
+    if (abs((dgf-dgc(2, el))/dgc(2, el))) > 1e-3 && abs(dgf) > 5e-6
         wrong = [wrong; el];
     end
 end

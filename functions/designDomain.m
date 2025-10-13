@@ -150,7 +150,7 @@ else
             bc = [bc; 2*i - 1, 0; 2*i, 0];
         end
 
-        if abs(coord(i,1) - L) < 1e-6 && abs(coord(i,2) - Wx/2) <= 2*le
+        if abs(coord(i,1) - L) < 1e-6 && abs(coord(i,2) - Wx/2) <= 2*le + 1e-6
             bc = [bc; 2*i, 1];
         end
         

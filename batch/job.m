@@ -22,7 +22,7 @@ params.sigc = 1.05; %360e6; % Max stress for constraint
 params.ngr = 1;
 
 params.R1tol = 1e-2;
-params.N = 5;
+params.N = 3;
 params.disp = -9e-4; % displacement [nodes total-size]
 
 % Material parameters
@@ -46,17 +46,18 @@ params.PT = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 % Optimization Parameters
 params.re = 6; % Elements in radius (dubblerad)
 params.filtOn = true;
+params.pad = true;
 params.p = 1.5; %3;
 params.q = 1; %2,5;
 params.eta = 0.5;
 params.beta = 0.1;
 params.rampB = [2, 10, 1.1]; % [0/1/2, end value, factor size]  (0: off, 1: on, 2: on after simp converges)
-params.rampPQ = [3, 0.1]; % [end value of p, increment size]
+params.rampPQ = [4, 0.1]; % [end value of p, increment size]
 params.del = 1e-9;
 params.dels = 1e-3;
 %params.ncon = 1; % Nr of constraints
 params.xtol = 1e-3;
-params.iterMax = 1500;
+params.iterMax = 1200;
 params.stressFree = 3; % Width of area in elements left of right side where stress is ignored for L-beam
 params.print = [0,0,0];
 params.plots = 0;
