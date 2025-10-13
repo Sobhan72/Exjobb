@@ -789,7 +789,6 @@ classdef Solver
         function drawMultipleDesigns(JOB)
             path = fullfile("batch", sprintf("JOB_%s", JOB));
             jobs = dir(fullfile(path, "**", "*.mat"));
-            jobs = jobs(~strcmp({jobs.name}, "input.mat"));
             for i=1:length(jobs)
                 load(fullfile(jobs(i).folder, jobs(i).name), "params", "val", "x");
                 if i == 1
