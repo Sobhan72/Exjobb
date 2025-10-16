@@ -145,12 +145,17 @@ else
     % Boundary conditions: fix top edge (y = L) and disp on x = L
     L = max(coord(:,2));
     bc = [];
+    if 3e-3/le < 2
+        bl = 2*le;
+    else
+       bl = 3e-3;
+    end
     for i = 1:nnod
         if abs(coord(i,2) - L) < 1e-6
             bc = [bc; 2*i - 1, 0; 2*i, 0];
         end
 
-        if abs(coord(i,1) - L) < 1e-6 && abs(coord(i,2) - Wx/2) <= 2*le + 1e-6
+        if abs(coord(i,1) - L) < 1e-6 && abs(coord(i,2) - Wx/2) <= bl + 1e-6
             bc = [bc; 2*i, 1];
         end
         

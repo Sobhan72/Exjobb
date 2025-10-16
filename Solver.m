@@ -14,8 +14,8 @@ classdef Solver
         R1; R1tol; N
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
-        Z; Zp; filtOn; eta; beta
-        stressCon; pnm
+        Z; Zp; pc; filtOn; eta; beta
+        stressCon; pnm; mmaVals
         sigm; cp; ca
         del; dels; p; q; ncon
         rampB; rampPQ
@@ -50,14 +50,14 @@ classdef Solver
                 error("Load case doesn't exist");
             end
             obj.disp(:, 2) = obj.disp(:, 2)/obj.N;
-            % obj.fixDens = find(any(ismember(obj.edof,obj.disp(:,1)),2));
+            %obj.fixDens = find(any(ismember(obj.edof,obj.disp(:,1)),2));
 
             obj.saveName = p.saveName;
             obj.prints = p.print;
-            obj.plots = p.plots;
+            if isfield(p, 'plots'); obj.plots = p.plots; else; obj.plots = 1; end
             obj.filtOn = p.filtOn;
-            pc = obj.padding(p.lx, p.ly, p.le, p.wx, p.wy, p.re, p.loadcase, p.pad);
-            [obj.Z, obj.Zp] = filterMatrix(obj, p.le, p.re, pc);
+            obj.pc = obj.padding(p.lx, p.ly, p.le, p.wx, p.wy, p.re, p.loadcase, p.pad);
+            [obj.Z, obj.Zp] = filterMatrix(obj, p.le, p.re, obj.pc);
             obj.p = p.p;
             obj.q = p.q;
             obj.eta = p.eta;
@@ -70,6 +70,7 @@ classdef Solver
             obj.cp = 1;
             obj.ca = 1;
             obj.elZone = find(obj.ex(:, 1) >= p.lx - p.le*(p.stressFree + 1e-3));
+            if isfield(p, 'mmaEnd'); obj.mmaVals = [p.mmaEnd p.mma]; else; obj.mmaVals = [0, 0.5, 10, 0.01, 0.5, 10, 0.01]; end
 
             obj.del = p.del;
             obj.dels = p.dels;
@@ -176,7 +177,11 @@ classdef Solver
                     break
                 elseif mod(iter, 10) == 0
                     if obj.rampB(1) == 1 && obj.beta < obj.rampB(2)
-                        obj.beta = obj.beta*obj.rampB(3);
+                        if obj.beta < 1
+                            obj.beta = obj.beta + 0.3;
+                        else
+                            obj.beta = obj.beta*obj.rampB(3);
+                        end
                     end
                     if obj.p < obj.rampPQ(1)
                         obj.p = obj.p + obj.rampPQ(2);
@@ -190,14 +195,14 @@ classdef Solver
                     s = abs(100/obj.g0(1));
                 end
                 [xmma,~,~,~,~,~,~,~,~,low,upp] = mmasub(obj.ncon, obj.nel, iter, x, zeros(obj.nel, 1), ones(obj.nel, 1), ...
-                                                            xold1, xold2, s*obj.g0(iter), s*dg0, obj.gc(iter, :)', dgc, low, upp, a0, a1, c, d);
+                                                            xold1, xold2, s*obj.g0(iter), s*dg0, obj.gc(iter, :)', dgc, low, upp, a0, a1, c, d, obj.mmaVals);
                 xold2 = xold1;
                 xold1 = x;
   
                 obj.dx(iter) = norm(xmma - x, inf);
                 criteria = obj.dx(iter) > obj.xtol || any(obj.gc(iter, :) > 0) || obj.p < obj.rampPQ(1) || obj.rampB(1) == 2;
 
-                if obj.rampB(1) == 2 && obj.dx(iter) < obj.xtol*10
+                if obj.rampB(1) == 2 && (obj.dx(iter) < obj.xtol*10 || iter > obj.rampPQ(1)/obj.rampPQ(2)*10 - 50)
                     obj.rampB(1) = 1;
                     warning("Heavi ramp on")
                 end
@@ -682,8 +687,8 @@ classdef Solver
                     plot((10:iter)', -obj.g0(10:end), 'r:', 'LineWidth', 2);
                     ylabel('g0 objective');
                     ylim([round(min(-obj.g0(10:end))-6, -1) round(max(-obj.g0(10:end)+5), -1)]);
-                    ax = gca;
-                    ax.YColor = 'k';
+                    %ax = gca;
+                    %ax.YColor = 'k';
 
                     yyaxis right;
                     hold on
@@ -698,8 +703,8 @@ classdef Solver
                     end
                     hold off
                     ylim([-0.05 0.05]);
-                    ax = gca;
-                    ax.YColor = 'k';
+                    %ax = gca;
+                    %ax.YColor = 'k';
                     xlabel('Iteration');
                     title('Convergence Plot');
                     grid on;
@@ -736,12 +741,14 @@ classdef Solver
 
     methods (Static)
         function out = assignVar(in, out)
-            fields = {'ex', 'ey', 'ngp', 'nel', 'sig', 'P', 'sigy0', 'sig1N', 'ep', 'g0', 'gc', 'dx'};
+            fields = {'ex', 'ey', 'ngp', 'nel', 'sig', 'P', 'sigy0', 'sig1N', 'ep', 'g0', 'gc', 'dx', 'beta'};
             for i = 1:numel(fields)
                 if isfield(in, fields{i}) || isprop(in, fields{i})
                     out.(fields{i}) = in.(fields{i});
-                else
+                elseif strcmp(fields{i}, 'dx')
                     out.(fields{i}) = ones(length(in.g0), 1);
+                elseif strcmp(fields{i}, 'beta')
+                    out.(fields{i}) = 10;
                 end
             end
         end
@@ -769,7 +776,12 @@ classdef Solver
                     pc(nP:nP+nX*nY-1, 2) = repmat(YC{i}, 1, nX);
                     nP = nP + numel(XC{i})*numel(YC{i});
                 end
-                pc(:, 3) = double(pc(:,1) > lx  & abs(pc(:, 2) - wx/2) < 2*le);
+                if 3e-3/le < 2
+                    bl = 2*le;
+                else
+                   bl = 3e-3;
+                end
+                pc(:, 3) = double(pc(:,1) > lx  & abs(pc(:, 2) - wx/2) < bl + 2*le);
             else
                 pc = NaN;
             end
@@ -777,7 +789,6 @@ classdef Solver
         
         function drawDesign(sol, val, x, plots)
             sol = sol.assignVar(val, sol);
-            sol.beta = 10; sol.p = 3; sol.q = 2.5;
             rho = sol.he(sol.Z*x);
             sol.phi = sol.dels + (1-sol.dels)*rho.^sol.q;
             plotFigs(sol, rho, 1);

@@ -3,21 +3,21 @@
 %    Copyright (C) 2007, 2008 Krister Svanberg
 %
 %    This file, mmasub.m, is part of GCMMA-MMA-code.
-%    
+%
 %    GCMMA-MMA-code is free software; you can redistribute it and/or
-%    modify it under the terms of the GNU General Public License as 
-%    published by the Free Software Foundation; either version 3 of 
+%    modify it under the terms of the GNU General Public License as
+%    published by the Free Software Foundation; either version 3 of
 %    the License, or (at your option) any later version.
-%    
+%
 %    This code is distributed in the hope that it will be useful,
 %    but WITHOUT ANY WARRANTY; without even the implied warranty of
 %    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 %    GNU General Public License for more details.
-%    
+%
 %    You should have received a copy of the GNU General Public License
-%    (file COPYING) along with this file.  If not, see 
+%    (file COPYING) along with this file.  If not, see
 %    <http://www.gnu.org/licenses/>.
-%    
+%
 %    You should have received a file README along with this file,
 %    containing contact information.  If not, see
 %    <http://www.smoptit.se/> or e-mail mmainfo@smoptit.se or krille@math.kth.se.
@@ -26,12 +26,12 @@
 %
 %
 function [xmma,ymma,zmma,lam,xsi,eta,mu,zet,s,low,upp] = ...
-mmasub(m,n,iter,xval,xmin,xmax,xold1,xold2, ...
-f0val,df0dx,fval,dfdx,low,upp,a0,a,c,d);
+    mmasub(m,n,iter,xval,xmin,xmax,xold1,xold2, ...
+    f0val,df0dx,fval,dfdx,low,upp,a0,a,c,d,vals)
 %
 %    This function mmasub performs one MMA-iteration, aimed at
 %    solving the nonlinear programming problem:
-%         
+%
 %      Minimize  f_0(x) + a_0*z + sum( c_i*y_i + 0.5*d_i*(y_i)^2 )
 %    subject to  f_i(x) - a_i*z - y_i <= 0,  i = 1,...,m
 %                xmin_j <= x_j <= xmax_j,    j = 1,...,n
@@ -62,7 +62,7 @@ f0val,df0dx,fval,dfdx,low,upp,a0,a,c,d);
 %  a     = Column vector with the constants a_i in the terms a_i*z.
 %  c     = Column vector with the constants c_i in the terms c_i*y_i.
 %  d     = Column vector with the constants d_i in the terms 0.5*d_i*(y_i)^2.
-%       
+%
 %*** OUTPUT:
 %
 %  xmma  = Column vector with the optimal values of the variables x_j
@@ -82,37 +82,41 @@ f0val,df0dx,fval,dfdx,low,upp,a0,a,c,d);
 %  upp   = Column vector with the upper asymptotes, calculated and used
 %          in the current MMA subproblem.
 %
-%epsimin = sqrt(m+n)*10^(-9);
+if iter > vals(1)
+    vals = vals(2:4);
+else
+    vals = vals(5:7);
+end
+
 epsimin = 10^(-7);
 raa0 = 0.00001;
-move = 0.1;
+move = vals(1); %0.5;
 albefa = 0.1;
 asyinit = 0.5;
 asyincr = 1.2;
 asydecr = 0.7;
 eeen = ones(n,1);
 eeem = ones(m,1);
-zeron = zeros(n,1);
 
 % Calculation of the asymptotes low and upp :
 if iter < 2.5
-  low = xval - asyinit*(xmax-xmin);
-  upp = xval + asyinit*(xmax-xmin);
+    low = xval - asyinit*(xmax-xmin);
+    upp = xval + asyinit*(xmax-xmin);
 else
-  zzz = (xval-xold1).*(xold1-xold2);
-  factor = eeen;
-  factor(find(zzz > 0)) = asyincr;
-  factor(find(zzz < 0)) = asydecr;
-  low = xval - factor.*(xold1 - low);
-  upp = xval + factor.*(upp - xold1);
-  lowmin = xval - 10*(xmax-xmin);
-  lowmax = xval - 0.001*(xmax-xmin);
-  uppmin = xval + 0.001*(xmax-xmin);
-  uppmax = xval + 10*(xmax-xmin);
-  low = max(low,lowmin);
-  low = min(low,lowmax);
-  upp = min(upp,uppmax);
-  upp = max(upp,uppmin);
+    zzz = (xval-xold1).*(xold1-xold2);
+    factor = eeen;
+    factor(zzz > 0) = asyincr;
+    factor(zzz < 0) = asydecr;
+    low = xval - factor.*(xold1 - low);
+    upp = xval + factor.*(upp - xold1);
+    lowmin = xval - vals(2)*(xmax-xmin); %10
+    lowmax = xval - vals(3)*(xmax-xmin); %0.01
+    uppmin = xval + vals(3)*(xmax-xmin); %0.01
+    uppmax = xval + vals(2)*(xmax-xmin); %10
+    low = max(low,lowmin);
+    low = min(low,lowmax);
+    upp = min(upp,uppmax);
+    upp = max(upp,uppmin);
 end
 
 % Calculation of the bounds alfa and beta :
@@ -139,8 +143,6 @@ xl2 = xl1.*xl1;
 uxinv = eeen./ux1;
 xlinv = eeen./xl1;
 %
-p0 = zeron;
-q0 = zeron;
 p0 = max(df0dx,0);
 q0 = max(-df0dx,0);
 pq0 = 0.001*(p0 + q0) + raa0*xmamiinv;
@@ -149,8 +151,6 @@ q0 = q0 + pq0;
 p0 = p0.*ux2;
 q0 = q0.*xl2;
 %
-P = sparse(m,n);
-Q = sparse(m,n);
 P = max(dfdx,0);
 Q = max(-dfdx,0);
 PQ = 0.001*(P + Q) + raa0*eeem*xmamiinv';
@@ -162,8 +162,4 @@ b = P*uxinv + Q*xlinv - fval ;
 %
 %%% Solving the subproblem by a primal-dual Newton method
 [xmma,ymma,zmma,lam,xsi,eta,mu,zet,s] = ...
-subsolv(m,n,epsimin,low,upp,alfa,beta,p0,q0,P,Q,a0,a,b,c,d);
-
-
-
-
+    subsolv(m,n,epsimin,low,upp,alfa,beta,p0,q0,P,Q,a0,a,b,c,d);
