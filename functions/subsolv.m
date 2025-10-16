@@ -210,7 +210,8 @@ while epsi > epsimin
         residumax = max(abs(residu));
     end
     if ittt > 198
-        fprintf(epsi, ittt);
+        warning("MMA not converging")
+        fprintf("eps: %.2f, ittt: %.2f\n", epsi, ittt);
     end
     epsi = 0.1*epsi;
 end

@@ -1,7 +1,7 @@
 clc, clear, close all
 
 % FEM parameters
-params.le = 0.0005;
+params.le = 0.001;
 params.lx = 0.1; %0.1;
 params.ly = 0.1; %0.05;
 params.wx = 0.04; %[];
@@ -12,7 +12,7 @@ params.t = 1;
 params.ngp = 4;
 
 params.R1tol = 1e-2;
-params.N = 3; % Loadsteps
+params.N = 5; % Loadsteps
 params.disp = -1.6e-3; % Total displacement 
 
 % Material
@@ -54,7 +54,7 @@ params.iterMax = 1250;
 params.stressCon = 1;
 params.pnm = 8; % p-norm exponent
 params.sigc = 1.15; % Stress constraint factor: sigm = sigy0*sigc
-params.stressFree = 5; % Width of area in elements left of right boundary where stress is ignored for L-beam
+params.stressFree = 15; % Width of area in elements left of right boundary where stress is ignored for L-beam
 params.mma = [0.1, 10, 0.01]; % initial values [move, lower, upper] 
 params.mmaEnd = [350, 0.05, 0.1, 0.001]; % values after iter [iter, move, lower, upper]    
 
@@ -119,11 +119,11 @@ x = repmat(c, sol.nel/4, 1);
 % load("x.mat");
 sol = init(sol, x);
 sol = newt(sol);
-[~, ~, ~, dgc] = funcEval(sol, x);
+[~, dg, ~, dgc] = funcEval(sol, x);
 
 wrong = [];
-% [els, ~] = find(ismember(sol.edof, sol.disp(:, 1)));
-for el = 7000:200:9000
+[~, els] = maxk(dgc(2, :), 10);
+for el = els
     sol1 = Solver(params);
     sol2 = Solver(params);
     x1 = x;
@@ -137,15 +137,16 @@ for el = 7000:200:9000
     sol1 = newt(sol1);
     sol2 = newt(sol2);
 
-    [~, ~, gc1, ~] = funcEval(sol1, x1);
-    [~, ~, gc2, ~] = funcEval(sol2, x2);
+    [g1, ~, gc1, ~] = funcEval(sol1, x1);
+    [g2, ~, gc2, ~] = funcEval(sol2, x2);
 
-    dgf = (gc2(2)-gc1(2))/2/h;
-
+    dgcf = (gc2(2)-gc1(2))/2/h;
+    dgf = (g2-g1)/2/h;
 
     fprintf("El: %i \n", el)
-    fprintf("  Diff: %.5g \ndg2: %.5g \ndgf: %.5g\n", [dgf-dgc(2, el), dgc(2, el), dgf])
-    if (abs((dgf-dgc(2, el))/dgc(2, el))) > 1e-3 && abs(dgf) > 5e-6
+    fprintf("  Diff: %.5g \ndgc2: %.5g \ndgcf: %.5g\n", [dgcf-dgc(2, el), dgc(2, el), dgcf])
+    %fprintf("  Diff: %.5g \ndg: %.5g \ndgf: %.5g\n", [dgf-dg(el), dg(el), dgf])
+    if (abs((dgcf-dgc(2, el))/dgc(2, el))) > 1e-3 && abs(dgcf) > 5e-6
         wrong = [wrong; el];
     end
 end
