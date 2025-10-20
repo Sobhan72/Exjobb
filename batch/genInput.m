@@ -12,7 +12,7 @@ v_base    = [v, 0.5*v, 0.5*v];
 x_values   = [0.35];
 disp_values = [-1.6e-3, -1.8e-3, -2.0e-3];
 %disp_values = [-1e-3, 9e-4, -8e-4];
-noStress = [15];
+noStress = [0, 15];
 
 n_cases = 3;
 count = 0;
