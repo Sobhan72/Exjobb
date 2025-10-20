@@ -70,11 +70,11 @@ saveData(sol, x, params, "data");
 
 %% Draw Design
 sol = Solver(params);
-sol.drawDesign(sol, val, x, 0);
+sol.drawDesign(sol, val, x, 1);
 
 %% Draw All Designs
 clc, clear, close all
-JOB = "1657973";
+JOB = "1673690";
 Solver.drawMultipleDesigns(JOB)
 
 %% Mesh with Padding and Displacement
