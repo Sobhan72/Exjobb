@@ -18,11 +18,13 @@ params.ngp = 4;
 
 params.stressCon = 1;
 params.pnm = 8;
-params.sigc = 1.15; %360e6; % Max stress for constraint
+% params.sigc = 1.15; %360e6; % Max stress for constraint
+params.sigc = 1e-3;
 params.ngr = 1;
 
 params.R1tol = 1e-2;
-params.N = 6;
+% params.N = 6;
+params.N = 1;
 params.disp = -9e-4; % displacement [nodes total-size]
 
 % Material parameters
