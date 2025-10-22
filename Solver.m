@@ -485,7 +485,7 @@ classdef Solver
 
         function a = solveLin(obj,K,f,bc) % Solve FE-equations
             nc = size(f, 2);
-            if nargin == 2
+            if nargin == 3
                 a = K\f;
             else
                 s = K(obj.fdof,obj.fdof)\(f(obj.fdof,:)-K(obj.fdof,bc(:,1))*bc(:,2));
