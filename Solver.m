@@ -21,7 +21,7 @@ classdef Solver
         rampB; rampPQ
         dx; xtol; iterMax
         gam; phi; g0; gc
-        sig1N; elZone
+        sig1N
         saveName; prints; plots; design
     end
 
@@ -53,7 +53,7 @@ classdef Solver
             %obj.fixDens = find(any(ismember(obj.edof,obj.disp(:,1)),2));
 
             obj.saveName = p.saveName;
-            obj.prints = p.print;
+            if isfield(p, 'prints'); obj.prints = p.prints; else; obj.prints = [0,0,0]; end
             if isfield(p, 'plots'); obj.plots = p.plots; else; obj.plots = 1; end
             obj.filtOn = p.filtOn;
             obj.pc = obj.padding(p.lx, p.ly, p.le, p.wx, p.wy, p.re, p.loadcase, p.pad);
@@ -69,7 +69,6 @@ classdef Solver
             obj.pnm = p.pnm;
             obj.cp = 1;
             obj.ca = 1;
-            obj.elZone = find(obj.ex(:, 1) >= p.lx - p.le*(p.stressFree + 1e-3));
             if isfield(p, 'mmaEnd'); obj.mmaVals = [p.mmaEnd p.mma]; else; obj.mmaVals = [0, 0.5, 10, 0.01, 0.5, 10, 0.01]; end
 
             obj.del = p.del;
@@ -105,8 +104,9 @@ classdef Solver
             Hco = 1/2*(-1/p.sigy01^2+1/p.sigy02^2+1/p.sigy03^2);
             obj.sigy0 = sqrt(3/(2*(Fco+Gco+Hco)));
             Lco = 3/(2*obj.sigy0^2);
+            stressFree = find(obj.ex(:, 1) >= p.lx - p.le*(p.stressFree + 1e-3));
             obj.sigm = p.sigc*obj.sigy0*ones(obj.nel, 1);
-            obj.sigm(obj.elZone) = p.sigc*obj.sigy0*50;
+            obj.sigm(stressFree) = p.sigc*obj.sigy0*1e99;
 
             if 4/(p.sigy01^2*p.sigy02^2) <= (1/p.sigy03^2-(1/p.sigy01^2+1/p.sigy02^2))^2
                 error("Not positive definite")
@@ -151,12 +151,14 @@ classdef Solver
             obj.eps = zeros(obj.tgp, 4);
             obj.sig = zeros(obj.tgp, 4);
             obj.ep = zeros(obj.tgp, 1);
+            plasticFree = find(obj.ex(:, 1) >= p.lx - p.le*(p.plasticFree + 1e-3));
             obj.sigy = obj.sigy0*ones(obj.tgp, 1);
-
-            obj.epsi = zeros(obj.tgp, 4);
-            obj.sigi = zeros(obj.tgp, 4);
-            obj.epi = zeros(obj.tgp, 1);
-            obj.sigyi = obj.sigy0*ones(obj.tgp, 1);
+            obj.sigy(plasticFree) = obj.sigy0*1e12;
+            
+            obj.epsi = obj.eps;
+            obj.sigi = obj.sig;
+            obj.epi = obj.ep;
+            obj.sigyi = obj.sigy;
 
             obj.sig1N = zeros(obj.tgp, 8);
         end
@@ -638,8 +640,8 @@ classdef Solver
                 axis equal off;
                 axis(obj.axi);
 
-
-                % [~, idx] = maxk(Hs, 10);
+                % norm(maxk(Hs./obj.phi./obj.sigm, 10), 8)
+                % sigp = norm(Hs./obj.phi./obj.sigm, obj.pnm+8)
                 % Hs(~ismember(1:numel(Hs), idx)) = 0;
                 nexttile;
                 title("Effective Hill Stress", 'Interpreter', 'latex');
@@ -789,7 +791,7 @@ classdef Solver
         
         function drawDesign(sol, val, x, plots)
             sol = sol.assignVar(val, sol);
-            rho = sol.he(sol.Z*x);
+            rho = sol.he(sol.Z*x + sol.Zp);
             sol.phi = sol.dels + (1-sol.dels)*rho.^sol.q;
             plotFigs(sol, rho, 1);
             if ~plots

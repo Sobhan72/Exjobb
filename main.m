@@ -54,17 +54,18 @@ params.iterMax = 1250;
 params.stressCon = 1;
 params.pnm = 8; % p-norm exponent
 params.sigc = 1.15; % Stress constraint factor: sigm = sigy0*sigc
-params.stressFree = 15; % Width of area in elements left of right boundary where stress is ignored for L-beam
+params.stressFree = 0; % Width of area in elements left of right boundary where stress is ignored for L-beam
+params.plasticFree = 15; % Width of area in elements left of right boundary where plasticity is ignored for L-beam
 params.mma = [0.1, 10, 0.01]; % initial values [move, lower, upper] 
 params.mmaEnd = [350, 0.05, 0.1, 0.001]; % values after iter [iter, move, lower, upper]    
 
-params.print = [0,0,0]; % [Load step, R1, R2] 
+params.prints = [0,0,0]; % [Load step, R1, R2] 
 params.plots = 1;
 params.saveName = "";
 sol = Solver(params);
 
 %% Optimization
-x = 0.35*ones(sol.nel, 1);
+x = 0.4*ones(sol.nel, 1);
 [sol, x] = opt(sol, x);
 saveData(sol, x, params, "data");
 
