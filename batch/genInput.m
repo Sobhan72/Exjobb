@@ -1,17 +1,17 @@
 %% Batch
 
 x_values   = [0.35];
-disp_values = [-1.6e-3, -1.4e-3];
-noStress = [0, 3, 10];
+disp_values = [-1.5e-3, -1.3e-3];
+noPlast = [0, 3, 15];
 sCon = [0, 1];
 
 count = 0;
 
 E = 210e9;
 v = 0.3;
-params.sigy01 = 360e9;
-params.sigy02 = 360e9;
-params.sigy03 = 360e9;
+params.sigy01 = 360e6;
+params.sigy02 = 360e6;
+params.sigy03 = 360e6;
 params.E1 = E;
 params.E2 = E;
 params.E3 = E;
@@ -21,8 +21,8 @@ params.v23 = v;
 
 for k = 1:length(sCon)
     params.stressCon = sCon(k);
-    for s = 1:length(noStress)
-        params.stressFree = noStress(s);
+    for s = 1:length(noPlast)
+        params.plasticFree = noPlast(s);
         for i = 1:length(x_values)
             x = x_values(i);
 
@@ -32,8 +32,8 @@ for k = 1:length(sCon)
 
                 % params.saveName = sprintf("Isotrop_x=%02d_disp=%.0fe-4", ...
                 % round(x*10), -disp_val*1e4);
-                params.saveName = sprintf("Isotrop_sf=%02d_sc=%d_x=%02d_disp=%.0fe-4", ...
-                    params.stressFree, params.stressCon, round(x*10), -disp_val*1e4);
+                params.saveName = sprintf("Isotrop_pf=%02d_sc=%d_x=%02d_disp=%.0fe-4", ...
+                    params.plasticFree, params.stressCon, round(x*10), -disp_val*1e4);
 
 
 
