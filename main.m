@@ -33,12 +33,12 @@ params.rtol = 1e-4;
 params.PT = 1; % 0 for Incremental plasticity, 1 for Deformation plasticity
 
 % Optimization Parameters
-params.re = 6; % Elements in radius
+params.re = 3; % Elements in radius
 params.filtOn = true; % Filter on
 params.pad = true; % Padding on displacement BC (L-beam)
 
 params.p = 1.5;
-params.q = 1; 
+params.q = 1;
 params.del = 1e-9; 
 params.dels = 1e-3;
 params.rampPQ = [4, 0.1+2/30]; % [end value of p, increment size]
@@ -49,15 +49,17 @@ params.rampB = [2, 10, 1.13]; % [0/1/2, end value, factor size]  (0: off, 1: on,
 
 params.Vf = 0.3;
 params.xtol = 1e-3;
-params.iterMax = 1250;
+params.ftol = 0.1;
+params.iterMax = 1000;
 
 params.stressCon = 1;
 params.pnm = 8; % p-norm exponent
 params.sigc = 1.15; % Stress constraint factor: sigm = sigy0*sigc
-params.stressFree = 0; % Width of area in elements left of right boundary where stress is ignored for L-beam
+params.stressFree = 10; % Width of area in elements left of right boundary where stress is ignored for L-beam
+params.zeroGrad = false; % Manually zero stress gradient in stressFree zone.
 params.plasticFree = 15; % Width of area in elements left of right boundary where plasticity is ignored for L-beam
 params.mma = [0.1, 10, 0.01]; % initial values [move, lower, upper] 
-params.mmaEnd = [350, 0.05, 0.1, 0.001]; % values after iter [iter, move, lower, upper]    
+params.mmaEnd = [400, 0.05, 0.1, 0.001]; % values after iter [iter, move, lower, upper]    
 
 params.prints = [0,0,0]; % [Load step, R1, R2] 
 params.plots = 1;
@@ -71,7 +73,7 @@ saveData(sol, x, params, "data");
 
 %% Draw Design
 sol = Solver(params);
-sol.drawDesign(sol, val, x, 1);
+sol.drawDesign(sol, val, x, 0);
 
 %% Draw All Designs
 clc, clear, close all
@@ -94,39 +96,44 @@ plot(sol.ex(el(:, [2 4 6 8]))', sol.ey(el(:, [2 4 6 8]))', 'ro', 'MarkerSize', 6
 axis equal
 
 %% Newton-Raphson
-% load("DesignFailcase=1.mat");
-% sol = sol.assignVar(val, sol);
+params.plasticFree = 0;
 sol = Solver(params);
-sol.beta = 0.01; sol.p = 4; sol.q = 3.5; 
-% sol.beta = val.beta; sol.p = val.p; sol.q = val.q;
+sol = sol.assignVar(val, sol);
+sol.p = 4; sol.q = 3.5;
 sol = init(sol, x);
 sol = newt(sol);
-% plotFigs(sol, x, 0)
+[g0, dg0, gc, dgc] = funcEval(sol, x);
+sol.drawDesign(sol, val, x, 1);
+sol.plotGrads(dg0, dgc);
 
-fprintf("g0; %.4g \n",  -sol.a(sol.pdof)'*sol.R1(sol.pdof));
-figure;
-eldraw2(sol.ex, sol.ey, [1 2 1]);
-hold on
-eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 5);
+fprintf("g0; %.4g \n",  -sol.a(sol.disp(:, 1))'*sol.R1(sol.disp(:, 1)));
+% figure;
+% eldraw2(sol.ex, sol.ey, [1 2 1]);
+% hold on
+% eldisp2(sol.ex, sol.ey, sol.ed, [1 4 1], 5);
 % dof = 16;
 % fprintf("Disp DOF %i: %.4g \n", [dof, sol.a(dof)]);
 
 %% Finite Difference
 h = 5e-6;
+params.plasticFree = 0;
 
-c = [0.3 0.5 0.01 0.7]';
-x = repmat(c, sol.nel/4, 1);
+% c = [0.3 0.5 0.01 0.7]';
+% x = repmat(c, sol.nel/4, 1);
 % x = rand(sol.nel, 1);
-% load("x.mat");
-sol = init(sol, x);
-sol = newt(sol);
-[~, dg, ~, dgc] = funcEval(sol, x);
+sol = Solver(params);
+sol = sol.assignVar(val, sol);
+sol.p = 4; sol.q = 3.5;
+sol0 = sol;
+sol0 = init(sol0, x);
+sol0 = newt(sol0);
+[~, dg, ~, dgc] = funcEval(sol0, x);
 
 wrong = [];
 [~, els] = maxk(dgc(2, :), 10);
 for el = els
-    sol1 = Solver(params);
-    sol2 = Solver(params);
+    sol1 = sol;
+    sol2 = sol;
     x1 = x;
     x2 = x;
     x1(el) = x1(el) - h;
@@ -146,7 +153,7 @@ for el = els
 
     fprintf("El: %i \n", el)
     fprintf("  Diff: %.5g \ndgc2: %.5g \ndgcf: %.5g\n", [dgcf-dgc(2, el), dgc(2, el), dgcf])
-    %fprintf("  Diff: %.5g \ndg: %.5g \ndgf: %.5g\n", [dgf-dg(el), dg(el), dgf])
+    % fprintf("  Diff: %.5g \ndg: %.5g \ndgf: %.5g\n", [dgf-dg(el), dg(el), dgf])
     if (abs((dgcf-dgc(2, el))/dgc(2, el))) > 1e-3 && abs(dgcf) > 5e-6
         wrong = [wrong; el];
     end

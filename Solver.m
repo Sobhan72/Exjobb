@@ -15,13 +15,13 @@ classdef Solver
         eps; sig; ep
         epsi; sigi; epi; Dsi; sigyi
         Z; Zp; pc; filtOn; eta; beta
-        stressCon; pnm; mmaVals
+        stressCon; pnm; mmaVals; zeroGrad
         sigm; cp; ca
         del; dels; p; q; ncon
         rampB; rampPQ
-        dx; xtol; iterMax
+        dx; xtol; ftol; iterMax
         gam; phi; g0; gc
-        sig1N
+        sig1N; logs
         saveName; prints; plots; design
     end
 
@@ -75,6 +75,7 @@ classdef Solver
             obj.dels = p.dels;
             obj.ncon = 1 + obj.stressCon;
             obj.xtol = p.xtol;
+            if isfield(p, 'ftol'); obj.ftol = p.ftol; else; obj.ftol = 0.1; end
             obj.iterMax = p.iterMax;
             obj.dx = zeros(obj.iterMax + 1, 1);
             obj.g0 = zeros(obj.iterMax + 1, 1);
@@ -104,9 +105,9 @@ classdef Solver
             Hco = 1/2*(-1/p.sigy01^2+1/p.sigy02^2+1/p.sigy03^2);
             obj.sigy0 = sqrt(3/(2*(Fco+Gco+Hco)));
             Lco = 3/(2*obj.sigy0^2);
-            stressFree = find(obj.ex(:, 1) >= p.lx - p.le*(p.stressFree + 1e-3));
             obj.sigm = p.sigc*obj.sigy0*ones(obj.nel, 1);
-            obj.sigm(stressFree) = p.sigc*obj.sigy0*1e99;
+            obj.sigm(obj.ex(:, 1) >= p.lx - p.le*(p.stressFree + 1e-5)) = p.sigc*obj.sigy0*1e15;
+            if isfield(p, 'zeroGrad'); obj.zeroGrad = p.zeroGrad & (obj.ex(:, 1) >= p.lx - p.le*(p.stressFree + 1e-5)); else; obj.zeroGrad = false; end
 
             if 4/(p.sigy01^2*p.sigy02^2) <= (1/p.sigy03^2-(1/p.sigy01^2+1/p.sigy02^2))^2
                 error("Not positive definite")
@@ -151,9 +152,9 @@ classdef Solver
             obj.eps = zeros(obj.tgp, 4);
             obj.sig = zeros(obj.tgp, 4);
             obj.ep = zeros(obj.tgp, 1);
-            plasticFree = find(obj.ex(:, 1) >= p.lx - p.le*(p.plasticFree + 1e-3));
-            obj.sigy = obj.sigy0*ones(obj.tgp, 1);
-            obj.sigy(plasticFree) = obj.sigy0*1e12;
+            sigynel = obj.sigy0*ones(obj.nel, 1);
+            sigynel(obj.ex(:, 1) >= p.lx - p.le*(p.plasticFree + 1e-5)) = obj.sigy0*1e15;
+            obj.sigy = repelem(sigynel, 4);
             
             obj.epsi = obj.eps;
             obj.sigi = obj.sig;
@@ -161,6 +162,7 @@ classdef Solver
             obj.sigyi = obj.sigy;
 
             obj.sig1N = zeros(obj.tgp, 8);
+            obj.logs = struct();
         end
 
         %% Optimization
@@ -170,6 +172,7 @@ classdef Solver
             x(obj.fixDens) = 1;
             iter = 0;
             criteria = true;
+            simp_iter = inf;
 
             while criteria
                 iter = iter + 1;
@@ -178,16 +181,25 @@ classdef Solver
                     fprintf("\n\nMax iteration count reached\n")
                     break
                 elseif mod(iter, 10) == 0
-                    if obj.rampB(1) == 1 && obj.beta < obj.rampB(2)
-                        if obj.beta < 1
-                            obj.beta = obj.beta + 0.3;
-                        else
-                            obj.beta = obj.beta*obj.rampB(3);
+                    if obj.rampB(1) == 1
+                        if obj.beta < obj.rampB(2)
+                            if obj.beta < 1
+                                obj.beta = obj.beta + 0.3;
+                            else
+                                obj.beta = obj.beta * obj.rampB(3);
+                            end
+                            if obj.beta >= obj.rampB(2)
+                                obj.logs.('Heavi_done') = iter;
+                            end
                         end
                     end
                     if obj.p < obj.rampPQ(1)
                         obj.p = obj.p + obj.rampPQ(2);
                         obj.q = obj.q + obj.rampPQ(2);
+                        if obj.p >= obj.rampPQ(1)
+                            obj.logs.('SIMP_done') = iter;
+                            simp_iter = iter;
+                        end
                     end
                 end
                 obj = init(obj, x);
@@ -202,11 +214,16 @@ classdef Solver
                 xold1 = x;
   
                 obj.dx(iter) = norm(xmma - x, inf);
-                criteria = obj.dx(iter) > obj.xtol || any(obj.gc(iter, :) > 0) || obj.p < obj.rampPQ(1) || obj.rampB(1) == 2;
+                if iter > 10
+                    fconv = norm(diff(obj.g0(iter-10:iter)), inf);
+                else
+                    fconv = inf;
+                end
+                criteria = (fconv > obj.ftol && obj.dx(iter) > obj.xtol) || any(obj.gc(iter, :) > 0) || obj.p < obj.rampPQ(1) || obj.rampB(1) == 2;
 
-                if obj.rampB(1) == 2 && (obj.dx(iter) < obj.xtol*10 || iter > obj.rampPQ(1)/obj.rampPQ(2)*10 - 50)
+                if obj.rampB(1) == 2 && (obj.dx(iter) < obj.xtol*10 || iter > simp_iter + 50)
                     obj.rampB(1) = 1;
-                    warning("Heavi ramp on")
+                    obj.logs.('Heavi_on') = iter;
                 end
 
                 x = xmma;
@@ -238,7 +255,7 @@ classdef Solver
             dR2dx = zeros(obj.tgp, 1);  
             dgt0dep = zeros(obj.tgp, 1);
             dR1dep = zeros(obj.endof*obj.tgp, 1);
-            ap = sparse(obj.pdof, 1, obj.a(obj.pdof), obj.ndof, 1);
+            ap = sparse(obj.disp(:, 1), 1, obj.a(obj.disp(:, 1)), obj.ndof, 1);
             
             sigb = zeros(obj.nel, 1); 
             dsigbdx = zeros(obj.nel, 1);
@@ -289,7 +306,7 @@ classdef Solver
                     dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el) = dsigbdep(obj.ngp*(el-1)+1:obj.ngp*el)/sigb(el)/obj.phi(el)/obj.sigm(el);
                 end
             end
-            dgt0da = -obj.a(obj.pdof)'*obj.K(obj.pdof, obj.fdof);
+            dgt0da = -obj.a(obj.disp(:, 1))'*obj.K(obj.disp(:, 1), obj.fdof);
 
             dR1dx = sparse(reshape(obj.edof', [], 1), repelem((1:obj.nel)', obj.endof), dR1dx, obj.ndof, obj.nel);
             dR2dx = sparse((1:obj.tgp)', repelem((1:obj.nel)', obj.ngp), dR2dx, obj.tgp, obj.nel);
@@ -300,7 +317,7 @@ classdef Solver
             idR2dep = diag(1./obj.dR2dep(pgp));
             mut = -dgt0dep(pgp)'*idR2dep - lamt*dR1dep(obj.fdof, pgp)*idR2dep;
 
-            g0 = -obj.a(obj.pdof)'*obj.R1(obj.pdof);
+            g0 = -obj.a(obj.disp(:, 1))'*obj.R1(obj.disp(:, 1));
             dg0 = dxH'.*obj.Z'*(dgt0dx + lamt*dR1dx(obj.fdof, :) + mut*dR2dx(pgp, :))';
             dg0(obj.fixDens) = 0;
 
@@ -324,6 +341,7 @@ classdef Solver
 
                 g2 = obj.cp*sigp - 1;
                 dg2 = (dxH'.*obj.Z'*(dgt2dx' + nut*dR1dx(obj.fdof, :) + xit*dR2dx(pgp, :))')';
+                dg2(obj.zeroGrad) = 0;
                 gc = [g1; g2];
                 dgc = [dg1; dg2];
 
@@ -612,9 +630,8 @@ classdef Solver
                 colormap(flipud(gray(256)));
                 patch(obj.ex', obj.ey', x, ...
                     'EdgeColor', 'none');
-                axis equal;
+                axis equal off;
                 axis(obj.axi);
-                axis off;
                 drawnow;
             else
                 cosT = zeros(obj.nel,1);
@@ -625,7 +642,7 @@ classdef Solver
                     Hs(el) = sqrt(obj.sigy0^2*trace(obj.sig(ix, :)*obj.P*obj.sig(ix, :)')/obj.ngp);
                 end
                 cosT(x<0.5) = 0;
-                Hc = Hs./(obj.phi*obj.sigy0);
+                Hc = Hs./(obj.phi.*obj.sigy(1:4:end));
                 Hc(x<0.5) = 0;
 
                 figure;
@@ -666,7 +683,7 @@ classdef Solver
                 patch(obj.ex(x<0.5, :)', obj.ey(x<0.5, :)', 'white', ...
                       'EdgeColor', 'none', ...
                       'HandleVisibility', 'off');
-                legend('Location', 'south', 'FontSize', 12)
+                legend('Location', 'south', 'FontSize', 12);
                 axis equal off;
                 axis(obj.axi);
 
@@ -689,11 +706,11 @@ classdef Solver
                     plot((10:iter)', -obj.g0(10:end), 'r:', 'LineWidth', 2);
                     ylabel('g0 objective');
                     ylim([round(min(-obj.g0(10:end))-6, -1) round(max(-obj.g0(10:end)+5), -1)]);
-                    %ax = gca;
-                    %ax.YColor = 'k';
+                    ax = gca;
+                    ax.YColor = ax.XColor;
 
                     yyaxis right;
-                    hold on
+                    hold on;
                     plot((10:iter)', obj.gc(10:end, 1), 'k', 'LineWidth', 2);
                     if obj.stressCon
                         plot((10:iter)', obj.gc(10:end, 2), 'b', 'LineWidth', 2);
@@ -703,10 +720,10 @@ classdef Solver
                         ylabel('g1 constraint');
                         legend('Stiffness', 'Volume');
                     end
-                    hold off
+                    hold off;
                     ylim([-0.05 0.05]);
-                    %ax = gca;
-                    %ax.YColor = 'k';
+                    ax = gca;
+                    ax.YColor = ax.XColor;
                     xlabel('Iteration');
                     title('Convergence Plot');
                     grid on;
@@ -715,11 +732,31 @@ classdef Solver
                     plot((10:iter)', obj.dx(10:end), 'b', 'LineWidth', 2);
                     ylim([0 ceil(max(obj.dx)*11)/11]);
                     xlabel('Iteration');
-                    ylabel('dx')
+                    ylabel('dx');
                     title('Design Change Plot');
                     grid on;
                 end
             end
+        end
+
+        function plotGrads(obj, dg0, dgc)
+            figure;
+            patch(obj.ex', obj.ey', dg0, ...
+                    'EdgeColor', 'none');
+            colormap("hot");
+            colorbar;
+            title('dg0');
+            axis equal off;
+            axis(obj.axi);
+
+            figure;
+            patch(obj.ex', obj.ey', dgc(2, :), ...
+                    'EdgeColor', 'none');
+            colormap("hot");
+            colorbar;
+            title('dgc');
+            axis equal off;
+            axis(obj.axi);
         end
 
         function saveData(obj, x, params, path)
@@ -743,7 +780,7 @@ classdef Solver
 
     methods (Static)
         function out = assignVar(in, out)
-            fields = {'ex', 'ey', 'ngp', 'nel', 'sig', 'P', 'sigy0', 'sig1N', 'ep', 'g0', 'gc', 'dx', 'beta'};
+            fields = {'ex', 'ey', 'ngp', 'nel', 'sig', 'P', 'sigy0', 'sig1N', 'ep', 'g0', 'gc', 'dx', 'beta', 'logs', 'sigy'};
             for i = 1:numel(fields)
                 if isfield(in, fields{i}) || isprop(in, fields{i})
                     out.(fields{i}) = in.(fields{i});
@@ -751,6 +788,10 @@ classdef Solver
                     out.(fields{i}) = ones(length(in.g0), 1);
                 elseif strcmp(fields{i}, 'beta')
                     out.(fields{i}) = 10;
+                elseif strcmp(fields{i}, 'logs')
+                    out.(fields{i}) = [];
+                elseif strcmp(fields{i}, 'sigy')
+                    out.(fields{i}) = ones(in.nel*in.ngp, 1)*in.sigy0;
                 end
             end
         end
