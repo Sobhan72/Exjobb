@@ -279,10 +279,9 @@ classdef Solver
                     Kte = Kte + B'*dDsdx(([1 2 4]), [1 2 4])*B*J*obj.t;
 
                     depstdx = obj.eps(ix, :)*(dDsdx*obj.P*obj.Ds(ixM, :)...
-                              - obj.Ds(ixM, :)*obj.P*2*dphi(el)/obj.phi(el)*obj.Ds(ixM, :)...
-                              + obj.Ds(ixM, :)*obj.P*dDsdx)*obj.eps(ix, :)'/obj.phi(el)^2;
+                              + obj.Ds(ixM, :)*obj.P*dDsdx)*obj.eps(ix, :)';
                     dR2dx(ix) = dphi(el)*(obj.sigy0 + obj.H*obj.ep(ix) + obj.Kinf*(1-exp(-obj.xi*obj.ep(ix))))...
-                                - dphi(el)*obj.sigy0*sqrt(obj.epst(ix)) - obj.phi(el)*obj.sigy0/2/sqrt(obj.epst(ix))*depstdx; % TA BORT EXTRA TERMER
+                                - obj.sigy0/2/sqrt(obj.phi(el)^2*obj.epst(ix))*depstdx;
 
                     Kh = B'*obj.dDsdep(ixM([1 2 4]),[1 2 4])*B*J*obj.t;
                     dR1depe = Kh*obj.a(eix);

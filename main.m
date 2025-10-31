@@ -96,7 +96,7 @@ plot(sol.ex(el(:, [2 4 6 8]))', sol.ey(el(:, [2 4 6 8]))', 'ro', 'MarkerSize', 6
 axis equal
 
 %% Newton-Raphson
-params.plasticFree = 0;
+% params.plasticFree = 0;
 sol = Solver(params);
 sol = sol.assignVar(val, sol);
 sol.p = 4; sol.q = 3.5;
@@ -116,7 +116,7 @@ fprintf("g0; %.4g \n",  -sol.a(sol.disp(:, 1))'*sol.R1(sol.disp(:, 1)));
 
 %% Finite Difference
 h = 5e-6;
-params.plasticFree = 0;
+% params.plasticFree = 0;
 
 % c = [0.3 0.5 0.01 0.7]';
 % x = repmat(c, sol.nel/4, 1);
@@ -148,15 +148,15 @@ for el = els
     [g1, ~, gc1, ~] = funcEval(sol1, x1);
     [g2, ~, gc2, ~] = funcEval(sol2, x2);
 
-    dgcf = (gc2(2)-gc1(2))/2/h;
+    % dgcf = (gc2(2)-gc1(2))/2/h;
     dgf = (g2-g1)/2/h;
 
     fprintf("El: %i \n", el)
-    fprintf("  Diff: %.5g \ndgc2: %.5g \ndgcf: %.5g\n", [dgcf-dgc(2, el), dgc(2, el), dgcf])
-    % fprintf("  Diff: %.5g \ndg: %.5g \ndgf: %.5g\n", [dgf-dg(el), dg(el), dgf])
-    if (abs((dgcf-dgc(2, el))/dgc(2, el))) > 1e-3 && abs(dgcf) > 5e-6
-        wrong = [wrong; el];
-    end
+    % fprintf("  Diff: %.5g \ndgc2: %.5g \ndgcf: %.5g\n", [dgcf-dgc(2, el), dgc(2, el), dgcf])
+    fprintf("  Diff: %.5g \ndg: %.5g \ndgf: %.5g\n", [dgf-dg(el), dg(el), dgf])
+    % if (abs((dgcf-dgc(2, el))/dgc(2, el))) > 1e-3 && abs(dgcf) > 5e-6
+    %     wrong = [wrong; el];
+    % end
 end
 
 y = ones(sol.nel, 1);
