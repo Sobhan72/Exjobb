@@ -2,8 +2,6 @@
 
 x_values   = [0.35];
 disp_values = [-1.5e-3, -1.3e-3];
-noPlast = [0, 3, 15];
-sCon = [0, 1];
 
 count = 0;
 
@@ -19,33 +17,76 @@ params.v12 = v;
 params.v13 = v;
 params.v23 = v;
 
-for k = 1:length(sCon)
-    params.stressCon = sCon(k);
-    for s = 1:length(noPlast)
-        params.plasticFree = noPlast(s);
-        for i = 1:length(x_values)
-            x = x_values(i);
 
-            for d = 1:length(disp_values)
-                disp_val = disp_values(d);
-                params.disp = disp_val;
+% Define all parameter cases in a struct array
+cases(1).p = 2;
+cases(1).q = 1;
+cases(1).rampPQ = [4, 0.1 + 2/30];
 
-                % params.saveName = sprintf("Isotrop_x=%02d_disp=%.0fe-4", ...
-                % round(x*10), -disp_val*1e4);
-                params.saveName = sprintf("Isotrop_pf=%02d_sc=%d_x=%02d_disp=%.0fe-4", ...
-                    params.plasticFree, params.stressCon, round(x*10), -disp_val*1e4);
+cases(2).p = 2.5;
+cases(2).q = 1;
+cases(2).rampPQ = [4, 0.1 + 2/30];
+
+cases(3).p = 1;
+cases(3).q = 1.5;
+cases(3).rampPQ = [3.5, 0.1 + 2/30];
+
+% Loop over all parameter cases
+for c = 1:length(cases)
+    params = cases(c);  % Load case-specific parameters
+    
+    for i = 1:length(x_values)
+        x = x_values(i);
+
+        for d = 1:length(disp_values)
+            disp_val = disp_values(d);
+            params.disp = disp_val;
+
+            % Create a descriptive save name
+            params.saveName = sprintf("Isotrop_p%.1f_q%.1f_x%.2f_disp%.0fe-4", ...
+                params.p, params.q, x, -disp_val*1e4);
+
+            filename = sprintf("input%d.mat", count);
+            save(filename, 'x', 'params')
 
 
-
-                filename = sprintf("input%d.mat", count);
-                save(filename, 'x', 'params');
-
-                count = count + 1;
-
-            end
+            count = count + 1;
         end
     end
 end
+
+
+
+
+
+
+% for k = 1:length(sCon)
+    % % params.stressCon = sCon(k);
+    % for s = 1:length(noStress)
+    %     params.stressFree = noStress(s);
+    %     for i = 1:length(x_values)
+    %         x = x_values(i);
+    % 
+    %         for d = 1:length(disp_values)
+    %             disp_val = disp_values(d);
+    %             params.disp = disp_val;
+    % 
+    %             % params.saveName = sprintf("Isotrop_x=%02d_disp=%.0fe-4", ...
+    %             % round(x*10), -disp_val*1e4);
+    %             params.saveName = sprintf("Isotrop_sf=%02d_x=%02d_disp=%.0fe-4", ...
+    %                 params.stressFree, round(x*10), -disp_val*1e4);
+    % 
+    % 
+    % 
+    %             filename = sprintf("input%d.mat", count);
+    %             save(filename, 'x', 'params');
+    % 
+    %             count = count + 1;
+    % 
+    %         end
+    %     end
+    % end
+% end
 
 % %% Batch
 % E = 210e9;
