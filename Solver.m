@@ -214,7 +214,7 @@ classdef Solver
                 xold1 = x;
   
                 obj.dx(iter) = norm(xmma - x, inf);
-                if iter > 10
+                if iter > 1000
                     fconv = norm(diff(obj.g0(iter-10:iter)), inf);
                 else
                     fconv = inf;

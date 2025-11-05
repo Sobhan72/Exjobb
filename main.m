@@ -77,7 +77,7 @@ sol.drawDesign(sol, val, x, 0);
 
 %% Draw All Designs
 clc, clear, close all
-JOB = "1699642";
+JOB = "1702771";
 Solver.drawMultipleDesigns(JOB)
 
 %% Mesh with Padding and Displacement

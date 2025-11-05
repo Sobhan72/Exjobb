@@ -1,6 +1,6 @@
 %% Batch
 
-x_values   = [0.35];
+x_values   = [0.35, 0.7];
 disp_values = [-1.5e-3, -1.3e-3];
 
 count = 0;
