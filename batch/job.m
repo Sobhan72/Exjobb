@@ -18,7 +18,7 @@ params.ngp = 4;
 
 params.stressCon = 1;
 params.pnm = 8;
-params.sigc = 1.15; %360e6; % Max stress for constraint
+params.sigc = 1.05; %360e6; % Max stress for constraint
 params.ngr = 1;
 
 params.R1tol = 1e-2;
@@ -59,9 +59,10 @@ params.rampB = [2, 10, 1.13]; % [0/1/2, end value, factor size]  (0: off, 1: on,
 
 %params.ncon = 1; % Nr of constraints
 params.xtol = 1e-3;
-params.iterMax = 1000;
+params.iterMax = 1500;
 params.stressFree = 0; % Width of area in elements left of right side where stress is ignored for L-beam
-params.plasticFree = 15; % Width of area in elements left of right boundary where plasticity is ignored for L-beam
+params.zeroGrad = false; % Manually zero stress gradient in stressFree zone.
+params.plasticFree = 0; % Width of area in elements left of right boundary where plasticity is ignored for L-beam
 params.mma = [0.1, 10, 0.01]; % initial values [move, lower, upper] 
 params.mmaEnd = [350, 0.05, 0.1, 0.001]; % values after iter [iter, move, lower, upper] 
 

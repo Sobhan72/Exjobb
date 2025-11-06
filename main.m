@@ -54,7 +54,7 @@ params.iterMax = 1000;
 
 params.stressCon = 1;
 params.pnm = 8; % p-norm exponent
-params.sigc = 1.15; % Stress constraint factor: sigm = sigy0*sigc
+params.sigc = 1.05; % Stress constraint factor: sigm = sigy0*sigc
 params.stressFree = 10; % Width of area in elements left of right boundary where stress is ignored for L-beam
 params.zeroGrad = false; % Manually zero stress gradient in stressFree zone.
 params.plasticFree = 15; % Width of area in elements left of right boundary where plasticity is ignored for L-beam
@@ -77,7 +77,7 @@ sol.drawDesign(sol, val, x, 0);
 
 %% Draw All Designs
 clc, clear, close all
-JOB = "1691917";
+JOB = "1702771";
 Solver.drawMultipleDesigns(JOB)
 
 %% Mesh with Padding and Displacement

@@ -5,7 +5,7 @@
 #SBATCH --tasks-per-node=12
 
 # job time, change for what your job farm requires
-#SBATCH -t 14:00:00
+#SBATCH -t 20:00:00
 #
 # job name and output file names
 #SBATCH -J jobFarm
