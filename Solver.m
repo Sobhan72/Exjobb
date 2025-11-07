@@ -37,15 +37,18 @@ classdef Solver
             if p.loadcase == 1 % Vertical load on beam
                 obj.disp(:, 1) = 2:2:10;
                 obj.disp(:, 2) = p.disp*ones(5,1);
-                obj.bcS = obj.addBC(bc, p.ly, p.le, obj.ndof);
+                obj.bcS = obj.addBC(bc, p.ly, p.le, obj.ndof, p.loadcase);
             elseif p.loadcase == 2 % Bending beam
                 obj.disp(:, 1) = bc(:,1);
                 obj.disp(:, 2) = linspace(-p.disp, p.disp, length(bc));
-                obj.bcS = obj.addBC([], p.ly, p.le, obj.ndof);
+                obj.bcS = obj.addBC([], p.ly, p.le, obj.ndof, p.loadcase);
             elseif p.loadcase == 3 % L-beam
                 obj.disp(:,1) =  bc(bc(:,2) == 1, 1);
                 obj.disp = [obj.disp, p.disp*ones(size(obj.disp))];
                 obj.bcS = bc(bc(:,2) == 0, :);
+            elseif p.loadcase == 4 % Symmetric cantilever
+                [obj.bcS, obj.disp] = obj.addBC([], p.ly, p.le, obj.ndof, p.loadcase);
+                obj.disp(:, 2) = obj.disp(:, 2)*p.disp; 
             else
                 error("Load case doesn't exist");
             end
@@ -214,7 +217,7 @@ classdef Solver
                 xold1 = x;
   
                 obj.dx(iter) = norm(xmma - x, inf);
-                if iter > 1000
+                if iter > 10
                     fconv = norm(diff(obj.g0(iter-10:iter)), inf);
                 else
                     fconv = inf;
@@ -236,9 +239,9 @@ classdef Solver
                 end
                 fprintf("Opt iter: %i\n", iter)
                 if obj.stressCon
-                    fprintf("  g0: %.2g, g1: %.2g, g2: %.2g, dx: %.2g\n", [s*obj.g0(iter), obj.gc(iter, 1), obj.gc(iter, 2), obj.dx(iter)])
+                    fprintf("  g0: %.2g, g1: %.2g, g2: %.2g, dx: %.2g, df: %.2g\n", [s*obj.g0(iter), obj.gc(iter, 1), obj.gc(iter, 2), obj.dx(iter), fconv])
                 else
-                    fprintf("  g0: %.2g, g1: %.2g, dx: %.2g\n", [s*obj.g0(iter), obj.gc(iter, 1), obj.dx(iter)])
+                    fprintf("  g0: %.2g, g1: %.2g, dx: %.2g, df: %.2g\n", [s*obj.g0(iter), obj.gc(iter, 1), obj.dx(iter), fconv])
                 end
             end
             obj.dx = obj.dx(1:iter);
@@ -795,10 +798,18 @@ classdef Solver
             end
         end
 
-        function bc = addBC(bc, ly, le, ndof)
-            nR = ly/le + 1;
-            fix = [ndof/nR*(1:nR)'; ndof/nR*(1:nR)'-1];
-            bc = [bc; [fix zeros(2*nR,1)]];
+        function [bc, disp] = addBC(bc, ly, le, ndof, loadcase)
+            if loadcase < 3
+                nR = ly/le + 1;
+                bcdof = [ndof/nR*(1:nR)'; ndof/nR*(1:nR)'-1];
+                bc = [bc; [bcdof zeros(2*nR, 1)]];
+            elseif loadcase == 4
+                nR = ly/le + 1;
+                bcdof = [ndof/nR*(1:ceil(nR/4))'-1; ndof/nR*(1:ceil(nR/4))'; ndof/nR*(floor(3*nR/4)+1:nR)'-1; ndof/nR*(floor(3*nR/4)+1:nR)'];
+                bc = [bcdof zeros(numel(bcdof), 1)];
+                dispdof = ndof/nR*(floor(7*nR/16):ceil(9*nR/16-1))'+2;
+                disp = [dispdof ones(numel(dispdof), 1)];
+            end
         end
 
         function pc = padding(lx, ly, le, wx, wy, re, loadcase, pad)
@@ -823,7 +834,16 @@ classdef Solver
                 else
                    bl = 3e-3;
                 end
-                pc(:, 3) = double(pc(:,1) > lx  & abs(pc(:, 2) - wx/2) < bl + 2*le);
+                pc(:, 3) = double(pc(:, 1) > lx & abs(pc(:, 2) - wx/2) < bl + 2*le);
+            elseif loadcase == 4 && pad
+                [X, Y] = meshgrid(-le*(re-0.5):le:ly + le*(re-0.5), -le*(re-0.5):le:ly + le*(re-0.5));
+                ecx = reshape(X', [], 1);
+                ecy = reshape(Y', [], 1);
+                mask = (ecx < 0 | ecx > lx | ecy < 0 | ecy > ly);
+                pc = [ecx(mask), ecy(mask)];
+                pc(:, 3) = double((pc(:, 1) < 0 & pc(:, 2) > ly/2 - ly/16 & pc(:, 2) < ly/2 + ly/16) ...
+                                   | (pc(:, 1) > lx & pc(:, 2) < ly/4) ...
+                                   | (pc(:, 1) > lx & pc(:, 2) > 3*ly/4));
             else
                 pc = NaN;
             end
