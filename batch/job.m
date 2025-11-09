@@ -5,25 +5,19 @@ addpath(genpath('/home/zachariand/Exjobb/functions'));
 %% Run Job
 % FEM parameters
 
-params.le = 0.0005; %halverad
-params.lx = 0.1;
-params.ly = 0.1;
-params.wx = 0.04;
-params.wy = 0.04;
-params.loadcase = 3;
-params.Vf = 0.3;
+params.le = 0.001;
+params.lx = 0.16; 
+params.ly = 0.16; 
+params.wx = [];
+params.wy = []; 
+params.loadcase = 4;
 
 params.t = 0.1;
 params.ngp = 4;
 
-params.stressCon = 1;
-params.pnm = 8;
-params.sigc = 1.05; %360e6; % Max stress for constraint
-params.ngr = 1;
-
 params.R1tol = 1e-2;
-params.N = 3;
-params.disp = -9e-4; % displacement [nodes total-size]
+params.N = 6;
+params.disp = -1.6e-3; % Total displacement 
 
 % Material parameters
 E = 210e9;
@@ -42,13 +36,15 @@ params.xi = 1e-3; %extra terms linHard (sat. exp)
 params.rtol = 1e-4;
 params.PT = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
+params.ngr = 1;
+
 % Optimization Parameters
-params.re = 6; % Elements in radius (dubblerad)
+params.re = 3; % Elements in radius (dubblerad)
 params.filtOn = true;
 params.pad = true;
 
-params.p = 1.5; %3;
-params.q = 1; %2,5;
+params.p = 3;
+params.q = 2.5;
 params.del = 1e-9;
 params.dels = 1e-3;
 params.rampPQ = [4, 0.1+2/30]; % [end value of p, increment size]
@@ -58,13 +54,19 @@ params.beta = 0.1;
 params.rampB = [2, 10, 1.13]; % [0/1/2, end value, factor size]  (0: off, 1: on, 2: on after simp converges)
 
 %params.ncon = 1; % Nr of constraints
+params.Vf = 0.3;
 params.xtol = 1e-3;
+params.ftol = 0.2;
 params.iterMax = 1500;
+
+params.stressCon = 0;
+params.pnm = 8;
+params.sigc = 1.05; %360e6; % Max stress for constraint
 params.stressFree = 0; % Width of area in elements left of right side where stress is ignored for L-beam
 params.zeroGrad = false; % Manually zero stress gradient in stressFree zone.
 params.plasticFree = 0; % Width of area in elements left of right boundary where plasticity is ignored for L-beam
 params.mma = [0.1, 10, 0.01]; % initial values [move, lower, upper] 
-params.mmaEnd = [350, 0.05, 0.1, 0.001]; % values after iter [iter, move, lower, upper] 
+params.mmaEnd = [0, 0.05, 0.1, 0.001]; % values after iter 350 [iter, move, lower, upper] 
 
 params.print = [0,0,0];
 params.plots = 0;
