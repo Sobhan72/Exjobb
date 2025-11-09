@@ -7,7 +7,7 @@ E_base    = [E, 0.7*E, 0.5*E];
 v_base    = [v, 0.5*v, 0.5*v];
 
 x_values   = [0.4];
-disp_values = [-1.4e-3, -1.2e-3, -1.0e-3, -8e-4];
+disp_values = [-1.4e-3, -1.2e-3, -1.0e-3, -8e-4, 6e-4];
 
 n_cases = 3;
 count = 0;

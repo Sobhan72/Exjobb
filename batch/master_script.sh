@@ -5,7 +5,7 @@
 #SBATCH --tasks-per-node=20
 
 # job time, change for what your job farm requires
-#SBATCH -t 20:00:00
+#SBATCH -t 48:00:00
 #
 # job name and output file names
 #SBATCH -J jobFarm
@@ -44,7 +44,7 @@ rm -f input*.mat
 cd $MASTER_DIR
 
 # Maximum number of concurrent workers
-MAX_PARALLEL=72
+MAX_PARALLEL=10
 running=0
 
 # Loop over the job number with throttling

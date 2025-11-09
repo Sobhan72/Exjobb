@@ -16,7 +16,7 @@ params.t = 0.1;
 params.ngp = 4;
 
 params.R1tol = 1e-2;
-params.N = 6;
+% params.N = 4;
 params.disp = -1.6e-3; % Total displacement 
 
 % Material parameters
@@ -57,7 +57,7 @@ params.rampB = [2, 10, 1.13]; % [0/1/2, end value, factor size]  (0: off, 1: on,
 params.Vf = 0.3;
 params.xtol = 1e-3;
 params.ftol = 0.2;
-params.iterMax = 1500;
+% params.iterMax = 1000;
 
 params.stressCon = 0;
 params.pnm = 8;
@@ -77,7 +77,8 @@ fn = fieldnames(data.params);
 for k = 1:length(fn) 
     params.(fn{k}) = data.params.(fn{k});
 end
-
+params.N = 4;
+params.iterMax = 1200;
 sol = Solver(params);
 x = ones(sol.nel, 1);
 if data.x == 0
