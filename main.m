@@ -77,7 +77,7 @@ sol.drawDesign(sol, val, x, 0);
 
 %% Draw All Designs
 clc, clear, close all
-JOB = "1712890";
+JOB = "1721651";
 Solver.drawMultipleDesigns(JOB)
 
 %% Mesh with Padding and Displacement for L-beam
