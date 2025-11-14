@@ -12,7 +12,7 @@ params.wx = [];
 params.wy = []; 
 params.loadcase = 4;
 
-params.t = 1;
+params.t = 0.1;
 params.ngp = 4;
 
 params.R1tol = 1e-2;
@@ -72,13 +72,13 @@ params.prints = [0,0,0]; %[0,0,0];
 params.plots = 0;
 
 params.saveName = "";
-data = load('input2.mat');
+data = load('input.mat');
 fn = fieldnames(data.params);
 for k = 1:length(fn) 
     params.(fn{k}) = data.params.(fn{k});
 end
 params.N = 7;
-params.iterMax = 1200;
+params.iterMax = 600;
 sol = Solver(params);
 x = ones(sol.nel, 1);
 if data.x == 0

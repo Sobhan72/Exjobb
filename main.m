@@ -73,11 +73,11 @@ saveData(sol, x, params, "data");
 
 %% Draw Design
 sol = Solver(params);
-sol.drawDesign(sol, val, x, 0);
+sol.drawDesign(sol, val, x, 1);
 
 %% Draw All Designs
 clc, clear, close all
-JOB = "1721651";
+JOB = "1723194";
 Solver.drawMultipleDesigns(JOB)
 
 %% Mesh with Padding and Displacement for L-beam
