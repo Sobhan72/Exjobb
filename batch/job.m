@@ -72,12 +72,12 @@ params.prints = [0,0,0]; %[0,0,0];
 params.plots = 0;
 
 params.saveName = "";
-data = load('input.mat');
+data = load('input26.mat');
 fn = fieldnames(data.params);
 for k = 1:length(fn) 
     params.(fn{k}) = data.params.(fn{k});
 end
-params.N = 7;
+params.N = 3;
 params.iterMax = 600;
 sol = Solver(params);
 x = ones(sol.nel, 1);
