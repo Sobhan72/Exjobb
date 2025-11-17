@@ -61,6 +61,8 @@ params.plasticFree = 0; % Width of area in elements left of right boundary where
 params.mma = [0.5, 10, 0.01]; % initial values [move, lower, upper] 
 params.mmaEnd = [0, 0.5, 10, 0.01]; % values after iter [iter, move, lower, upper]    
 
+params.ang = 45; % Rotation of coordinate system in degrees around z-axis into current axis D* = LDL'
+
 params.prints = [0,0,0]; % [Load step, R1, R2] 
 params.plots = 1;
 params.saveName = "";

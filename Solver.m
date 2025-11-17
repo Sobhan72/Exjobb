@@ -115,8 +115,9 @@ classdef Solver
             if 4/(p.sigy01^2*p.sigy02^2) <= (1/p.sigy03^2-(1/p.sigy01^2+1/p.sigy02^2))^2
                 error("Not positive definite")
             end
-
-            obj.P = [Fco+Gco -Fco -Gco 0; -Fco Fco+Hco -Hco 0; -Gco -Hco Gco+Hco 0; 0 0 0 2*Lco];
+            
+            if isfield(p, 'ang'); L = obj.coordRot(p.ang); else; L = eye(4); end
+            obj.P = L*[Fco+Gco -Fco -Gco 0; -Fco Fco+Hco -Hco 0; -Gco -Hco Gco+Hco 0; 0 0 0 2*Lco]*L';
             obj.H = p.H;
 
             obj.Kinf = p.Kinf;
@@ -126,10 +127,10 @@ classdef Solver
             v21 = p.v12 * (p.E2 / p.E1);  % From reciprocity
             v31 = p.v13 * (p.E3 / p.E1);
             v32 = p.v23 * (p.E3 / p.E2);
-            obj.C = [1/p.E1, -v21/p.E2, -v31/p.E3, 0;
+            obj.C = L*[1/p.E1, -v21/p.E2, -v31/p.E3, 0;
                     -p.v12/p.E1, 1/p.E2, -v32/p.E3, 0;
                     -p.v13/p.E1, -p.v23/p.E2, 1/p.E3, 0;
-                     0, 0, 0, 1/G12];
+                     0, 0, 0, 1/G12]*L';
             obj.De = inv(obj.C);
             [obj.X, obj.iX, obj.Gam] = diagDe(obj);
             obj.Ds = repmat(obj.De, obj.tgp, 1);
@@ -713,7 +714,7 @@ classdef Solver
 
                     yyaxis right;
                     hold on;
-                    plot((10:iter)', obj.gc(10:end, 1), 'k', 'LineWidth', 2);
+                    plot((10:iter)', obj.gc(10:end, 1), 'Color', ax.XColor, 'LineWidth', 2);
                     if obj.stressCon
                         plot((10:iter)', obj.gc(10:end, 2), 'b', 'LineWidth', 2);
                         ylabel('g_{1,2} constraint');
@@ -781,6 +782,16 @@ classdef Solver
     end
 
     methods (Static)
+        function L = coordRot(deg)
+            rad = deg*pi/180;
+            A = [cos(rad), -sin(rad), 0;
+                 sin(rad), cos(rad), 0;
+                 0, 0, 1];
+            a = [1 2 3 1];
+            b = [1 2 3 2];
+            L = A(a, a).*A(b, b);
+        end
+
         function out = assignVar(in, out)
             fields = {'ex', 'ey', 'ngp', 'nel', 'sig', 'P', 'sigy0', 'sig1N', 'ep', 'g0', 'gc', 'dx', 'beta', 'logs', 'sigy'};
             for i = 1:numel(fields)
