@@ -5,7 +5,7 @@ addpath(genpath('/home/zachariand/Exjobb/functions'));
 %% Run Job
 % FEM parameters
 
-params.le = 0.001;
+params.le = 0.002;
 params.lx = 0.16; 
 params.ly = 0.16; 
 params.wx = [];
@@ -68,17 +68,17 @@ params.plasticFree = 0; % Width of area in elements left of right boundary where
 params.mma = [0.1, 10, 0.01]; % initial values [move, lower, upper] 
 params.mmaEnd = [0, 0.05, 0.1, 0.001]; % values after iter 350 [iter, move, lower, upper] 
 
-params.print = [0,0,0];
+params.prints = [0,0,0]; %[0,0,0];
 params.plots = 0;
 
 params.saveName = "";
-data = load('input.mat');
+data = load('input26.mat');
 fn = fieldnames(data.params);
 for k = 1:length(fn) 
     params.(fn{k}) = data.params.(fn{k});
 end
-params.N = 4;
-params.iterMax = 1200;
+params.N = 3;
+params.iterMax = 600;
 sol = Solver(params);
 x = ones(sol.nel, 1);
 if data.x == 0
