@@ -6,96 +6,164 @@ sigy_base = [360e6, 300e6, 250e6];
 E_base    = [E, 0.7*E, 0.5*E];
 v_base    = [v, 0.5*v, 0.5*v];
 
-x_values = [0, 0, 0.7, 0.8, 0.9, 1.0];
-disp_values = [-1.2e-3, -1.0e-3, -8e-4, -6e-4];
+% x_values = [0, 0, 0.7, 0.8, 0.9, 1.0];
+x_values = [0.4];
+angles = [30, 45, 60];
+disp_values = [-1.2e-3, -1e-3, -8e-4, -6e-4];
 
 n_cases = 3;
 count = 0;
 
 %ANISOTROPIC CASES
-for i = 1:length(x_values)
-    x = x_values(i);
+for da = 1:length(angles)
+    params.ang = angles(da);
+    for i = 1:length(x_values)
+        x = x_values(i);
 
-    for case_num = 1:n_cases
-        % Rotate parameters according to case
-        idx = mod((0:2) + case_num - 1, 3) + 1;
+        for case_num = 1:n_cases
+            % Rotate parameters according to case
+            idx = mod((0:2) + case_num - 1, 3) + 1;
 
-        for d = 1:length(disp_values)
-            disp_val = disp_values(d);
+            for d = 1:length(disp_values)
+                disp_val = disp_values(d);
 
-            params.E1 = E_base(idx(1));
-            params.E2 = E_base(idx(2));
-            params.E3 = E_base(idx(3));
+                params.E1 = E_base(idx(1));
+                params.E2 = E_base(idx(2));
+                params.E3 = E_base(idx(3));
 
-            if case_num == 1
-                params.v12 = v_base(1);
-                params.v13 = v_base(2);
-                params.v23 = v_base(3);
-            elseif case_num == 2
-                params.v12 = v_base(2)*(E_base(3) / E_base(1)); % v31
-                params.v13 = v_base(3)*(E_base(3) / E_base(2)); % v32
-                params.v23 = v_base(1);
-            else
-                params.v12 = v_base(3);
-                params.v13 = v_base(1)*(E_base(2) / E_base(1)); % v21
-                params.v23 = v_base(2)*(E_base(3) / E_base(1)); % v31
+                if case_num == 1
+                    params.v12 = v_base(1);
+                    params.v13 = v_base(2);
+                    params.v23 = v_base(3);
+                elseif case_num == 2
+                    params.v12 = v_base(2)*(E_base(3) / E_base(1)); % v31
+                    params.v13 = v_base(3)*(E_base(3) / E_base(2)); % v32
+                    params.v23 = v_base(1);
+                else
+                    params.v12 = v_base(3);
+                    params.v13 = v_base(1)*(E_base(2) / E_base(1)); % v21
+                    params.v23 = v_base(2)*(E_base(3) / E_base(1)); % v31
+                end
+
+                params.sigy01 = sigy_base(idx(1));
+                params.sigy02 = sigy_base(idx(2));
+                params.sigy03 = sigy_base(idx(3));
+
+                params.disp = disp_val;
+
+                params.saveName = sprintf("Anisotrop_x=%02d_case%d_ang=%2d_disp=%.0fe-4", ...
+                    round(x*10), case_num, params.ang, -disp_val*1e4);
+
+
+
+                filename = sprintf("input%d.mat", count);
+                save(filename, 'x', 'params');
+
+                count = count + 1;
+
             end
-
-            params.sigy01 = sigy_base(idx(1));
-            params.sigy02 = sigy_base(idx(2));
-            params.sigy03 = sigy_base(idx(3));
-
-            params.disp = disp_val;
-
-            params.saveName = sprintf("Anisotrop_x=%02d_case%d_disp=%.0fe-4", ...
-                round(x*10), case_num, -disp_val*1e4);
-
-
-            filename = sprintf("input%d.mat", count);
-            save(filename, 'x', 'params');
-
-            count = count + 1;
-
         end
     end
 end
-
-
-%ISOTROPIC CASES
-clearvars -except count E x_values disp_values noStress
-
-v = 0.3;
-params.sigy01 = 360e6;
-params.sigy02 = 360e6;
-params.sigy03 = 360e6;
-params.E1 = E;
-params.E2 = E;
-params.E3 = E;
-params.v12 = v;
-params.v13 = v;
-params.v23 = v;
-
-for i = 1:length(x_values)
-    x = x_values(i);
-
-    for d = 1:length(disp_values)
-        disp_val = disp_values(d);
-        params.disp = disp_val;
-
-        params.saveName = sprintf("Isotrop_x=%02d_disp=%.0fe-4", ...
-            round(x*10), -disp_val*1e4);
-
-
-        filename = sprintf("input%d.mat", count);
-        save(filename, 'x', 'params');
-
-        count = count + 1;
-
-    end
-end
-
-
-
+% %% Batch
+% E = 210e9;
+% v = 0.4;
+% 
+% sigy_base = [360e6, 300e6, 250e6];
+% E_base    = [E, 0.7*E, 0.5*E];
+% v_base    = [v, 0.5*v, 0.5*v];
+% 
+% % x_values = [0, 0, 0.7, 0.8, 0.9, 1.0];
+% x_values = [0.4];
+% disp_values = [-1.2e-3, -1.0e-3, -8e-4, -6e-4];
+% 
+% n_cases = 3;
+% count = 0;
+% 
+% %ANISOTROPIC CASES
+% for i = 1:length(x_values)
+%     x = x_values(i);
+% 
+%     for case_num = 1:n_cases
+%         % Rotate parameters according to case
+%         idx = mod((0:2) + case_num - 1, 3) + 1;
+% 
+%         for d = 1:length(disp_values)
+%             disp_val = disp_values(d);
+% 
+%             params.E1 = E_base(idx(1));
+%             params.E2 = E_base(idx(2));
+%             params.E3 = E_base(idx(3));
+% 
+%             if case_num == 1
+%                 params.v12 = v_base(1);
+%                 params.v13 = v_base(2);
+%                 params.v23 = v_base(3);
+%             elseif case_num == 2
+%                 params.v12 = v_base(2)*(E_base(3) / E_base(1)); % v31
+%                 params.v13 = v_base(3)*(E_base(3) / E_base(2)); % v32
+%                 params.v23 = v_base(1);
+%             else
+%                 params.v12 = v_base(3);
+%                 params.v13 = v_base(1)*(E_base(2) / E_base(1)); % v21
+%                 params.v23 = v_base(2)*(E_base(3) / E_base(1)); % v31
+%             end
+% 
+%             params.sigy01 = sigy_base(idx(1));
+%             params.sigy02 = sigy_base(idx(2));
+%             params.sigy03 = sigy_base(idx(3));
+% 
+%             params.disp = disp_val;
+% 
+%             params.saveName = sprintf("Anisotrop_x=%02d_case%d_disp=%.0fe-4", ...
+%                 round(x*10), case_num, -disp_val*1e4);
+% 
+% 
+%             filename = sprintf("input%d.mat", count);
+%             save(filename, 'x', 'params');
+% 
+%             count = count + 1;
+% 
+%         end
+%     end
+% end
+% 
+% 
+% %ISOTROPIC CASES
+% clearvars -except count E x_values disp_values noStress
+% 
+% v = 0.3;
+% params.sigy01 = 360e6;
+% params.sigy02 = 360e6;
+% params.sigy03 = 360e6;
+% params.E1 = E;
+% params.E2 = E;
+% params.E3 = E;
+% params.v12 = v;
+% params.v13 = v;
+% params.v23 = v;
+% 
+% for i = 1:length(x_values)
+%     x = x_values(i);
+% 
+%     for d = 1:length(disp_values)
+%         disp_val = disp_values(d);
+%         params.disp = disp_val;
+% 
+%         params.saveName = sprintf("Isotrop_x=%02d_disp=%.0fe-4", ...
+%             round(x*10), -disp_val*1e4);
+% 
+% 
+%         filename = sprintf("input%d.mat", count);
+%         save(filename, 'x', 'params');
+% 
+%         count = count + 1;
+% 
+%     end
+% end
+% 
+% 
+% 
 
 
 % %% Batch
