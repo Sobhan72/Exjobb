@@ -1,7 +1,7 @@
 #!/bin/sh
 # requesting the number of nodes needed
 #SBATCH -A lu2025-2-33
-#SBATCH -N 1
+#SBATCH -N 3
 #SBATCH --tasks-per-node=1
 #SBATCH --mem-per-cpu=6000 
 
@@ -15,7 +15,7 @@
 cat $0
 
 # set the number of jobs - change for your requirements
-export NB_of_jobs=36
+export NB_of_jobs=3
 
 # Get the absolute path of the current working directory
 export WORK_DIR=$PWD
@@ -45,7 +45,7 @@ rm -f input*.mat
 cd $MASTER_DIR
 
 # Maximum number of concurrent workers
-MAX_PARALLEL=1
+MAX_PARALLEL=3
 running=0
 
 # Loop over the job number with throttling
