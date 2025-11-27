@@ -223,7 +223,7 @@ classdef Solver
                 else
                     fconv = inf;
                 end
-                criteria = (fconv > obj.ftol && obj.dx(iter) > obj.xtol) || any(obj.gc(iter, :) > 0) || obj.p < obj.rampPQ(1) || obj.rampB(1) == 2;
+                criteria = (fconv > obj.ftol && obj.dx(iter) > obj.xtol) || any(obj.gc(iter, :) > 0) || obj.p < obj.rampPQ(1) || obj.beta < obj.rampB(2);
 
                 if obj.rampB(1) == 2 && (obj.dx(iter) < obj.xtol*10 || iter > simp_iter + 50)
                     obj.rampB(1) = 1;

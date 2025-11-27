@@ -53,7 +53,7 @@ params.rampPQ = [4, 0.1+2/30]; % [end value of p, increment size]
 
 params.eta = 0.5;
 params.beta = 0.1;
-params.rampB = [2, 10, 1.13]; % [0/1/2, end value, factor size]  (0: off, 1: on, 2: on after simp converges)
+params.rampB = [1, 10, 1.13]; % [0/1/2, end value, factor size]  (0: off, 1: on, 2: on after simp converges)
 
 %params.ncon = 1; % Nr of constraints
 params.Vf = 0.3;
