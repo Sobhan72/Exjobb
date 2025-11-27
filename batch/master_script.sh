@@ -1,11 +1,12 @@
 #!/bin/sh
 # requesting the number of nodes needed
 #SBATCH -A lu2025-2-33
-#SBATCH -N 18
-#SBATCH --tasks-per-node=3
+#SBATCH -N 1
+#SBATCH --tasks-per-node=1
+#SBATCH --mem-per-cpu=6000 
 
 # job time, change for what your job farm requires
-#SBATCH -t 48:00:00
+#SBATCH -t 96:00:00
 #
 # job name and output file names
 #SBATCH -J jobFarm
@@ -14,7 +15,7 @@
 cat $0
 
 # set the number of jobs - change for your requirements
-export NB_of_jobs=54
+export NB_of_jobs=36
 
 # Get the absolute path of the current working directory
 export WORK_DIR=$PWD
@@ -44,7 +45,7 @@ rm -f input*.mat
 cd $MASTER_DIR
 
 # Maximum number of concurrent workers
-MAX_PARALLEL=10
+MAX_PARALLEL=1
 running=0
 
 # Loop over the job number with throttling

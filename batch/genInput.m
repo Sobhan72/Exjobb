@@ -8,8 +8,10 @@ v_base    = [v, 0.5*v, 0.5*v];
 
 % x_values = [0, 0, 0.7, 0.8, 0.9, 1.0];
 x_values = [0.4];
-angles = [30, 45, 60];
-disp_values = [-1.2e-3, -1e-3, -8e-4, -6e-4];
+angles = [15, 30, 45];
+disp_values = [-1.2e-3, -1e-3, -9e-4, -8e-4];
+% disp_values = [-8e-4];
+
 
 n_cases = 3;
 count = 0;

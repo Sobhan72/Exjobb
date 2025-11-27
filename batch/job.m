@@ -5,7 +5,7 @@ addpath(genpath('/home/zachariand/Exjobb/functions'));
 %% Run Job
 % FEM parameters
 
-params.le = 0.002;
+params.le = 0.001;
 params.lx = 0.16; 
 params.ly = 0.16; 
 params.wx = [];
@@ -34,6 +34,8 @@ params.Kinf = 0; %0.3*params.sigy01; %extra terms linHard (sat. stress)
 params.xi = 1e-3; %extra terms linHard (sat. exp)
 
 params.rtol = 1e-4;
+
+
 params.PT = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
 params.ngr = 1;
@@ -70,17 +72,17 @@ params.mmaEnd = [0, 0.05, 0.1, 0.001]; % values after iter 350 [iter, move, lowe
 
 params.ang = 45;
 
-params.prints = [0,0,0]; %[0,0,0];
+params.prints = [0,0,0];
 params.plots = 0;
 
 params.saveName = "";
-data = load('input1.mat');
+data = load('input.mat');
 fn = fieldnames(data.params);
 for k = 1:length(fn) 
     params.(fn{k}) = data.params.(fn{k});
 end
-params.N = 3;
-params.iterMax = 450;
+params.N = 4;
+params.iterMax = 400;
 sol = Solver(params);
 x = ones(sol.nel, 1);
 if data.x == 0
