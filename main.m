@@ -2,8 +2,8 @@ clc, clear, close all
 
 % FEM parameters
 params.le = 0.001;
-params.lx = 0.16; %0.1;
-params.ly = 0.16; %0.05;
+params.lx = 0.12; %0.1;
+params.ly = 0.12; %0.05;
 params.wx = []; %0.04;
 params.wy = []; %0.04;
 params.loadcase = 4; %1;
