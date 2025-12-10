@@ -2,8 +2,8 @@ clc, clear, close all
 
 % FEM parameters
 params.le = 0.001;
-params.lx = 0.12; %0.1;
-params.ly = 0.12; %0.05;
+params.lx = 0.16; %0.1;
+params.ly = 0.16; %0.05;
 params.wx = []; %0.04;
 params.wy = []; %0.04;
 params.loadcase = 4; %1;
@@ -75,12 +75,11 @@ saveData(sol, x, params, "data");
 
 %% Draw Design
 sol = Solver(params);
-sol.drawDesign(sol, val, x, 0);
+sol.drawDesign(sol, val, x, 1);
 
 %% Draw All Designs
 clc, clear, close all
-% JOB = "1756950";
-JOB = "1759232";
+JOB = "1";
 Solver.drawMultipleDesigns(JOB)
 
 %% Mesh with Padding and Displacement for L-beam

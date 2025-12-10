@@ -15,7 +15,8 @@ params.loadcase = 4;
 params.t = 0.1;
 params.ngp = 4;
 
-params.R1tol = 1e-2;
+params.R1tol = 1e3;
+% params.R1tol = 1e-2;
 % params.N = 4;
 params.disp = -1.6e-3; % Total displacement 
 
@@ -33,15 +34,15 @@ params.H = 10e9;
 params.Kinf = 0; %0.3*params.sigy01; %extra terms linHard (sat. stress)
 params.xi = 1e-3; %extra terms linHard (sat. exp)
 
-params.rtol = 1e-4;
-
+% params.rtol = 1e-4;
+params.rtol = 1e-6;
 
 params.PT = 1; % 1 for Deformation plasticity, 0 for Elastoplasticity
 
 params.ngr = 1;
 
 % Optimization Parameters
-params.re = 3; % Elements in radius (dubblerad)
+params.re = 5; % Elements in radius (dubblerad)
 params.filtOn = true;
 params.pad = true;
 
@@ -81,8 +82,8 @@ fn = fieldnames(data.params);
 for k = 1:length(fn) 
     params.(fn{k}) = data.params.(fn{k});
 end
-params.N = 4;
-params.iterMax = 400;
+params.N = 3;
+params.iterMax = 300;
 sol = Solver(params);
 x = ones(sol.nel, 1);
 if data.x == 0

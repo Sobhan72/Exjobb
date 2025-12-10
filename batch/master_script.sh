@@ -1,12 +1,13 @@
 #!/bin/sh
 # requesting the number of nodes needed
 #SBATCH -A lu2025-2-33
-#SBATCH -N 3
+#SBATCH -N 2
 #SBATCH --tasks-per-node=1
+#SBATCH --cpus-per-task=3 
 #SBATCH --mem-per-cpu=6000 
 
 # job time, change for what your job farm requires
-#SBATCH -t 96:00:00
+#SBATCH -t 144:00:00
 #
 # job name and output file names
 #SBATCH -J jobFarm
@@ -15,7 +16,7 @@
 cat $0
 
 # set the number of jobs - change for your requirements
-export NB_of_jobs=3
+export NB_of_jobs=2
 
 # Get the absolute path of the current working directory
 export WORK_DIR=$PWD
@@ -45,20 +46,22 @@ rm -f input*.mat
 cd $MASTER_DIR
 
 # Maximum number of concurrent workers
-MAX_PARALLEL=3
+MAX_PARALLEL=2
 running=0
 
-# Loop over the job number with throttling
-for ((i=0; i<$NB_of_jobs; i++)); do
+# Kör endast jobben 9,18
+job_list=(9 18)
+
+for i in "${job_list[@]}"; do
     echo "Starting job $i at $(TZ=Europe/Stockholm date +%T)"
+
     srun -Q --exclusive -n 1 -N 1 $TMP_OUT/worker_script.sh $i \
          &> $TMP_OUT/worker_${SLURM_JOB_ID}_${i}.out &
 
     ((running++))
 
-    # if we've launched MAX_PARALLEL jobs, wait until one finishes
     if (( running >= MAX_PARALLEL )); then
-        wait -n    # wait for *one* job to finish
+        wait -n
         ((running--))
     fi
 done
